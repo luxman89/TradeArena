@@ -27,19 +27,19 @@ DEMO_CREATORS = [
     {
         "id": "alice",
         "display_name": "Alice Quantsworth",
-        "division": "elite",
+        "division": "polymarket",
         "api_key_hash": hashlib.sha256(b"alice-key").hexdigest(),
     },
     {
         "id": "bob",
         "display_name": "Bob Trendline",
-        "division": "pro",
+        "division": "crypto",
         "api_key_hash": hashlib.sha256(b"bob-key").hexdigest(),
     },
     {
         "id": "carol",
         "display_name": "Carol Momentum",
-        "division": "rookie",
+        "division": "crypto",
         "api_key_hash": hashlib.sha256(b"carol-key").hexdigest(),
     },
 ]
@@ -49,7 +49,7 @@ DEMO_SIGNALS = [
     # Alice — 8 signals (strong performer)
     {
         "creator_id": "alice",
-        "symbol": "BTC/USDT",
+        "asset": "BTC/USDT",
         "action": "BUY",
         "confidence": 0.82,
         "reasoning": (
@@ -68,7 +68,7 @@ DEMO_SIGNALS = [
     },
     {
         "creator_id": "alice",
-        "symbol": "ETH/USDT",
+        "asset": "ETH/USDT",
         "action": "BUY",
         "confidence": 0.75,
         "reasoning": (
@@ -87,7 +87,7 @@ DEMO_SIGNALS = [
     },
     {
         "creator_id": "alice",
-        "symbol": "SOL/USDT",
+        "asset": "SOL/USDT",
         "action": "BUY",
         "confidence": 0.68,
         "reasoning": (
@@ -106,7 +106,7 @@ DEMO_SIGNALS = [
     },
     {
         "creator_id": "alice",
-        "symbol": "BNB/USDT",
+        "asset": "BNB/USDT",
         "action": "SELL",
         "confidence": 0.71,
         "reasoning": (
@@ -125,7 +125,7 @@ DEMO_SIGNALS = [
     },
     {
         "creator_id": "alice",
-        "symbol": "ADA/USDT",
+        "asset": "ADA/USDT",
         "action": "BUY",
         "confidence": 0.55,
         "reasoning": (
@@ -144,7 +144,7 @@ DEMO_SIGNALS = [
     },
     {
         "creator_id": "alice",
-        "symbol": "BTC/USDT",
+        "asset": "BTC/USDT",
         "action": "BUY",
         "confidence": 0.78,
         "reasoning": (
@@ -163,7 +163,7 @@ DEMO_SIGNALS = [
     },
     {
         "creator_id": "alice",
-        "symbol": "ETH/USDT",
+        "asset": "ETH/USDT",
         "action": "HOLD",
         "confidence": 0.62,
         "reasoning": (
@@ -180,7 +180,7 @@ DEMO_SIGNALS = [
     },
     {
         "creator_id": "alice",
-        "symbol": "LINK/USDT",
+        "asset": "LINK/USDT",
         "action": "BUY",
         "confidence": 0.73,
         "reasoning": (
@@ -199,7 +199,7 @@ DEMO_SIGNALS = [
     # Bob — 7 signals (average performer)
     {
         "creator_id": "bob",
-        "symbol": "BTC/USDT",
+        "asset": "BTC/USDT",
         "action": "SHORT",
         "confidence": 0.65,
         "reasoning": (
@@ -215,7 +215,7 @@ DEMO_SIGNALS = [
     },
     {
         "creator_id": "bob",
-        "symbol": "ETH/USDT",
+        "asset": "ETH/USDT",
         "action": "BUY",
         "confidence": 0.58,
         "reasoning": (
@@ -234,7 +234,7 @@ DEMO_SIGNALS = [
     },
     {
         "creator_id": "bob",
-        "symbol": "MATIC/USDT",
+        "asset": "MATIC/USDT",
         "action": "BUY",
         "confidence": 0.61,
         "reasoning": (
@@ -253,7 +253,7 @@ DEMO_SIGNALS = [
     },
     {
         "creator_id": "bob",
-        "symbol": "DOGE/USDT",
+        "asset": "DOGE/USDT",
         "action": "BUY",
         "confidence": 0.42,
         "reasoning": (
@@ -272,7 +272,7 @@ DEMO_SIGNALS = [
     },
     {
         "creator_id": "bob",
-        "symbol": "BTC/USDT",
+        "asset": "BTC/USDT",
         "action": "BUY",
         "confidence": 0.69,
         "reasoning": (
@@ -291,7 +291,7 @@ DEMO_SIGNALS = [
     },
     {
         "creator_id": "bob",
-        "symbol": "XRP/USDT",
+        "asset": "XRP/USDT",
         "action": "BUY",
         "confidence": 0.53,
         "reasoning": (
@@ -310,7 +310,7 @@ DEMO_SIGNALS = [
     },
     {
         "creator_id": "bob",
-        "symbol": "SOL/USDT",
+        "asset": "SOL/USDT",
         "action": "BUY",
         "confidence": 0.66,
         "reasoning": (
@@ -329,7 +329,7 @@ DEMO_SIGNALS = [
     # Carol — 5 signals (newcomer)
     {
         "creator_id": "carol",
-        "symbol": "BTC/USDT",
+        "asset": "BTC/USDT",
         "action": "BUY",
         "confidence": 0.55,
         "reasoning": (
@@ -348,7 +348,7 @@ DEMO_SIGNALS = [
     },
     {
         "creator_id": "carol",
-        "symbol": "ETH/USDT",
+        "asset": "ETH/USDT",
         "action": "BUY",
         "confidence": 0.48,
         "reasoning": (
@@ -364,7 +364,7 @@ DEMO_SIGNALS = [
     },
     {
         "creator_id": "carol",
-        "symbol": "AVAX/USDT",
+        "asset": "AVAX/USDT",
         "action": "BUY",
         "confidence": 0.51,
         "reasoning": (
@@ -383,7 +383,7 @@ DEMO_SIGNALS = [
     },
     {
         "creator_id": "carol",
-        "symbol": "BNB/USDT",
+        "asset": "BNB/USDT",
         "action": "BUY",
         "confidence": 0.57,
         "reasoning": (
@@ -402,7 +402,7 @@ DEMO_SIGNALS = [
     },
     {
         "creator_id": "carol",
-        "symbol": "DOT/USDT",
+        "asset": "DOT/USDT",
         "action": "BUY",
         "confidence": 0.44,
         "reasoning": (
@@ -428,7 +428,9 @@ def seed():
     try:
         now = datetime.now(timezone.utc)
 
-        # Insert creators
+        # Insert or update creators
+        inserted = 0
+        updated = 0
         for c in DEMO_CREATORS:
             existing = db.query(CreatorORM).filter(CreatorORM.id == c["id"]).first()
             if not existing:
@@ -440,8 +442,13 @@ def seed():
                     created_at=now - timedelta(days=60),
                 )
                 db.add(creator)
+                inserted += 1
+            else:
+                existing.division = c["division"]
+                existing.api_key_hash = c["api_key_hash"]
+                updated += 1
         db.commit()
-        print(f"Inserted {len(DEMO_CREATORS)} creators.")
+        print(f"Creators: {inserted} inserted, {updated} updated.")
 
         # Insert signals
         count = 0
@@ -465,7 +472,7 @@ def seed():
             signal_orm = SignalORM(
                 signal_id=committed["signal_id"],
                 creator_id=committed["creator_id"],
-                symbol=committed["symbol"],
+                asset=committed["asset"],
                 action=committed["action"],
                 confidence=committed["confidence"],
                 reasoning=committed["reasoning"],
@@ -483,7 +490,7 @@ def seed():
             count += 1
 
         db.commit()
-        print(f"Inserted {count} signals.")
+        print(f"Signals: {count} inserted.")
 
         # Compute and store scores
         for creator in db.query(CreatorORM).all():
@@ -523,9 +530,9 @@ def seed():
         db.commit()
         print("Scores computed and stored.")
         print("\nDemo API keys:")
-        print("  alice-key  (division: elite)")
-        print("  bob-key    (division: pro)")
-        print("  carol-key  (division: rookie)")
+        print("  alice-key  (division: polymarket)")
+        print("  bob-key    (division: crypto)")
+        print("  carol-key  (division: crypto)")
 
     finally:
         db.close()

@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TRADE ARENA</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    /* ── Design tokens ─────────────────────────────────────── */
+    :root {
+      --bg:      #0A0A0F;
+      --surface: #12121A;
+      --accent:  #1B4FD8;
+      --success: #00C896;
+      --gold:    #F0B429;
+      --silver:  #A8B2C1;
+      --bronze:  #CD7F32;
+      --text:    #F0F0F5;
+      --muted:   #6B7280;
+      --border:  rgba(255,255,255,0.06);
+      --card-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 4px 24px rgba(0,0,0,0.4);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      /* Subtle grid pattern */
+      background-image:
+        repeating-linear-gradient(0deg,   transparent, transparent 39px, rgba(255,255,255,0.018) 39px, rgba(255,255,255,0.018) 40px),
+        repeating-linear-gradient(90deg,  transparent, transparent 39px, rgba(255,255,255,0.018) 39px, rgba(255,255,255,0.018) 40px);
+    }
+
+    /* ── HEADER ─────────────────────────────────────────────── */
+    .header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      height: 60px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      box-shadow: var(--card-shadow);
+    }
+
+    .wordmark {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      white-space: nowrap;
+      user-select: none;
+    }
+    .wordmark span { color: var(--accent); }
+
+    .division-tabs {
+      display: flex;
+      gap: 4px;
+      background: rgba(255,255,255,0.04);
+      border-radius: 8px;
+      padding: 4px;
+    }
+
+    .tab {
+      padding: 6px 16px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      color: var(--muted);
+      background: none;
+      border: none;
+      transition: color 0.2s ease, background 0.2s ease;
+    }
+    .tab:hover  { color: var(--text); background: rgba(255,255,255,0.06); }
+    .tab.active { background: var(--accent); color: #fff; }
+
+    .tournament-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.09em;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 5px 12px;
+      white-space: nowrap;
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.45; transform: scale(0.75); }
+    }
+
+    /* ── STATS BAR ──────────────────────────────────────────── */
+    .stats-bar {
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      height: 52px;
+      background: rgba(255,255,255,0.015);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 1px;
+      padding: 0 24px;
+      border-right: 1px solid var(--border);
+    }
+    .stat-item:first-child { padding-left: 0; }
+    .stat-item:last-child  { border-right: none; }
+
+    .stat-label {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .stat-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text);
+      line-height: 1.2;
+      min-height: 18px;
+    }
+
+    /* ── SKELETON / SHIMMER ─────────────────────────────────── */
+    .skeleton {
+      display: inline-block;
+      height: 14px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.08);
+      animation: shimmer 1.5s ease-in-out infinite;
+    }
+    @keyframes shimmer {
+      0%, 100% { opacity: 0.45; }
+      50%       { opacity: 1; }
+    }
+
+    .skeleton-cell {
+      height: 13px;
+      border-radius: 3px;
+      background: rgba(255,255,255,0.06);
+      animation: shimmer 1.5s ease-in-out infinite;
+    }
+
+    /* ── MAIN LAYOUT ────────────────────────────────────────── */
+    .main {
+      display: flex;
+      height: calc(100vh - 60px - 52px - 48px);
+      overflow: hidden;
+    }
+
+    /* ── LEADERBOARD ────────────────────────────────────────── */
+    .leaderboard-section {
+      flex: 1;
+      min-width: 0;
+      overflow-y: auto;
+      padding: 16px 24px 24px;
+    }
+    .leaderboard-section::-webkit-scrollbar { width: 4px; }
+    .leaderboard-section::-webkit-scrollbar-track { background: transparent; }
+    .leaderboard-section::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+    }
+
+    .table-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .table-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+    .refresh-info {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    table { width: 100%; border-collapse: collapse; }
+
+    thead th {
+      padding: 8px 12px;
+      text-align: left;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    thead th:first-child { padding-left: 0; }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+    tbody tr:hover            { background: rgba(255,255,255,0.03); }
+    tbody tr.rank-1           { background: rgba(240,180,41,0.05); }
+    tbody tr.rank-1:hover     { background: rgba(240,180,41,0.09); }
+    tbody tr.rank-2           { background: rgba(168,178,193,0.03); }
+    tbody tr.rank-2:hover     { background: rgba(168,178,193,0.07); }
+    tbody tr.rank-3           { background: rgba(205,127,50,0.03); }
+    tbody tr.rank-3:hover     { background: rgba(205,127,50,0.07); }
+    tbody tr.row-selected     { background: rgba(27,79,216,0.12) !important; }
+
+    td {
+      padding: 10px 12px;
+      font-size: 13px;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+    td:first-child { padding-left: 0; }
+
+    .rank-cell {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      font-weight: 500;
+      width: 36px;
+      color: var(--muted);
+    }
+    .rank-1 .rank-cell { color: var(--gold); }
+    .rank-2 .rank-cell { color: var(--silver); }
+    .rank-3 .rank-cell { color: var(--bronze); }
+
+    .creator-cell { display: flex; flex-direction: column; gap: 2px; }
+    .creator-name { font-weight: 500; font-size: 13px; }
+    .creator-id   {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    .division-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .div-rookie     { background: rgba(27,79,216,0.18);  color: #7BAEFF; }
+    .div-pro        { background: rgba(0,200,150,0.18);  color: var(--success); }
+    .div-elite      { background: rgba(240,180,41,0.18); color: var(--gold); }
+    .div-crypto     { background: rgba(27,79,216,0.18);  color: #7BAEFF; }
+    .div-polymarket { background: rgba(168,85,247,0.18); color: #C084FC; }
+    .div-unknown    { background: rgba(107,114,128,0.18);color: var(--muted); }
+
+    .score-cell { min-width: 120px; }
+
+    .score-bar-wrap { display: flex; align-items: center; gap: 8px; }
+    .score-bar-bg {
+      flex: 1;
+      height: 4px;
+      min-width: 56px;
+      background: rgba(255,255,255,0.07);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .score-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.45s ease;
+    }
+    .fill-blue  { background: var(--accent); }
+    .fill-green { background: var(--success); }
+
+    .score-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 500;
+      min-width: 42px;
+      text-align: right;
+    }
+
+    .mono       { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+    .text-muted { color: var(--muted); }
+
+    /* Error / empty state */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 48px 24px;
+      gap: 10px;
+      color: var(--muted);
+      text-align: center;
+    }
+    .empty-state .icon { font-size: 28px; }
+    .empty-state .msg  { font-size: 14px; }
+    .retry-btn {
+      margin-top: 4px;
+      padding: 7px 18px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.2s ease;
+    }
+    .retry-btn:hover { opacity: 0.82; }
+
+    /* ── OVERLAY ────────────────────────────────────────────── */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 150;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    .overlay.visible { opacity: 1; pointer-events: all; }
+
+    /* ── CREATOR PANEL ──────────────────────────────────────── */
+    .creator-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 420px;
+      height: 100vh;
+      background: var(--surface);
+      box-shadow: -1px 0 0 rgba(255,255,255,0.06), -6px 0 48px rgba(0,0,0,0.7);
+      z-index: 200;
+      transform: translateX(100%);
+      transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+      display: flex;
+      flex-direction: column;
+    }
+    .creator-panel.open { transform: translateX(0); }
+
+    .panel-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: 20px 20px 16px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .panel-name {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    .panel-meta { display: flex; align-items: center; gap: 8px; }
+    .panel-composite {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .close-btn {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border);
+      color: var(--text);
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      transition: background 0.2s ease;
+      flex-shrink: 0;
+    }
+    .close-btn:hover { background: rgba(255,255,255,0.12); }
+
+    .panel-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 20px 24px;
+    }
+    .panel-body::-webkit-scrollbar { width: 4px; }
+    .panel-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+    .panel-section-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    /* Dimension bars */
+    .dim-bars { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+
+    .dim-row { display: flex; align-items: center; gap: 10px; }
+    .dim-label {
+      font-size: 12px;
+      color: var(--muted);
+      width: 150px;
+      flex-shrink: 0;
+    }
+    .dim-bar-bg {
+      flex: 1;
+      height: 6px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .dim-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: var(--accent);
+      transition: width 0.5s ease;
+    }
+    .dim-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text);
+      width: 34px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .panel-skel {
+      height: 12px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.06);
+      animation: shimmer 1.5s ease-in-out infinite;
+      margin-bottom: 8px;
+    }
+
+    /* Signal cards */
+    .signal-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .signal-card {
+      background: rgba(255,255,255,0.025);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    .signal-top {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 5px;
+    }
+    .signal-asset {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .action-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .a-buy, .a-long  { background: rgba(0,200,150,0.18);  color: var(--success); }
+    .a-sell, .a-short { background: rgba(239,68,68,0.18);  color: #F87171; }
+    .a-yes            { background: rgba(27,79,216,0.18);  color: #7BAEFF; }
+    .a-no             { background: rgba(249,115,22,0.18); color: #FB923C; }
+    .a-hold           { background: rgba(107,114,128,0.18);color: var(--muted); }
+
+    .conf-pct {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      margin-left: auto;
+    }
+    .signal-reasoning {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.45;
+      margin-bottom: 6px;
+    }
+    .signal-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .signal-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--muted);
+    }
+    .outcome-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+    .o-win     { background: rgba(0,200,150,0.15);  color: var(--success); }
+    .o-loss    { background: rgba(239,68,68,0.15);  color: #F87171; }
+    .o-pending { background: rgba(107,114,128,0.15);color: var(--muted); }
+
+    .signal-skel {
+      height: 80px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.04);
+      animation: shimmer 1.5s ease-in-out infinite;
+      margin-bottom: 8px;
+    }
+
+    /* ── SIGNAL FEED ────────────────────────────────────────── */
+    .signal-feed {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 48px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      overflow: hidden;
+      z-index: 50;
+    }
+
+    .feed-label {
+      flex-shrink: 0;
+      padding: 0 14px;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: var(--accent);
+      border-right: 1px solid var(--border);
+    }
+
+    .feed-track-wrap {
+      flex: 1;
+      overflow: hidden;
+      height: 100%;
+      display: flex;
+      align-items: center;
+    }
+
+    .feed-track {
+      display: flex;
+      align-items: center;
+      white-space: nowrap;
+      /* animation is set via JS once items are ready */
+    }
+    .feed-track.scrolling {
+      animation: ticker 80s linear infinite;
+    }
+    .feed-track.scrolling:hover { animation-play-state: paused; }
+
+    @keyframes ticker {
+      0%   { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+
+    .feed-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 22px;
+      border-right: 1px solid var(--border);
+    }
+    .feed-ts      { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); }
+    .feed-creator { font-size: 12px; font-weight: 500; }
+    .feed-arrow   { font-size: 10px; color: var(--muted); }
+    .feed-asset   { font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+    .feed-action  { font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    .feed-action.buy, .feed-action.long, .feed-action.yes { color: var(--success); }
+    .feed-action.sell,.feed-action.short,.feed-action.no  { color: #F87171; }
+    .feed-action.hold { color: var(--muted); }
+    .feed-conf    { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); }
+
+    .feed-placeholder { font-size: 12px; color: var(--muted); padding: 0 20px; font-style: italic; }
+
+    /* ── RESPONSIVE ─────────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .creator-panel { width: 360px; }
+    }
+    @media (max-width: 768px) {
+      .header { padding: 0 12px; }
+      .tournament-badge { display: none; }
+      .wordmark { font-size: 13px; }
+      .stats-bar { padding: 0 12px; }
+      .stat-item { padding: 0 12px; }
+      .leaderboard-section { padding: 12px; }
+      td, thead th { padding: 8px 6px; font-size: 12px; }
+      .score-bar-bg { min-width: 36px; }
+      .score-cell { min-width: 90px; }
+      .creator-panel { width: 100vw; }
+    }
+    @media (max-width: 520px) {
+      .tab { padding: 5px 10px; font-size: 10px; }
+      .stats-bar { flex-wrap: wrap; height: auto; padding: 8px 12px; gap: 4px; }
+      .stat-item { padding: 4px 8px; border-right: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════
+     HEADER
+═══════════════════════════════════════════════════════════ -->
+<header class="header">
+  <div class="wordmark">TRADE<span>ARENA</span></div>
+
+  <nav class="division-tabs" role="tablist" aria-label="Market division">
+    <button class="tab active" data-div="all"        role="tab" aria-selected="true">ALL</button>
+    <button class="tab"        data-div="crypto"     role="tab" aria-selected="false">CRYPTO</button>
+    <button class="tab"        data-div="polymarket" role="tab" aria-selected="false">POLYMARKET</button>
+  </nav>
+
+  <div class="tournament-badge">
+    TOURNAMENT — SEASON 1
+    <div class="live-dot" title="Live"></div>
+  </div>
+</header>
+
+<!-- ══════════════════════════════════════════════════════════
+     STATS BAR
+═══════════════════════════════════════════════════════════ -->
+<div class="stats-bar" role="region" aria-label="Summary statistics">
+  <div class="stat-item">
+    <span class="stat-label">Total Signals</span>
+    <span class="stat-value" id="stat-signals"><span class="skeleton" style="width:52px"></span></span>
+  </div>
+  <div class="stat-item">
+    <span class="stat-label">Active Creators</span>
+    <span class="stat-value" id="stat-creators"><span class="skeleton" style="width:32px"></span></span>
+  </div>
+  <div class="stat-item">
+    <span class="stat-label">Top Score</span>
+    <span class="stat-value" id="stat-top"><span class="skeleton" style="width:48px"></span></span>
+  </div>
+  <div class="stat-item">
+    <span class="stat-label">Avg Win Rate</span>
+    <span class="stat-value" id="stat-winrate"><span class="skeleton" style="width:52px"></span></span>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     MAIN CONTENT
+═══════════════════════════════════════════════════════════ -->
+<div class="main">
+  <section class="leaderboard-section" aria-label="Leaderboard">
+    <div class="table-header">
+      <span class="table-title">Leaderboard</span>
+      <span class="refresh-info" id="refresh-info">Auto-refreshes every 30s</span>
+    </div>
+
+    <table role="grid">
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>Creator</th>
+          <th>Division</th>
+          <th>Score</th>
+          <th>Win Rate</th>
+          <th>Risk/Return</th>
+          <th>Consistency</th>
+          <th>Signals</th>
+          <th>Last Signal</th>
+        </tr>
+      </thead>
+      <tbody id="lb-body">
+        <!-- Loading skeletons -->
+        <tr class="skeleton-row"><td><div class="skeleton-cell" style="width:18px"></div></td><td><div class="skeleton-cell" style="width:110px"></div></td><td><div class="skeleton-cell" style="width:56px"></div></td><td><div class="skeleton-cell" style="width:100px"></div></td><td><div class="skeleton-cell" style="width:100px"></div></td><td><div class="skeleton-cell" style="width:46px"></div></td><td><div class="skeleton-cell" style="width:46px"></div></td><td><div class="skeleton-cell" style="width:30px"></div></td><td><div class="skeleton-cell" style="width:72px"></div></td></tr>
+        <tr class="skeleton-row"><td><div class="skeleton-cell" style="width:18px"></div></td><td><div class="skeleton-cell" style="width:90px"></div></td><td><div class="skeleton-cell" style="width:56px"></div></td><td><div class="skeleton-cell" style="width:100px"></div></td><td><div class="skeleton-cell" style="width:100px"></div></td><td><div class="skeleton-cell" style="width:46px"></div></td><td><div class="skeleton-cell" style="width:46px"></div></td><td><div class="skeleton-cell" style="width:30px"></div></td><td><div class="skeleton-cell" style="width:72px"></div></td></tr>
+        <tr class="skeleton-row"><td><div class="skeleton-cell" style="width:18px"></div></td><td><div class="skeleton-cell" style="width:120px"></div></td><td><div class="skeleton-cell" style="width:56px"></div></td><td><div class="skeleton-cell" style="width:100px"></div></td><td><div class="skeleton-cell" style="width:100px"></div></td><td><div class="skeleton-cell" style="width:46px"></div></td><td><div class="skeleton-cell" style="width:46px"></div></td><td><div class="skeleton-cell" style="width:30px"></div></td><td><div class="skeleton-cell" style="width:72px"></div></td></tr>
+        <tr class="skeleton-row"><td><div class="skeleton-cell" style="width:18px"></div></td><td><div class="skeleton-cell" style="width:80px"></div></td><td><div class="skeleton-cell" style="width:56px"></div></td><td><div class="skeleton-cell" style="width:100px"></div></td><td><div class="skeleton-cell" style="width:100px"></div></td><td><div class="skeleton-cell" style="width:46px"></div></td><td><div class="skeleton-cell" style="width:46px"></div></td><td><div class="skeleton-cell" style="width:30px"></div></td><td><div class="skeleton-cell" style="width:72px"></div></td></tr>
+        <tr class="skeleton-row"><td><div class="skeleton-cell" style="width:18px"></div></td><td><div class="skeleton-cell" style="width:100px"></div></td><td><div class="skeleton-cell" style="width:56px"></div></td><td><div class="skeleton-cell" style="width:100px"></div></td><td><div class="skeleton-cell" style="width:100px"></div></td><td><div class="skeleton-cell" style="width:46px"></div></td><td><div class="skeleton-cell" style="width:46px"></div></td><td><div class="skeleton-cell" style="width:30px"></div></td><td><div class="skeleton-cell" style="width:72px"></div></td></tr>
+      </tbody>
+    </table>
+  </section>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     OVERLAY
+═══════════════════════════════════════════════════════════ -->
+<div class="overlay" id="overlay" aria-hidden="true"></div>
+
+<!-- ══════════════════════════════════════════════════════════
+     CREATOR PANEL (right drawer)
+═══════════════════════════════════════════════════════════ -->
+<aside class="creator-panel" id="creator-panel" aria-label="Creator detail" role="complementary">
+  <div class="panel-header">
+    <div>
+      <div class="panel-name" id="panel-name">—</div>
+      <div class="panel-meta">
+        <span class="division-badge" id="panel-div-badge"></span>
+        <span class="panel-composite" id="panel-composite">Score: —</span>
+      </div>
+    </div>
+    <button class="close-btn" id="close-panel" aria-label="Close panel">✕</button>
+  </div>
+
+  <div class="panel-body">
+    <div class="panel-section-title">Performance Dimensions</div>
+    <div class="dim-bars" id="panel-dims">
+      <div class="panel-skel"></div>
+      <div class="panel-skel"></div>
+      <div class="panel-skel"></div>
+      <div class="panel-skel"></div>
+      <div class="panel-skel"></div>
+    </div>
+
+    <div class="panel-section-title">Recent Signals</div>
+    <div class="signal-list" id="panel-signals">
+      <div class="signal-skel"></div>
+      <div class="signal-skel"></div>
+      <div class="signal-skel"></div>
+    </div>
+  </div>
+</aside>
+
+<!-- ══════════════════════════════════════════════════════════
+     SIGNAL FEED (bottom ticker)
+═══════════════════════════════════════════════════════════ -->
+<div class="signal-feed" role="marquee" aria-live="polite" aria-label="Live signal feed">
+  <div class="feed-label">LIVE FEED</div>
+  <div class="feed-track-wrap">
+    <div class="feed-track" id="feed-track">
+      <span class="feed-placeholder">Loading signal feed…</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     JAVASCRIPT
+═══════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+// ────────────────────────────────────────────────────────────
+// CONFIG
+// ────────────────────────────────────────────────────────────
+const API_BASE        = '';        // same origin as server
+const REFRESH_MS      = 30_000;    // 30-second leaderboard poll
+const MAX_FEED_ITEMS  = 50;
+
+// TODO: WebSocket upgrade for real-time signal feed.
+// Future endpoint: ws://<host>/ws/signals
+// On open: subscribe, receive {creator_id, creator_name, asset, action,
+//           confidence, committed_at}, prepend to feedItems, re-render.
+
+// ────────────────────────────────────────────────────────────
+// STATE
+// ────────────────────────────────────────────────────────────
+let allEntries       = [];
+let activeDiv        = 'all';
+let selectedId       = null;
+let feedItems        = [];
+let feedSeeded       = false;
+let refreshTimer     = null;
+let lastRefreshAt    = null;
+
+// ────────────────────────────────────────────────────────────
+// HELPERS
+// ────────────────────────────────────────────────────────────
+const h = str => String(str ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
+function pct(v)        { return ((v ?? 0) * 100).toFixed(1) + '%'; }
+function score(v)      { return ((v ?? 0) * 100).toFixed(1); }
+function mono4(v)      { return v == null ? '—' : Number(v).toFixed(4); }
+
+function relTime(iso) {
+  if (!iso) return '—';
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60_000);
+  if (m < 1)  return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+function shortTime(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function divClass(div) {
+  return { rookie: 'div-rookie', pro: 'div-pro', elite: 'div-elite',
+           crypto: 'div-crypto', polymarket: 'div-polymarket' }[div?.toLowerCase()] ?? 'div-unknown';
+}
+
+function actionClass(a) {
+  return 'a-' + (a?.toLowerCase() ?? 'hold');
+}
+
+function outcomeClass(o) {
+  return { win: 'o-win', loss: 'o-loss' }[o?.toLowerCase()] ?? 'o-pending';
+}
+
+// ────────────────────────────────────────────────────────────
+// LEADERBOARD FETCH
+// ────────────────────────────────────────────────────────────
+async function fetchLeaderboard() {
+  const r = await fetch(`${API_BASE}/leaderboard?limit=200`);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+// ────────────────────────────────────────────────────────────
+// STATS BAR
+// ────────────────────────────────────────────────────────────
+function renderStats(entries) {
+  const totalSigs  = entries.reduce((s, e) => s + (e.total_signals ?? 0), 0);
+  const topScore   = entries.reduce((m, e) => Math.max(m, e.composite_score ?? 0), 0);
+  const avgWin     = entries.length
+    ? entries.reduce((s, e) => s + (e.win_rate ?? 0), 0) / entries.length
+    : 0;
+
+  document.getElementById('stat-signals').textContent  = totalSigs.toLocaleString();
+  document.getElementById('stat-creators').textContent = entries.length;
+  document.getElementById('stat-top').textContent      = score(topScore);
+  document.getElementById('stat-winrate').textContent  = pct(avgWin);
+}
+
+// ────────────────────────────────────────────────────────────
+// LEADERBOARD TABLE
+// ────────────────────────────────────────────────────────────
+function filteredEntries() {
+  if (activeDiv === 'all') return allEntries;
+  return allEntries.filter(e => e.division?.toLowerCase() === activeDiv);
+}
+
+function scoreBar(val, maxVal, fillClass) {
+  const w = maxVal > 0 ? Math.min((val / maxVal) * 100, 100) : 0;
+  return `<div class="score-bar-wrap">
+    <div class="score-bar-bg"><div class="score-bar-fill ${fillClass}" style="width:${w}%"></div></div>
+    <span class="score-num">${score(val)}</span>
+  </div>`;
+}
+
+function renderLeaderboard(entries) {
+  const tbody = document.getElementById('lb-body');
+
+  if (entries.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state">
+      <div class="icon">📭</div>
+      <div class="msg">No entries in this division yet.</div>
+    </div></td></tr>`;
+    return;
+  }
+
+  const maxScore = entries.reduce((m, e) => Math.max(m, e.composite_score ?? 0), 0) || 1;
+
+  tbody.innerHTML = entries.map((e, i) => {
+    const rank = i + 1;
+    const rc   = rank <= 3 ? `rank-${rank}` : '';
+    const sel  = e.creator_id === selectedId ? 'row-selected' : '';
+
+    return `<tr class="${rc} ${sel}" data-id="${h(e.creator_id)}">
+      <td class="rank-cell">${rank}</td>
+      <td><div class="creator-cell">
+        <span class="creator-name">${h(e.display_name)}</span>
+        <span class="creator-id">${h(e.creator_id.slice(0, 12))}…</span>
+      </div></td>
+      <td><span class="division-badge ${divClass(e.division)}">${h(e.division ?? '—')}</span></td>
+      <td class="score-cell">${scoreBar(e.composite_score ?? 0, maxScore, 'fill-blue')}</td>
+      <td class="score-cell">${scoreBar(e.win_rate ?? 0, 1, 'fill-green')}</td>
+      <td><span class="mono">${mono4(e.risk_adjusted_return)}</span></td>
+      <td><span class="mono">${mono4(e.consistency)}</span></td>
+      <td><span class="mono">${e.total_signals ?? 0}</span></td>
+      <td><span class="mono text-muted" id="ls-${h(e.creator_id)}">—</span></td>
+    </tr>`;
+  }).join('');
+
+  tbody.querySelectorAll('tr[data-id]').forEach(row => {
+    row.addEventListener('click', () => openPanel(row.dataset.id));
+  });
+}
+
+// ────────────────────────────────────────────────────────────
+// ERROR STATE
+// ────────────────────────────────────────────────────────────
+function showError() {
+  document.getElementById('lb-body').innerHTML = `<tr><td colspan="9">
+    <div class="empty-state">
+      <div class="icon">⚠️</div>
+      <div class="msg">Could not reach the API. Is the server running?</div>
+      <button class="retry-btn" onclick="loadData()">Retry</button>
+    </div></td></tr>`;
+  ['stat-signals','stat-creators','stat-top','stat-winrate']
+    .forEach(id => document.getElementById(id).textContent = '—');
+}
+
+// ────────────────────────────────────────────────────────────
+// REFRESH INFO
+// ────────────────────────────────────────────────────────────
+function updateRefreshInfo() {
+  if (!lastRefreshAt) return;
+  document.getElementById('refresh-info').textContent =
+    `Updated ${relTime(new Date(lastRefreshAt).toISOString())} · refreshes every 30s`;
+}
+
+// ────────────────────────────────────────────────────────────
+// DIVISION TABS
+// ────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => {
+      t.classList.remove('active');
+      t.setAttribute('aria-selected', 'false');
+    });
+    tab.classList.add('active');
+    tab.setAttribute('aria-selected', 'true');
+    activeDiv = tab.dataset.div;
+    renderLeaderboard(filteredEntries());
+  });
+});
+
+// ────────────────────────────────────────────────────────────
+// CREATOR PANEL
+// ────────────────────────────────────────────────────────────
+function openPanel(creatorId) {
+  const entry = allEntries.find(e => e.creator_id === creatorId);
+  if (!entry) return;
+  selectedId = creatorId;
+  renderLeaderboard(filteredEntries());
+
+  document.getElementById('panel-name').textContent     = entry.display_name;
+  document.getElementById('panel-composite').textContent = `Score: ${score(entry.composite_score)}`;
+
+  const badge = document.getElementById('panel-div-badge');
+  badge.className   = `division-badge ${divClass(entry.division)}`;
+  badge.textContent = entry.division ?? '—';
+
+  // Dimension bars
+  const dims = [
+    { label: 'Win Rate',              key: 'win_rate',                max: 1 },
+    { label: 'Risk / Return',         key: 'risk_adjusted_return',    max: 2 },
+    { label: 'Reasoning Quality',     key: 'reasoning_quality',       max: 1 },
+    { label: 'Consistency',           key: 'consistency',             max: 1 },
+    { label: 'Confidence Calib.',     key: 'confidence_calibration',  max: 1 },
+  ];
+  document.getElementById('panel-dims').innerHTML = dims.map(d => {
+    const val = entry[d.key] ?? 0;
+    const w   = Math.min((val / d.max) * 100, 100);
+    return `<div class="dim-row">
+      <span class="dim-label">${d.label}</span>
+      <div class="dim-bar-bg"><div class="dim-bar-fill" style="width:${w}%"></div></div>
+      <span class="dim-val">${(val * 100).toFixed(0)}</span>
+    </div>`;
+  }).join('');
+
+  // Reset signals to loading state
+  document.getElementById('panel-signals').innerHTML =
+    '<div class="signal-skel"></div><div class="signal-skel"></div><div class="signal-skel"></div>';
+
+  document.getElementById('creator-panel').classList.add('open');
+  document.getElementById('overlay').classList.add('visible');
+
+  fetchPanelSignals(creatorId);
+}
+
+function closePanel() {
+  selectedId = null;
+  document.getElementById('creator-panel').classList.remove('open');
+  document.getElementById('overlay').classList.remove('visible');
+  renderLeaderboard(filteredEntries());
+}
+
+document.getElementById('close-panel').addEventListener('click', closePanel);
+document.getElementById('overlay').addEventListener('click', closePanel);
+
+async function fetchPanelSignals(creatorId) {
+  try {
+    const r = await fetch(`${API_BASE}/creator/${creatorId}/signals?limit=10`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    renderPanelSignals(data.signals ?? []);
+
+    // Back-fill last-signal column in table
+    if (data.signals?.length) {
+      const el = document.getElementById(`ls-${creatorId}`);
+      if (el) el.textContent = relTime(data.signals[0].committed_at);
+    }
+  } catch {
+    document.getElementById('panel-signals').innerHTML = `
+      <div class="empty-state" style="padding:24px 0">
+        <div class="icon">⚠️</div>
+        <div class="msg">Failed to load signals.</div>
+      </div>`;
+  }
+}
+
+function renderPanelSignals(signals) {
+  const el = document.getElementById('panel-signals');
+  if (!signals.length) {
+    el.innerHTML = '<p style="color:var(--muted);font-size:13px;padding:4px 0">No signals yet.</p>';
+    return;
+  }
+  el.innerHTML = signals.map(s => {
+    const reasoning = s.reasoning
+      ? h(s.reasoning.slice(0, 100)) + (s.reasoning.length > 100 ? '…' : '')
+      : '';
+    const confPct = Math.round((s.confidence ?? 0) * 100);
+    return `<div class="signal-card">
+      <div class="signal-top">
+        <span class="signal-asset">${h(s.asset)}</span>
+        <span class="action-badge ${actionClass(s.action)}">${h(s.action ?? '—')}</span>
+        <span class="conf-pct">${confPct}%</span>
+      </div>
+      ${reasoning ? `<div class="signal-reasoning">${reasoning}</div>` : ''}
+      <div class="signal-bottom">
+        <span class="signal-time">${relTime(s.committed_at)}</span>
+        <span class="outcome-badge ${outcomeClass(s.outcome)}">${h((s.outcome ?? 'pending').toUpperCase())}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ────────────────────────────────────────────────────────────
+// SIGNAL FEED
+// ────────────────────────────────────────────────────────────
+async function seedFeed(creators) {
+  const all = [];
+  await Promise.allSettled(creators.map(async c => {
+    try {
+      const r = await fetch(`${API_BASE}/creator/${c.creator_id}/signals?limit=10`);
+      if (!r.ok) return;
+      const data = await r.json();
+      (data.signals ?? []).forEach(s => all.push({
+        creator_name: c.display_name,
+        asset:        s.asset,
+        action:       s.action,
+        confidence:   s.confidence,
+        committed_at: s.committed_at,
+      }));
+    } catch { /* silent */ }
+  }));
+
+  all.sort((a, b) => new Date(b.committed_at) - new Date(a.committed_at));
+  feedItems = all.slice(0, MAX_FEED_ITEMS);
+  renderFeed();
+}
+
+function renderFeed() {
+  const track = document.getElementById('feed-track');
+  if (!feedItems.length) {
+    track.innerHTML = '<span class="feed-placeholder">No signals yet — waiting for activity…</span>';
+    track.classList.remove('scrolling');
+    return;
+  }
+
+  const markup = feedItems.map(item => {
+    const ac = (item.action ?? '').toLowerCase();
+    return `<div class="feed-item">
+      <span class="feed-ts">${shortTime(item.committed_at)}</span>
+      <span class="feed-creator">${h(item.creator_name)}</span>
+      <span class="feed-arrow">→</span>
+      <span class="feed-asset">${h(item.asset)}</span>
+      <span class="feed-action ${ac}">${h((item.action ?? '—').toUpperCase())}</span>
+      <span class="feed-conf">@ ${Math.round((item.confidence ?? 0) * 100)}%</span>
+    </div>`;
+  }).join('');
+
+  // Duplicate content so the ticker loops seamlessly
+  track.innerHTML = markup + markup;
+  track.classList.add('scrolling');
+}
+
+// ────────────────────────────────────────────────────────────
+// MAIN LOAD CYCLE
+// ────────────────────────────────────────────────────────────
+async function loadData() {
+  try {
+    const data  = await fetchLeaderboard();
+    allEntries  = data.entries ?? [];
+    renderStats(allEntries);
+    renderLeaderboard(filteredEntries());
+    lastRefreshAt = Date.now();
+    updateRefreshInfo();
+
+    if (!feedSeeded && allEntries.length) {
+      feedSeeded = true;
+      seedFeed(allEntries.slice(0, 5));
+    }
+  } catch (err) {
+    console.error('[TradeArena] Leaderboard fetch failed:', err);
+    showError();
+  }
+}
+
+// ────────────────────────────────────────────────────────────
+// REFRESH TICKER (refresh info label every 15s)
+// ────────────────────────────────────────────────────────────
+setInterval(updateRefreshInfo, 15_000);
+
+// ────────────────────────────────────────────────────────────
+// BOOTSTRAP
+// ────────────────────────────────────────────────────────────
+loadData().then(() => {
+  refreshTimer = setInterval(loadData, REFRESH_MS);
+});
+</script>
+</body>
+</html>
