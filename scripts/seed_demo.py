@@ -28,18 +28,21 @@ DEMO_CREATORS = [
         "id": "alice",
         "display_name": "Alice Quantsworth",
         "division": "polymarket",
+        "api_key_dev": "alice-key",
         "api_key_hash": hashlib.sha256(b"alice-key").hexdigest(),
     },
     {
         "id": "bob",
         "display_name": "Bob Trendline",
         "division": "crypto",
+        "api_key_dev": "bob-key",
         "api_key_hash": hashlib.sha256(b"bob-key").hexdigest(),
     },
     {
         "id": "carol",
         "display_name": "Carol Momentum",
         "division": "crypto",
+        "api_key_dev": "carol-key",
         "api_key_hash": hashlib.sha256(b"carol-key").hexdigest(),
     },
 ]
@@ -438,6 +441,7 @@ def seed():
                     id=c["id"],
                     display_name=c["display_name"],
                     division=c["division"],
+                    api_key_dev=c["api_key_dev"],
                     api_key_hash=c["api_key_hash"],
                     created_at=now - timedelta(days=60),
                 )
@@ -445,6 +449,7 @@ def seed():
                 inserted += 1
             else:
                 existing.division = c["division"]
+                existing.api_key_dev = c["api_key_dev"]
                 existing.api_key_hash = c["api_key_hash"]
                 updated += 1
         db.commit()

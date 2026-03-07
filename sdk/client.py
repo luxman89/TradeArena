@@ -7,11 +7,11 @@ Requires a network connection only for emit().
 from __future__ import annotations
 
 import re
-import sys
 from typing import Any
 
 try:
     import httpx
+
     _HTTPX_AVAILABLE = True
 except ImportError:
     _HTTPX_AVAILABLE = False
@@ -40,9 +40,7 @@ def _validate_local(data: dict[str, Any]) -> list[str]:
             errors.append("confidence must be a number")
             conf_f = None
         if conf_f is not None and (conf_f <= 0.0 or conf_f >= 1.0):
-            errors.append(
-                f"confidence must be strictly between 0 and 1 (exclusive), got {conf_f}"
-            )
+            errors.append(f"confidence must be strictly between 0 and 1 (exclusive), got {conf_f}")
 
     reasoning = data.get("reasoning", "")
     if not reasoning:
@@ -121,13 +119,11 @@ class TradeArenaClient:
         Returns the server response dict including signal_id and committed_at.
         """
         if not _HTTPX_AVAILABLE:
-            raise RuntimeError(
-                "httpx is required for emit(). Install it: pip install httpx"
-            )
+            raise RuntimeError("httpx is required for emit(). Install it: pip install httpx")
 
         errors = self.validate(signal_data)
         if errors:
-            raise ValueError(f"Signal validation failed:\n" + "\n".join(f"  - {e}" for e in errors))
+            raise ValueError("Signal validation failed:\n" + "\n".join(f"  - {e}" for e in errors))
 
         with httpx.Client(timeout=self.timeout) as client:
             resp = client.post(
@@ -157,9 +153,7 @@ class TradeArenaClient:
         try:
             import anthropic
         except ImportError:
-            raise RuntimeError(
-                "anthropic package required. Install: pip install anthropic"
-            )
+            raise RuntimeError("anthropic package required. Install: pip install anthropic")
 
         client = anthropic.Anthropic()
         data_summary = "\n".join(f"  {k}: {v}" for k, v in supporting_data.items())

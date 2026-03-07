@@ -50,9 +50,7 @@ def validate_signal(data: dict[str, Any]) -> list[str]:
     else:
         words = [w for w in re.split(r"\s+", str(reasoning).strip()) if w]
         if len(words) < 20:
-            errors.append(
-                f"reasoning must be at least 20 words (got {len(words)})"
-            )
+            errors.append(f"reasoning must be at least 20 words (got {len(words)})")
 
     # --- supporting_data ---
     supporting_data = data.get("supporting_data")
@@ -61,9 +59,7 @@ def validate_signal(data: dict[str, Any]) -> list[str]:
     elif not isinstance(supporting_data, dict):
         errors.append("supporting_data must be a JSON object")
     elif len(supporting_data) < 2:
-        errors.append(
-            f"supporting_data must have at least 2 keys (got {len(supporting_data)})"
-        )
+        errors.append(f"supporting_data must have at least 2 keys (got {len(supporting_data)})")
 
     # --- asset ---
     if not data.get("asset"):

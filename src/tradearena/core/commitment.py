@@ -13,7 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 
 def compute_commitment_hash(
@@ -62,12 +62,16 @@ def build_committed_signal(signal_data: dict) -> dict:
     """
     nonce = uuid.uuid4().hex
     signal_id = generate_signal_id()
-    committed_at = datetime.now(timezone.utc)
+    committed_at = datetime.now(UTC)
 
     commitment_hash = compute_commitment_hash(
         creator_id=signal_data["creator_id"],
         asset=signal_data["asset"],
-        action=signal_data["action"] if isinstance(signal_data["action"], str) else signal_data["action"].value,
+        action=(
+            signal_data["action"]
+            if isinstance(signal_data["action"], str)
+            else signal_data["action"].value
+        ),
         confidence=signal_data["confidence"],
         reasoning=signal_data["reasoning"],
         supporting_data=signal_data["supporting_data"],

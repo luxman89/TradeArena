@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from tradearena.core.commitment import (
     build_committed_signal,
     compute_commitment_hash,

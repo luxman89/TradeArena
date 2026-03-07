@@ -1,13 +1,114 @@
-"""GET /creator/{id} and GET /creator/{id}/signals — public endpoints."""
+"""Creator endpoints: registration and profile/signals retrieval."""
 
 from __future__ import annotations
 
+import hashlib
+import re
+import secrets
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
 from tradearena.db.database import CreatorORM, SignalORM, get_db
 
 router = APIRouter()
+
+_VALID_DIVISIONS = {"crypto", "polymarket", "multi"}
+
+
+def _slugify(text: str) -> str:
+    text = text.lower()
+    text = re.sub(r"[^a-z0-9\s-]", "", text)
+    text = re.sub(r"\s+", "-", text.strip())
+    text = re.sub(r"-+", "-", text)
+    return text
+
+
+class CreatorRegisterRequest(BaseModel):
+    display_name: str
+    division: str
+    strategy_description: str
+    email: str
+
+    @field_validator("display_name")
+    @classmethod
+    def validate_display_name(cls, v: str) -> str:
+        if not (3 <= len(v) <= 50):
+            raise ValueError("display_name must be 3-50 characters")
+        return v
+
+    @field_validator("division")
+    @classmethod
+    def validate_division(cls, v: str) -> str:
+        if v not in _VALID_DIVISIONS:
+            raise ValueError(f"division must be one of: {', '.join(sorted(_VALID_DIVISIONS))}")
+        return v
+
+    @field_validator("strategy_description")
+    @classmethod
+    def validate_strategy_description(cls, v: str) -> str:
+        if not (20 <= len(v) <= 500):
+            raise ValueError("strategy_description must be 20-500 characters")
+        return v
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        pattern = r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$"
+        if not re.match(pattern, v):
+            raise ValueError("Invalid email format")
+        return v.lower()
+
+
+@router.post("/creator/register", status_code=201)
+async def register_creator(
+    body: CreatorRegisterRequest,
+    db: Session = Depends(get_db),
+) -> JSONResponse:
+    """Register a new creator. Public endpoint — no authentication required."""
+    # 409 if email already registered
+    if db.query(CreatorORM).filter(CreatorORM.email == body.email).first():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email already registered",
+        )
+
+    # Generate creator_id: slug + "-" + 4 random hex chars; retry once on collision
+    slug = _slugify(body.display_name)
+    creator_id = f"{slug}-{secrets.token_hex(2)}"
+    if db.query(CreatorORM).filter(CreatorORM.id == creator_id).first():
+        creator_id = f"{slug}-{secrets.token_hex(2)}"
+
+    # Generate api_key: "ta-" + 32 random hex chars
+    api_key = f"ta-{secrets.token_hex(16)}"
+    api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+
+    now = datetime.now(UTC)
+    creator = CreatorORM(
+        id=creator_id,
+        display_name=body.display_name,
+        division=body.division,
+        email=body.email,
+        strategy_description=body.strategy_description,
+        api_key_hash=api_key_hash,
+        created_at=now,
+    )
+    db.add(creator)
+    db.commit()
+
+    return JSONResponse(
+        status_code=201,
+        content={
+            "creator_id": creator_id,
+            "api_key": api_key,
+            "display_name": body.display_name,
+            "division": body.division,
+            "created_at": now.isoformat(),
+        },
+    )
 
 
 @router.get("/creator/{creator_id}")

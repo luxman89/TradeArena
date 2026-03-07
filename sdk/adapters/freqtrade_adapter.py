@@ -50,6 +50,7 @@ class FreqtradeAdapter:
         row:
             A pandas Series (single row) from Freqtrade's analyzed dataframe.
         """
+
         # Extract common indicators if present (graceful fallback to None)
         def _get(key: str) -> Any:
             try:
@@ -64,7 +65,15 @@ class FreqtradeAdapter:
         }
 
         # Add common indicators if available
-        for indicator in ("rsi", "macd", "macdsignal", "ema_short", "ema_long", "bb_upperband", "bb_lowerband"):
+        for indicator in (
+            "rsi",
+            "macd",
+            "macdsignal",
+            "ema_short",
+            "ema_long",
+            "bb_upperband",
+            "bb_lowerband",
+        ):
             val = _get(indicator)
             if val is not None:
                 supporting_data[indicator] = val

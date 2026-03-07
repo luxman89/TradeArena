@@ -26,9 +26,8 @@ async def require_api_key(
 ) -> str:
     """Dependency for POST endpoints that require authentication.
 
-    In dev mode (SECRET_KEY == 'dev-insecure-key') any non-empty key
-    is accepted so the API is usable without a full creator DB setup.
-    In production, the key is validated against the creator's stored hash.
+    Checks api_key_dev first (exact match, dev seed data only), then
+    api_key_hash (SHA-256 match, production). This keeps seed keys working.
     """
     if not api_key:
         raise HTTPException(
@@ -38,8 +37,12 @@ async def require_api_key(
 
     from tradearena.db.database import CreatorORM
 
-    key_hash = _hash_key(api_key)
-    creator = db.query(CreatorORM).filter(CreatorORM.api_key_hash == key_hash).first()
+    # Check api_key_dev (exact match — populated by seed_demo.py for local dev only)
+    creator = db.query(CreatorORM).filter(CreatorORM.api_key_dev == api_key).first()
+    if not creator:
+        # Check api_key_hash (SHA-256 — used in production and for registered creators)
+        key_hash = _hash_key(api_key)
+        creator = db.query(CreatorORM).filter(CreatorORM.api_key_hash == key_hash).first()
     if not creator:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

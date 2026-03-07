@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-and-lint:
+    name: Test & Lint
+    runs-on: ubuntu-latest
+
+    env:
+      DATABASE_URL: sqlite:///./test_ci.db
+      TRADEARENA_SECRET_KEY: ci-test-secret-key-not-real
+      ANTHROPIC_API_KEY: sk-not-real-ci-placeholder
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Lint (ruff check)
+        run: uv run ruff check src/ sdk/ tests/
+
+      - name: Format (ruff format)
+        run: uv run ruff format --check src/ sdk/ tests/
+
+      - name: Test (pytest)
+        run: uv run pytest tests/ -v --tb=short
+
+      - name: Cleanup test database
+        if: always()
+        run: rm -f test_ci.db

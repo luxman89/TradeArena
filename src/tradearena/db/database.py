@@ -6,7 +6,6 @@ import os
 
 from sqlalchemy import (
     JSON,
-    Boolean,
     CheckConstraint,
     Column,
     DateTime,
@@ -18,9 +17,8 @@ from sqlalchemy import (
     Text,
     create_engine,
     event,
-    text,
 )
-from sqlalchemy.orm import DeclarativeBase, Session, relationship, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, relationship, sessionmaker
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./tradearena.db")
 
@@ -32,12 +30,14 @@ engine = create_engine(DATABASE_URL, connect_args=connect_args)
 
 # Enable WAL mode and foreign keys for SQLite
 if DATABASE_URL.startswith("sqlite"):
+
     @event.listens_for(engine, "connect")
     def set_sqlite_pragma(dbapi_conn, _connection_record):
         cursor = dbapi_conn.cursor()
         cursor.execute("PRAGMA journal_mode=WAL")
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()
+
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -53,7 +53,12 @@ class CreatorORM(Base):
     display_name = Column(String(128), nullable=False)
     created_at = Column(DateTime, nullable=False)
     division = Column(String(32), nullable=False, default="rookie")  # rookie | pro | elite
+    # api_key_dev: plaintext key, only populated by seed_demo.py for local dev.
+    # In production this is null and api_key_hash is used for authentication.
+    api_key_dev = Column(String(128), nullable=True)
     api_key_hash = Column(String(64), nullable=True)
+    email = Column(String(256), nullable=True)
+    strategy_description = Column(Text, nullable=True)
 
     signals = relationship("SignalORM", back_populates="creator", lazy="select")
     score = relationship("CreatorScoreORM", back_populates="creator", uselist=False)

@@ -14,9 +14,8 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Sequence
-
 
 WEIGHTS = {
     "win_rate": 0.25,
@@ -54,6 +53,7 @@ def _clamp(value: float, lo: float = 0.0, hi: float = 1.0) -> float:
 # Win Rate (25%)
 # ---------------------------------------------------------------------------
 
+
 def score_win_rate(outcomes: Sequence[str | None]) -> float:
     """Fraction of resolved signals that are 'WIN'.
 
@@ -70,6 +70,7 @@ def score_win_rate(outcomes: Sequence[str | None]) -> float:
 # Risk-Adjusted Return (25%)
 # ---------------------------------------------------------------------------
 
+
 def score_risk_adjusted_return(
     outcomes: Sequence[str | None],
     confidences: Sequence[float],
@@ -80,9 +81,7 @@ def score_risk_adjusted_return(
     0 for NEUTRAL. The ratio of mean return to std-dev is then normalised
     to [0, 1] via a sigmoid.
     """
-    paired = [
-        (o, c) for o, c in zip(outcomes, confidences) if o is not None
-    ]
+    paired = [(o, c) for o, c in zip(outcomes, confidences) if o is not None]
     if len(paired) < 2:
         return 0.0
 
@@ -110,10 +109,31 @@ def score_risk_adjusted_return(
 # ---------------------------------------------------------------------------
 
 _QUALITY_KEYWORDS = {
-    "support", "resistance", "volume", "trend", "momentum", "divergence",
-    "rsi", "macd", "ema", "sma", "bollinger", "fibonacci", "breakout",
-    "pattern", "fundamental", "earnings", "revenue", "margin", "volatility",
-    "correlation", "beta", "alpha", "liquidity", "spread", "orderbook",
+    "support",
+    "resistance",
+    "volume",
+    "trend",
+    "momentum",
+    "divergence",
+    "rsi",
+    "macd",
+    "ema",
+    "sma",
+    "bollinger",
+    "fibonacci",
+    "breakout",
+    "pattern",
+    "fundamental",
+    "earnings",
+    "revenue",
+    "margin",
+    "volatility",
+    "correlation",
+    "beta",
+    "alpha",
+    "liquidity",
+    "spread",
+    "orderbook",
 }
 
 
@@ -147,9 +167,9 @@ def score_reasoning_quality(reasoning_texts: Sequence[str]) -> float:
     avg_sentences = sum(sentence_counts) / len(sentence_counts)
 
     # Normalise each sub-score
-    word_score = _clamp(avg_words / 150.0)         # 150 words = perfect word score
-    kd_score = _clamp(avg_kd / 0.10)               # 10% keyword density = perfect
-    sentence_score = _clamp(avg_sentences / 5.0)   # 5 sentences = perfect
+    word_score = _clamp(avg_words / 150.0)  # 150 words = perfect word score
+    kd_score = _clamp(avg_kd / 0.10)  # 10% keyword density = perfect
+    sentence_score = _clamp(avg_sentences / 5.0)  # 5 sentences = perfect
 
     return _clamp(0.4 * word_score + 0.4 * kd_score + 0.2 * sentence_score)
 
@@ -157,6 +177,7 @@ def score_reasoning_quality(reasoning_texts: Sequence[str]) -> float:
 # ---------------------------------------------------------------------------
 # Consistency (20%)
 # ---------------------------------------------------------------------------
+
 
 def score_consistency(
     outcomes: Sequence[str | None],
@@ -192,6 +213,7 @@ def score_consistency(
 # Confidence Calibration (10%)
 # ---------------------------------------------------------------------------
 
+
 def score_confidence_calibration(
     outcomes: Sequence[str | None],
     confidences: Sequence[float],
@@ -202,16 +224,13 @@ def score_confidence_calibration(
     Brier score = mean((confidence - outcome_binary)^2), range [0, 1].
     We invert and normalise: calibration = 1 - 2 * brier_score.
     """
-    paired = [
-        (o, c) for o, c in zip(outcomes, confidences) if o is not None
-    ]
+    paired = [(o, c) for o, c in zip(outcomes, confidences) if o is not None]
     if not paired:
         return 0.0
 
-    brier = sum(
-        (conf - (1.0 if outcome == "WIN" else 0.0)) ** 2
-        for outcome, conf in paired
-    ) / len(paired)
+    brier = sum((conf - (1.0 if outcome == "WIN" else 0.0)) ** 2 for outcome, conf in paired) / len(
+        paired
+    )
 
     # Brier score 0 = perfect, 1 = worst. 1 - 2*brier maps [0,0.5] -> [1,0].
     calibration = 1.0 - 2.0 * brier
@@ -221,6 +240,7 @@ def score_confidence_calibration(
 # ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
+
 
 def compute_score(
     outcomes: list[str | None],

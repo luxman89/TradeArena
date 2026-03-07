@@ -6,8 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from tradearena.core.validation import validate_signal
-from tradearena.models.signal import SignalCreate, SignalAction
-
+from tradearena.models.signal import SignalAction, SignalCreate
 
 VALID_SIGNAL = {
     "asset": "BTC/USDT",

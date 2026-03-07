@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
-class SignalAction(str, Enum):
+class SignalAction(StrEnum):
     buy = "buy"
     sell = "sell"
     yes = "yes"

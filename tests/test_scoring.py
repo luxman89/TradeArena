@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import pytest
-
 from tradearena.core.scoring import (
-    ScoreDimensions,
     WEIGHTS,
+    ScoreDimensions,
     compute_score,
     score_confidence_calibration,
     score_consistency,
@@ -22,7 +20,13 @@ class TestWeights:
         assert abs(total - 1.0) < 1e-9
 
     def test_all_expected_dimensions_present(self):
-        expected = {"win_rate", "risk_adjusted_return", "reasoning_quality", "consistency", "confidence_calibration"}
+        expected = {
+            "win_rate",
+            "risk_adjusted_return",
+            "reasoning_quality",
+            "consistency",
+            "confidence_calibration",
+        }
         assert set(WEIGHTS.keys()) == expected
 
 
@@ -100,7 +104,9 @@ class TestScoreReasoningQuality:
         assert result > 0.4
 
     def test_very_short_reasoning_scores_low(self):
-        result = score_reasoning_quality(["go up maybe yes yes yes yes yes yes yes yes yes yes yes yes yes yes yes yes yes yes yes"] * 5)
+        result = score_reasoning_quality(
+            ["go up maybe yes yes yes yes yes yes yes yes yes yes yes yes yes yes yes"] * 5
+        )
         assert result < 0.5
 
     def test_output_clamped_0_to_1(self):
