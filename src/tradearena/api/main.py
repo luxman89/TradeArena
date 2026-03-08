@@ -8,13 +8,15 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from tradearena.api.routes import creators, leaderboard, signals
 from tradearena.db.database import create_tables
 
 # Resolve arena.html relative to this file's project root
 # src/tradearena/api/main.py -> project root is 3 levels up -> scripts/arena.html
-_ARENA_HTML = Path(__file__).resolve().parents[3] / "scripts" / "arena.html"
+_SCRIPTS_DIR = Path(__file__).resolve().parents[3] / "scripts"
+_ARENA_HTML = _SCRIPTS_DIR / "arena.html"
 
 
 @asynccontextmanager
@@ -41,6 +43,11 @@ app.add_middleware(
 app.include_router(signals.router, tags=["signals"])
 app.include_router(leaderboard.router, tags=["leaderboard"])
 app.include_router(creators.router, tags=["creators"])
+
+# Serve static assets (sprites, tilesets, etc.)
+_ASSETS_DIR = _SCRIPTS_DIR / "assets"
+if _ASSETS_DIR.is_dir():
+    app.mount("/assets", StaticFiles(directory=str(_ASSETS_DIR)), name="assets")
 
 
 @app.get("/", include_in_schema=False)
