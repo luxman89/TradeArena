@@ -38,10 +38,8 @@ def validate_signal(data: dict[str, Any]) -> list[str]:
             errors.append("confidence must be a number")
             conf_f = None
         if conf_f is not None:
-            if conf_f <= 0.0 or conf_f >= 1.0:
-                errors.append(
-                    f"confidence must be strictly between 0 and 1 (exclusive), got {conf_f}"
-                )
+            if conf_f < 0.01 or conf_f > 0.99:
+                errors.append(f"confidence must be between 0.01 and 0.99 (inclusive), got {conf_f}")
 
     # --- reasoning ---
     reasoning = data.get("reasoning", "")
