@@ -30,9 +30,11 @@ _ARENA_HTML = _SCRIPTS_DIR / "arena.html"
 
 ORACLE_INTERVAL_SECONDS = 300  # 5 minutes
 MATCHMAKING_INTERVAL_SECONDS = 7 * 24 * 3600  # 1 week
+BOT_INTERVAL_SECONDS = 3600  # 1 hour
 
-# Track last matchmaking run (in-memory, resets on restart)
+# Track last run times (in-memory, resets on restart)
 _last_matchmaking: float = 0.0
+_last_bot_run: float = 0.0
 
 
 def _recompute_scores(db, creator_ids):
@@ -74,14 +76,15 @@ def _recompute_scores(db, creator_ids):
 
 
 async def _background_loop():
-    """Background loop: oracle resolution, score recompute, battle resolution, matchmaking."""
+    """Background loop: oracle resolution, score recompute, battle resolution, matchmaking, bots."""
     import time
 
     from tradearena.core.battle_resolver import resolve_battle
+    from tradearena.core.bots import run_bot_signals
     from tradearena.core.matchmaker import run_matchmaking
     from tradearena.core.oracle import resolve_pending_signals
 
-    global _last_matchmaking  # noqa: PLW0603
+    global _last_matchmaking, _last_bot_run  # noqa: PLW0603
 
     while True:
         await asyncio.sleep(ORACLE_INTERVAL_SECONDS)
@@ -125,6 +128,13 @@ async def _background_loop():
                     if new_battles:
                         logger.info("Matchmaking created %d battles", len(new_battles))
 
+                # 5. Hourly bot signal generation
+                if time.time() - _last_bot_run >= BOT_INTERVAL_SECONDS:
+                    n = run_bot_signals(db)
+                    _last_bot_run = time.time()
+                    if n:
+                        logger.info("Bots submitted %d new signals", n)
+
             finally:
                 db.close()
         except Exception:
@@ -133,8 +143,15 @@ async def _background_loop():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Create DB tables on startup, launch background loop."""
+    """Create DB tables on startup, register bots, launch background loop."""
+    from tradearena.core.bots import ensure_bots_registered
+
     create_tables()
+    db = SessionLocal()
+    try:
+        ensure_bots_registered(db)
+    finally:
+        db.close()
     task = asyncio.create_task(_background_loop())
     yield
     task.cancel()
