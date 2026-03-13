@@ -133,7 +133,6 @@ async def get_creator(
             "composite": round(score.composite_score, 4) if score else 0.0,
             "win_rate": round(score.win_rate, 4) if score else 0.0,
             "risk_adjusted_return": round(score.risk_adjusted_return, 4) if score else 0.0,
-            "reasoning_quality": round(score.reasoning_quality, 4) if score else 0.0,
             "consistency": round(score.consistency, 4) if score else 0.0,
             "confidence_calibration": round(score.confidence_calibration, 4) if score else 0.0,
             "total_signals": score.total_signals if score else 0,

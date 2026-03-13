@@ -52,7 +52,7 @@ class CreatorORM(Base):
     id = Column(String(64), primary_key=True)
     display_name = Column(String(128), nullable=False)
     created_at = Column(DateTime, nullable=False)
-    division = Column(String(32), nullable=False, default="rookie")  # rookie | pro | elite
+    division = Column(String(32), nullable=False, default="crypto")  # crypto | polymarket | multi
     # api_key_dev: plaintext key, only populated by seed_demo.py for local dev.
     # In production this is null and api_key_hash is used for authentication.
     api_key_dev = Column(String(128), nullable=True)
@@ -102,13 +102,46 @@ class SignalORM(Base):
     creator = relationship("CreatorORM", back_populates="signals")
 
 
+class BattleORM(Base):
+    __tablename__ = "battles"
+    __table_args__ = (
+        CheckConstraint("creator1_id != creator2_id", name="ck_different_creators"),
+        CheckConstraint(
+            "status IN ('ACTIVE','RESOLVED')",
+            name="ck_battle_status",
+        ),
+        CheckConstraint("battle_type IN ('MANUAL','AUTO')", name="ck_battle_type"),
+        Index("ix_battles_status", "status"),
+        Index("ix_battles_creator1", "creator1_id"),
+        Index("ix_battles_creator2", "creator2_id"),
+    )
+
+    battle_id = Column(String(64), primary_key=True)
+    creator1_id = Column(String(64), ForeignKey("creators.id"), nullable=False)
+    creator2_id = Column(String(64), ForeignKey("creators.id"), nullable=False)
+    status = Column(String(16), nullable=False, default="ACTIVE")
+    window_days = Column(Integer, nullable=False, default=7)
+    created_at = Column(DateTime, nullable=False)
+    resolved_at = Column(DateTime, nullable=True)
+    creator1_score = Column(Float, nullable=True)
+    creator2_score = Column(Float, nullable=True)
+    creator1_details = Column(JSON, nullable=True)
+    creator2_details = Column(JSON, nullable=True)
+    winner_id = Column(String(64), ForeignKey("creators.id"), nullable=True)
+    margin = Column(Float, nullable=True)
+    battle_type = Column(String(16), nullable=False, default="MANUAL")
+
+    creator1 = relationship("CreatorORM", foreign_keys=[creator1_id])
+    creator2 = relationship("CreatorORM", foreign_keys=[creator2_id])
+    winner = relationship("CreatorORM", foreign_keys=[winner_id])
+
+
 class CreatorScoreORM(Base):
     __tablename__ = "creator_scores"
 
     creator_id = Column(String(64), ForeignKey("creators.id"), primary_key=True)
     win_rate = Column(Float, nullable=False, default=0.0)
     risk_adjusted_return = Column(Float, nullable=False, default=0.0)
-    reasoning_quality = Column(Float, nullable=False, default=0.0)
     consistency = Column(Float, nullable=False, default=0.0)
     confidence_calibration = Column(Float, nullable=False, default=0.0)
     composite_score = Column(Float, nullable=False, default=0.0)

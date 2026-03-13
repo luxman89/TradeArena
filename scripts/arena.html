@@ -35,7 +35,7 @@ body{display:flex;flex-direction:column}
 #main{flex:1;display:flex;overflow:hidden;position:relative}
 #arena{flex:1;overflow:hidden;position:relative;background:#1a1a28;cursor:default}
 #arena canvas{image-rendering:pixelated;image-rendering:crisp-edges}
-#phaser-container{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+#phaser-container{width:100%;height:100%;display:flex;align-items:flex-start;justify-content:flex-start}
 
 /* ── RIGHT PANEL ── */
 #panel{
@@ -64,7 +64,7 @@ body{display:flex;flex-direction:column}
 .dim-track{flex:1;height:4px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden}
 .dim-fill{height:100%;border-radius:2px;transition:width .4s ease-out}
 .dim-num{font-size:.63rem;font-family:'JetBrains Mono',monospace;color:var(--muted);width:24px;text-align:right}
-.sigs-wrap{margin-top:16px;max-height:240px;overflow-y:auto;position:relative}
+.sigs-wrap{margin-top:16px;overflow-y:auto;position:relative;flex:1;min-height:0}
 .sigs-wrap::-webkit-scrollbar{width:3px}
 .sigs-wrap::-webkit-scrollbar-track{background:transparent}
 .sigs-wrap::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
@@ -88,7 +88,7 @@ body{display:flex;flex-direction:column}
 .tk-name{color:var(--text);font-weight:700}
 .tk-up{color:var(--green)}
 .tk-dn{color:var(--red)}
-.sig-txt{font-size:.63rem;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.sig-txt{font-size:.63rem;color:var(--muted)}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:300}
 .modal-overlay.show{display:flex}
 .modal{background:var(--surface);border:1px solid var(--border2);border-radius:8px;width:360px;max-height:80vh;overflow:hidden;display:flex;flex-direction:column}
@@ -102,21 +102,64 @@ body{display:flex;flex-direction:column}
 .lb-score{font-family:'JetBrains Mono',monospace;font-size:.75rem;font-weight:700}
 
 /* ── Battle overlay ── */
-#battle-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:400;display:none;flex-direction:column;align-items:center;justify-content:center;font-family:'Press Start 2P',monospace}
+#battle-overlay{position:fixed;inset:0;background:rgba(0,0,0,0);z-index:400;display:none;flex-direction:column;align-items:center;justify-content:center;font-family:'Press Start 2P',monospace;transition:background .4s ease}
 #battle-overlay.show{display:flex}
-.battle-stage{display:flex;align-items:center;gap:48px;margin-bottom:24px}
-.battle-fighter{display:flex;flex-direction:column;align-items:center;gap:8px;transition:transform .3s}
-.battle-fighter.hit{animation:battleHit .3s ease}
-@keyframes battleHit{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
-.battle-name{font-size:.55rem;color:var(--text)}
-.battle-hp-track{width:120px;height:10px;background:var(--surface2);border:1px solid var(--border2);border-radius:2px;overflow:hidden}
-.battle-hp-fill{height:100%;background:var(--green);transition:width .5s ease}
-.battle-vs{font-size:1.2rem;color:var(--gold);text-shadow:0 0 12px var(--gold)}
-.battle-log{font-size:.45rem;color:var(--muted);max-height:80px;overflow-y:auto;text-align:center;line-height:1.8;margin-bottom:16px}
-.battle-result{font-size:.7rem;color:var(--gold);text-shadow:0 0 8px var(--gold);display:none}
-.battle-result.show{display:block;animation:battlePulse 1s ease infinite}
-@keyframes battlePulse{0%,100%{opacity:1}50%{opacity:.6}}
-#battle-close{background:var(--surface2);border:1px solid var(--border2);color:var(--text);font-family:'Press Start 2P',monospace;font-size:.45rem;padding:8px 16px;cursor:pointer;border-radius:4px;margin-top:12px;display:none}
+#battle-overlay.show.fade-in{background:rgba(0,0,0,.92)}
+.battle-header{font-size:.5rem;color:var(--gold);letter-spacing:.2em;text-transform:uppercase;margin-bottom:6px;opacity:0;transition:opacity .3s}
+.battle-header.show{opacity:1}
+.battle-round-indicator{font-size:.4rem;color:var(--muted);letter-spacing:.15em;margin-bottom:18px;min-height:14px}
+.battle-stage{display:flex;align-items:flex-start;gap:32px;margin-bottom:20px;position:relative}
+.battle-fighter{display:flex;flex-direction:column;align-items:center;gap:6px;transition:transform .3s, filter .3s;width:160px;padding:16px 12px 12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:8px;position:relative;opacity:0;transform:translateY(20px)}
+.battle-fighter.enter-left{animation:fighterEnterLeft .5s ease forwards}
+.battle-fighter.enter-right{animation:fighterEnterRight .5s ease forwards}
+@keyframes fighterEnterLeft{from{opacity:0;transform:translateX(-60px) scale(.8)}to{opacity:1;transform:translateX(0) scale(1)}}
+@keyframes fighterEnterRight{from{opacity:0;transform:translateX(60px) scale(.8)}to{opacity:1;transform:translateX(0) scale(1)}}
+.battle-fighter.hit{animation:battleHit .35s ease forwards}
+@keyframes battleHit{0%{opacity:1;transform:scale(1);filter:brightness(1)}15%{opacity:1;transform:scale(.95) translateX(-6px);filter:brightness(2.5)}40%{opacity:1;transform:scale(1.02) translateX(4px);filter:brightness(1)}100%{opacity:1;transform:scale(1);filter:brightness(1)}}
+.battle-fighter.winner-glow{box-shadow:0 0 24px rgba(245,158,11,.35);border-color:rgba(245,158,11,.5)}
+.battle-fighter.loser-dim{opacity:.45;filter:grayscale(.6)}
+.battle-name{font-size:.5rem;color:var(--text);text-align:center;line-height:1.3;max-width:140px;word-break:break-word}
+.battle-fighter canvas{border:2px solid var(--border2);border-radius:4px;background:var(--surface2);margin:4px 0}
+.battle-hp-track{width:130px;height:12px;background:var(--surface2);border:1px solid var(--border2);border-radius:6px;overflow:hidden;position:relative}
+.battle-hp-fill{height:100%;background:linear-gradient(90deg,var(--green),#34D399);transition:width .6s cubic-bezier(.4,0,.2,1);border-radius:6px;position:relative}
+.battle-hp-fill::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.2) 0%,transparent 50%);border-radius:6px}
+.battle-hp-fill.low{background:linear-gradient(90deg,var(--red),#F87171)}
+.battle-hp-fill.mid{background:linear-gradient(90deg,var(--gold),#FCD34D)}
+.battle-hp-label{font-size:.35rem;color:var(--muted);margin-top:2px;font-family:'JetBrains Mono',monospace}
+.battle-vs{font-size:1.1rem;color:var(--gold);text-shadow:0 0 20px rgba(245,158,11,.6),0 0 40px rgba(245,158,11,.2);align-self:center;padding-top:30px;opacity:0;transform:scale(2)}
+.battle-vs.show{animation:vsEnter .4s ease forwards}
+@keyframes vsEnter{from{opacity:0;transform:scale(2.5)}to{opacity:1;transform:scale(1)}}
+
+/* Stat comparison rows */
+.battle-stats{display:flex;flex-direction:column;gap:4px;margin-bottom:14px;width:380px;max-width:90vw}
+.battle-stat-row{display:flex;align-items:center;gap:6px;font-size:.35rem;height:20px;opacity:0;transform:translateY(6px);transition:opacity .3s, transform .3s}
+.battle-stat-row.show{opacity:1;transform:translateY(0)}
+.bsr-label{width:70px;text-align:center;color:var(--muted);flex-shrink:0;text-transform:uppercase;letter-spacing:.05em}
+.bsr-bar-wrap{flex:1;display:flex;height:6px;gap:2px}
+.bsr-bar-left{height:100%;border-radius:3px 0 0 3px;background:var(--blue);transition:width .5s ease;min-width:2px}
+.bsr-bar-right{height:100%;border-radius:0 3px 3px 0;background:var(--red);transition:width .5s ease;min-width:2px}
+.bsr-val{font-size:.3rem;color:var(--muted2);width:30px;font-family:'JetBrains Mono',monospace}
+.bsr-val-left{text-align:right}
+.bsr-val-right{text-align:left}
+.battle-stat-row.active .bsr-label{color:var(--gold)}
+
+.battle-log{font-size:.38rem;color:var(--muted);max-height:70px;overflow-y:auto;text-align:center;line-height:2;margin-bottom:12px;width:380px;max-width:90vw;scrollbar-width:thin;scrollbar-color:var(--border2) transparent}
+.battle-log::-webkit-scrollbar{width:3px}
+.battle-log::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.battle-log .round-hit{color:var(--text)}
+.battle-log .round-crit{color:var(--gold);font-weight:700}
+.battle-log .round-miss{color:var(--muted2)}
+
+.battle-result{font-size:.65rem;color:var(--gold);text-shadow:0 0 12px rgba(245,158,11,.7),0 0 30px rgba(245,158,11,.3);display:none;text-align:center;line-height:1.6}
+.battle-result.show{display:block;animation:resultEnter .6s ease}
+@keyframes resultEnter{from{opacity:0;transform:scale(.6) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.battle-result .result-subtitle{font-size:.35rem;color:var(--muted);display:block;margin-top:4px}
+
+#battle-close{background:var(--surface2);border:1px solid var(--border2);color:var(--text);font-family:'Press Start 2P',monospace;font-size:.4rem;padding:10px 24px;cursor:pointer;border-radius:6px;margin-top:14px;display:none;transition:background .2s, border-color .2s, transform .1s}
+#battle-close:hover{background:var(--border2);border-color:var(--muted2);transform:scale(1.04)}
+
+.battle-flash{position:fixed;inset:0;z-index:401;pointer-events:none;background:white;opacity:0;transition:opacity .05s}
+.battle-flash.on{opacity:.15}
 
 /* ── Canvas tooltip ── */
 #canvas-tooltip{position:fixed;background:var(--surface);border:1px solid var(--border2);padding:8px 10px;border-radius:4px;font-size:.65rem;color:var(--text);pointer-events:none;z-index:250;display:none;white-space:nowrap;font-family:'JetBrains Mono',monospace;box-shadow:0 4px 12px rgba(0,0,0,.4)}
@@ -178,6 +221,7 @@ body{display:flex;flex-direction:column}
     <div class="stat">AVG WIN% <b id="sw">—</b></div>
   </div>
   <button id="history-btn" onclick="showBattleHistory()" style="background:none;border:1px solid var(--border2);color:var(--muted);font-family:'Press Start 2P',monospace;font-size:0.4rem;padding:4px 8px;cursor:pointer;border-radius:4px">⚔ HISTORY</button>
+  <a href="/rules" target="_blank" style="background:none;border:1px solid var(--border2);color:var(--muted);font-family:'Press Start 2P',monospace;font-size:0.4rem;padding:4px 8px;cursor:pointer;border-radius:4px;text-decoration:none">📋 RULES</a>
   <div class="live"><span class="dot"></span>LIVE</div>
   <button id="mute-btn" onclick="toggleMute()" title="Toggle sound" style="background:none;border:1px solid var(--border2);color:var(--muted);font-family:'Press Start 2P',monospace;font-size:0.5rem;padding:4px 8px;cursor:pointer;border-radius:4px">♪ ON</button>
 </div>
@@ -199,6 +243,10 @@ body{display:flex;flex-direction:column}
     </div>
     <div id="pb">
       <div class="section-title">Battle Stats</div>
+      <div id="battle-stats" style="font-size:.63rem;color:var(--muted);margin-bottom:10px;font-family:'JetBrains Mono',monospace">
+        <span id="bs-w" style="color:var(--green)">0W</span> / <span id="bs-l" style="color:var(--red)">0L</span> / <span id="bs-d" style="color:var(--gold)">0D</span>
+      </div>
+      <div class="section-title">Score Breakdown</div>
       <div id="dims"></div>
       <div class="section-title" style="margin-top:8px">Signal Timeline</div>
       <div id="sig-timeline" class="sig-timeline"></div>
@@ -223,22 +271,34 @@ body{display:flex;flex-direction:column}
 </div>
 
 <div id="battle-overlay" onclick="if(event.target===this)closeBattle()">
+  <div class="battle-flash" id="battle-flash"></div>
+  <div class="battle-header" id="battle-header">TRADER BATTLE</div>
+  <div class="battle-round-indicator" id="battle-round"></div>
   <div class="battle-stage">
     <div class="battle-fighter" id="bf-left">
       <div class="battle-name" id="bn-left">—</div>
-      <canvas id="bc-left" width="64" height="96" style="image-rendering:pixelated"></canvas>
+      <canvas id="bc-left" width="64" height="96" style="image-rendering:pixelated;width:96px;height:144px"></canvas>
       <div class="battle-hp-track"><div class="battle-hp-fill" id="hp-left" style="width:100%"></div></div>
+      <div class="battle-hp-label" id="hp-left-lbl">0 / 4</div>
     </div>
-    <div class="battle-vs">VS</div>
+    <div class="battle-vs" id="battle-vs">VS</div>
     <div class="battle-fighter" id="bf-right">
       <div class="battle-name" id="bn-right">—</div>
-      <canvas id="bc-right" width="64" height="96" style="image-rendering:pixelated"></canvas>
+      <canvas id="bc-right" width="64" height="96" style="image-rendering:pixelated;width:96px;height:144px"></canvas>
       <div class="battle-hp-track"><div class="battle-hp-fill" id="hp-right" style="width:100%"></div></div>
+      <div class="battle-hp-label" id="hp-right-lbl">0 / 4</div>
     </div>
+  </div>
+  <div class="battle-stats" id="battle-stats">
+    <div class="battle-stat-row" data-stat="win_rate"><span class="bsr-val bsr-val-left" id="bsv-l-0">-</span><span class="bsr-bar-wrap"><span class="bsr-bar-left" id="bsb-l-0" style="width:50%"></span><span class="bsr-bar-right" id="bsb-r-0" style="width:50%"></span></span><span class="bsr-label">Win Rate</span><span class="bsr-bar-wrap"><span class="bsr-bar-left" id="bsb-l2-0" style="width:50%"></span><span class="bsr-bar-right" id="bsb-r2-0" style="width:50%"></span></span><span class="bsr-val bsr-val-right" id="bsv-r-0">-</span></div>
+    <div class="battle-stat-row" data-stat="risk_adjusted_return"><span class="bsr-val bsr-val-left" id="bsv-l-1">-</span><span class="bsr-bar-wrap"><span class="bsr-bar-left" id="bsb-l-1" style="width:50%"></span><span class="bsr-bar-right" id="bsb-r-1" style="width:50%"></span></span><span class="bsr-label">Risk/Return</span><span class="bsr-bar-wrap"><span class="bsr-bar-left" id="bsb-l2-1" style="width:50%"></span><span class="bsr-bar-right" id="bsb-r2-1" style="width:50%"></span></span><span class="bsr-val bsr-val-right" id="bsv-r-1">-</span></div>
+    <div class="battle-stat-row" data-stat="consistency"><span class="bsr-val bsr-val-left" id="bsv-l-2">-</span><span class="bsr-bar-wrap"><span class="bsr-bar-left" id="bsb-l-2" style="width:50%"></span><span class="bsr-bar-right" id="bsb-r-2" style="width:50%"></span></span><span class="bsr-label">Consistency</span><span class="bsr-bar-wrap"><span class="bsr-bar-left" id="bsb-l2-2" style="width:50%"></span><span class="bsr-bar-right" id="bsb-r2-2" style="width:50%"></span></span><span class="bsr-val bsr-val-right" id="bsv-r-2">-</span></div>
+    <div class="battle-stat-row" data-stat="confidence_calibration"><span class="bsr-val bsr-val-left" id="bsv-l-3">-</span><span class="bsr-bar-wrap"><span class="bsr-bar-left" id="bsb-l-3" style="width:50%"></span><span class="bsr-bar-right" id="bsb-r-3" style="width:50%"></span></span><span class="bsr-label">Calibration</span><span class="bsr-bar-wrap"><span class="bsr-bar-left" id="bsb-l2-3" style="width:50%"></span><span class="bsr-bar-right" id="bsb-r2-3" style="width:50%"></span></span><span class="bsr-val bsr-val-right" id="bsv-r-3">-</span></div>
   </div>
   <div class="battle-log" id="battle-log"></div>
   <div class="battle-result" id="battle-result"></div>
   <button id="battle-close" onclick="closeBattle()">CLOSE</button>
+  <a href="/rules" target="_blank" style="color:var(--muted);font-family:'Press Start 2P',monospace;font-size:0.3rem;text-decoration:none;opacity:0.7;margin-top:4px;display:inline-block">How battles work →</a>
 </div>
 
 <div id="bh-modal" class="modal-overlay" onclick="if(event.target===this)closeBhModal()">
@@ -258,8 +318,8 @@ body{display:flex;flex-direction:column}
 // CONFIG
 // ═════════════════════════════════════════════════
 const TS     = 32;
-const SCALE  = 2;
-const ROOM_W = 26;
+const SCALE  = 1.6;
+const ROOM_W = 36;
 const ROOM_H = 18;
 const SPD    = 1.8;
 const API    = location.origin;
@@ -299,22 +359,21 @@ const CHAR_URLS = [
 const CFW = 64, CFH = 64; // char frame size (actual 64x64 grid, not 32x48 as originally documented)
 
 // Pre-selected character blocks [sheetIdx, blockCol, blockRow]
-// Sheet 3 = business suits. Block = 192x256 (3 frames x 4 dirs at 64x64 per frame)
-// Only blocks with full content (>5000 visible pixels) are used.
+// Mixed across sheets for visual variety. Block = 192x256 (3 frames x 4 dirs at 64x64)
 const CHAR_DEFS = [
-  [3,0,0],[3,1,0],[3,0,1],[3,1,1],
-  [3,0,2],[3,1,2],[3,2,2],[3,0,3],
-  [3,1,3],[3,0,4],
+  [3,0,0],[0,0,0],[4,0,0],[1,0,0],
+  [3,1,0],[5,0,0],[2,0,0],[3,0,1],
+  [0,1,0],[4,1,0],
 ];
 
 // ═════════════════════════════════════════════════
 // DESK POSITIONS — where agents sit
 // ═════════════════════════════════════════════════
 const DESKS = [
-  // Top-left cluster (4 desks)
-  {x:4,  y:5},  {x:4,  y:8},  {x:8,  y:5},  {x:8,  y:8},
-  // Top-right cluster (3 desks)
-  {x:18, y:5},  {x:22, y:5},  {x:18, y:8},
+  // Left cluster (4 desks)
+  {x:3, y:5}, {x:3, y:8}, {x:7, y:5}, {x:7, y:8},
+  // Right cluster (4 desks)
+  {x:25, y:5}, {x:29, y:5}, {x:25, y:8}, {x:29, y:8},
 ];
 
 // ═════════════════════════════════════════════════
@@ -359,6 +418,17 @@ function resize() {
   }
   phaserGame.scale.refresh();
 }
+// Delay resize until after CSS transition ends to prevent Phaser reading mid-transition dimensions
+function resizeAfterTransition() {
+  if (!phaserGame) return;
+  const handler = () => {
+    panel.removeEventListener('transitionend', handler);
+    resize();
+  };
+  panel.addEventListener('transitionend', handler);
+  // Fallback in case transitionend doesn't fire (e.g. no transition)
+  setTimeout(() => { panel.removeEventListener('transitionend', handler); resize(); }, 320);
+}
 
 // ═════════════════════════════════════════════════
 // PHASER 3 — GameScene + config
@@ -369,10 +439,13 @@ class GameScene extends Phaser.Scene {
   constructor() { super('GameScene'); }
 
   preload() {
-    // Character spritesheet — sheet 3 (business suits, used by all CHAR_DEFS)
-    this.load.spritesheet('char3', CHAR_URLS[3], {
-      frameWidth: CFW,   // 32
-      frameHeight: CFH,  // 48
+    // Character spritesheets — all 6 for visual variety
+    const usedSheets = new Set(CHAR_DEFS.map(d => d[0]));
+    usedSheets.forEach(idx => {
+      this.load.spritesheet('char' + idx, CHAR_URLS[idx], {
+        frameWidth: CFW,
+        frameHeight: CFH,
+      });
     });
     // Tileset images for furniture
     this.load.image('floors', FLOOR_URL);
@@ -385,10 +458,13 @@ class GameScene extends Phaser.Scene {
     console.log('[TradeArena/Phaser] Scene created');
 
     // Bridge Phaser textures to img{} for battle/panel canvases
-    try {
-      const charSrc = this.textures.get('char3').getSourceImage();
-      if (charSrc) img['char3'] = charSrc;
-    } catch(e) { console.warn('[TradeArena/Phaser] Could not bridge char3 texture:', e); }
+    const usedSheets = new Set(CHAR_DEFS.map(d => d[0]));
+    usedSheets.forEach(idx => {
+      try {
+        const src = this.textures.get('char' + idx).getSourceImage();
+        if (src) img['char' + idx] = src;
+      } catch(e) { console.warn('[TradeArena/Phaser] Could not bridge char' + idx + ':', e); }
+    });
 
     // Build grid + floor (existing functions)
     grid = buildGrid();
@@ -399,9 +475,9 @@ class GameScene extends Phaser.Scene {
     // WALL STREET TRADING FLOOR — Phaser Graphics
     // ═══════════════════════════════════════════════
     const S = SCALE;
-    const W = ROOM_W * TS * S; // 1664
-    const H = ROOM_H * TS * S; // 1152
-    const T = TS * S;          // 64 (one tile in pixels)
+    const W = ROOM_W * TS * S; // 1638
+    const H = ROOM_H * TS * S; // 922
+    const T = TS * S;          // 51.2 (one tile in pixels)
 
     this._buildTradingFloor(S, W, H, T);
 
@@ -448,13 +524,16 @@ class GameScene extends Phaser.Scene {
         const mx = ptr.worldX / S / TS;
         const my = ptr.worldY / S / TS;
         const screenAreas = [
-          {x1:2.5, y1:0.2, x2:8.5, y2:1.9},
-          {x1:10, y1:0.3, x2:14, y2:1.8},
-          {x1:19.7, y1:0.3, x2:23.7, y2:1.8},
+          {x1:0, y1:0.1, x2:6, y2:2.9, type:'main'},
+          {x1:6, y1:0.1, x2:10, y2:2.9, type:'scores'},
+          {x1:10, y1:0.1, x2:14, y2:2.9, type:'winrates'},
+          {x1:22, y1:0.1, x2:27, y2:2.9, type:'map'},
+          {x1:27, y1:0.1, x2:31, y2:2.9, type:'clock'},
         ];
         for (const scr of screenAreas) {
           if (mx >= scr.x1 && mx <= scr.x2 && my >= scr.y1 && my <= scr.y2) {
-            showLeaderboardModal(); return;
+            if (scr.type !== 'clock' && scr.type !== 'map') showLeaderboardModal(scr.type);
+            return;
           }
         }
         // Check desks
@@ -483,17 +562,15 @@ class GameScene extends Phaser.Scene {
     scanG.fillStyle(0x000000, 0.015);
     for (let y = 0; y < H; y += 4) scanG.fillRect(0, y, W, 2);
 
-    // Vignette
+    // Vignette (top/bottom only, reduced)
     const vigG = this.add.graphics();
     vigG.setDepth(998);
     const vigSteps = 8;
     for (let i = 0; i < vigSteps; i++) {
       const frac = i / vigSteps;
       const alpha = frac * frac * 0.18;
-      const inset = frac * W * 0.15;
+      const inset = frac * W * 0.075;
       vigG.fillStyle(0x000000, alpha);
-      vigG.fillRect(0, 0, inset, H); // left
-      vigG.fillRect(W - inset, 0, inset, H); // right
       vigG.fillRect(0, 0, W, inset * H / W); // top
       vigG.fillRect(0, H - inset * H / W, W, inset * H / W); // bottom
     }
@@ -501,9 +578,9 @@ class GameScene extends Phaser.Scene {
     // ── Wall-mounted leaderboard screens (Step 10) ──
     this._wallScreenTexts = [];
     const screenDefs = [
-      { x: 1 * T, y: 0.1 * T, w: 8 * T, h: 2.8 * T, title: 'TRADEARENA LEADERBOARD', type: 'main' },
-      { x: 9.5 * T, y: 0.1 * T, w: 5.5 * T, h: 2.8 * T, title: 'TOP SCORES', type: 'scores' },
-      { x: 15.5 * T, y: 0.1 * T, w: 5.5 * T, h: 2.8 * T, title: 'WIN RATES', type: 'winrates' },
+      { x: 0 * T, y: 0.1 * T, w: 6 * T, h: 2.8 * T, title: 'TRADEARENA LEADERBOARD', type: 'main' },
+      { x: 6 * T, y: 0.1 * T, w: 4 * T, h: 2.8 * T, title: 'TOP SCORES', type: 'scores' },
+      { x: 10 * T, y: 0.1 * T, w: 4 * T, h: 2.8 * T, title: 'WIN RATES', type: 'winrates' },
     ];
     screenDefs.forEach(scr => {
       const sg = this.add.graphics();
@@ -530,7 +607,7 @@ class GameScene extends Phaser.Scene {
       sg.fillStyle(0x000000, 0.04);
       for (let ly = scr.y; ly < scr.y + scr.h; ly += 3) sg.fillRect(scr.x, ly, scr.w, 1);
       // Title text
-      const titleFS = scr.type === 'main' ? 5 * S : 4 * S;
+      const titleFS = scr.type === 'main' ? 7 * S : 6 * S;
       const titleText = this.add.text(scr.x + scr.w / 2, scr.y + 10 * S, scr.title, {
         fontFamily: '"Press Start 2P", monospace',
         fontSize: titleFS + 'px',
@@ -547,7 +624,7 @@ class GameScene extends Phaser.Scene {
       // Row texts (will be updated dynamically)
       const rowTexts = [];
       const maxRows = scr.type === 'main' ? 8 : 6;
-      const rowFS = 4 * S;
+      const rowFS = 6 * S;
       const rowH = rowFS + 8;
       const startY = divY + 6;
       for (let i = 0; i < maxRows; i++) {
@@ -595,7 +672,7 @@ class GameScene extends Phaser.Scene {
     g.fillStyle(0x1a1a24, 1);
     g.fillRect(0, 0, W, H);
 
-    // ── 7 TRADING DESKS — positions from DESKS array ──
+    // ── 8 TRADING DESKS — positions from DESKS array ──
     DESKS.forEach(d => this._buildDesk(T, d.x, d.y));
     console.log('[TradeArena/Phaser] Rendered', DESKS.length, 'trading desks');
 
@@ -603,11 +680,1163 @@ class GameScene extends Phaser.Scene {
     // NYSE-STYLE CIRCULAR TRADING POSTS — triangle layout
     // ═══════════════════════════════════════════════════════
     const postPositions = [
-      { x: W * 0.50, y: H * 0.41 },
-      { x: W * 0.25, y: H * 0.82 },
-      { x: W * 0.75, y: H * 0.82 },
+      { x: 5 * T,  y: 15 * T },
+      { x: 16 * T, y: 15 * T },
+      { x: 27 * T, y: 15 * T },
     ];
     postPositions.forEach(p => this._buildTradingPost(S, W, H, T, p.x, p.y));
+
+    // ── Wall elements: Digital Clock + World Map + Bell Podium ──
+    this._buildDigitalClock(S, W, H, T);
+    this._buildWorldMap(S, W, H, T);
+    this._buildBellPodium(S, W, H, T);
+
+    // ── New interactive objects ──
+    this._buildCoffeeStation(S, W, H, T);
+    this._buildLoungeArea(S, W, H, T);
+  }
+
+  _buildDigitalClock(S, W, H, T) {
+    // CLOCK box — same style and y/h as the 3 leaderboard screens
+    const bx = 27 * T;
+    const by = 0.1 * T;
+    const bw = 4 * T;
+    const bh = 2.8 * T;
+
+    const g = this.add.graphics();
+    g.setDepth(1);
+
+    // Hanging poles
+    g.fillStyle(0x3a3a50, 1);
+    g.fillRect(bx + bw * 0.25 - 2, 0, 4, by);
+    g.fillRect(bx + bw * 0.75 - 2, 0, 4, by);
+    // Bezel
+    g.fillStyle(0x1a1a30, 1);
+    g.fillRect(bx - 5, by - 5, bw + 10, bh + 10);
+    // Screen
+    g.fillStyle(0x080812, 1);
+    g.fillRect(bx, by, bw, bh);
+    // Glow lines
+    g.lineStyle(2, 0x06B6D4, 0.2);
+    g.lineBetween(bx, by, bx + bw, by);
+    g.lineBetween(bx, by + bh, bx + bw, by + bh);
+    g.lineStyle(1, 0x06B6D4, 0.08);
+    g.lineBetween(bx, by, bx, by + bh);
+    g.lineBetween(bx + bw, by, bx + bw, by + bh);
+    // Scanlines
+    g.fillStyle(0x000000, 0.04);
+    for (let ly = by; ly < by + bh; ly += 3) g.fillRect(bx, ly, bw, 1);
+
+    // Title: "CLOCK"
+    const titleFS = 6 * S;
+    const title = this.add.text(bx + bw / 2, by + 10 * S, 'CLOCK', {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: titleFS + 'px',
+      color: '#06B6D4',
+      align: 'center',
+    });
+    title.setOrigin(0.5, 0);
+    title.setDepth(2);
+    title.setShadow(0, 0, 'rgba(6,182,212,0.5)', 8);
+
+    // Divider under title
+    const divY = by + 10 * S + titleFS + 6;
+    g.lineStyle(1, 0x06B6D4, 0.12);
+    g.lineBetween(bx + 8, divY, bx + bw - 8, divY);
+
+    // 3 timezone horizontal rows inside the box
+    const clocks = [
+      { label: 'NEW YORK',  tz: 'America/New_York',  openH: 9, openM: 30, closeH: 16, closeM: 0,  color: '#10B981' },
+      { label: 'FRANKFURT', tz: 'Europe/Berlin',      openH: 9, openM: 0,  closeH: 17, closeM: 30, color: '#06B6D4' },
+      { label: 'TOKYO',     tz: 'Asia/Tokyo',         openH: 9, openM: 0,  closeH: 15, closeM: 0,  color: '#F59E0B' },
+    ];
+
+    const contentY = divY + 4;
+    const rowH = (by + bh - 4 - contentY) / 3;
+    this._tzClocks = [];
+    this._clockBlink = true;
+
+    clocks.forEach((tz, i) => {
+      const ry = contentY + i * rowH;
+
+      // Horizontal separator between rows (skip first)
+      if (i > 0) {
+        g.lineStyle(1, 0x06B6D4, 0.08);
+        g.lineBetween(bx + 6, ry, bx + bw - 6, ry);
+      }
+
+      const rowCy = ry + rowH / 2;
+      const labelFS = 5 * S;
+      const timeFS = 5.5 * S;
+      const statusFS = 4.5 * S;
+
+      // City label (left)
+      const lbl = this.add.text(bx + 6 * S, rowCy, tz.label, {
+        fontFamily: '"Press Start 2P", monospace',
+        fontSize: labelFS + 'px',
+        color: tz.color,
+      });
+      lbl.setOrigin(0, 0.5);
+      lbl.setDepth(2);
+
+      // Time (center-right)
+      const timeText = this.add.text(bx + bw * 0.50, rowCy, '00:00', {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: timeFS + 'px',
+        color: tz.color,
+      });
+      timeText.setOrigin(0, 0.5);
+      timeText.setDepth(2);
+
+      // Status (right)
+      const statusText = this.add.text(bx + bw - 6 * S, rowCy, '', {
+        fontFamily: '"Press Start 2P", monospace',
+        fontSize: statusFS + 'px',
+        color: '#10B981',
+      });
+      statusText.setOrigin(1, 0.5);
+      statusText.setDepth(2);
+
+      this._tzClocks.push({ timeText, statusText, tz: tz.tz, openH: tz.openH, openM: tz.openM, closeH: tz.closeH, closeM: tz.closeM });
+    });
+
+    // Update every second
+    this.time.addEvent({
+      delay: 1000,
+      loop: true,
+      callback: () => {
+        const now = new Date();
+        this._clockBlink = !this._clockBlink;
+        const sep = this._clockBlink ? ':' : ' ';
+        this._tzClocks.forEach(tz => {
+          const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz.tz, hour: 'numeric', minute: '2-digit', hour12: false }).formatToParts(now);
+          const localH = parseInt(parts.find(p => p.type === 'hour').value, 10);
+          const localM = parseInt(parts.find(p => p.type === 'minute').value, 10);
+          tz.timeText.setText(String(localH).padStart(2, '0') + sep + String(localM).padStart(2, '0'));
+          const mins = localH * 60 + localM;
+          const open = mins >= tz.openH * 60 + tz.openM && mins < tz.closeH * 60 + tz.closeM;
+          tz.statusText.setText(open ? '●OPEN' : '○CLOSED');
+          tz.statusText.setColor(open ? '#10B981' : '#EF4444');
+        });
+      },
+    });
+
+    console.log('[TradeArena/Phaser] Built CLOCK box with 3 timezones');
+  }
+
+  _buildWorldMap(S, W, H, T) {
+    // World map — top row, right after CLOCK box, same y/h as other screens
+    const mx = 22 * T;
+    const my = 0.1 * T;
+    const mw = 5 * T;
+    const mh = 2.8 * T;
+
+    const g = this.add.graphics();
+    g.setDepth(1);
+
+    // Hanging poles (same as other screens)
+    g.fillStyle(0x3a3a50, 1);
+    g.fillRect(mx + mw * 0.25 - 2, 0, 4, my);
+    g.fillRect(mx + mw * 0.75 - 2, 0, 4, my);
+
+    // Bezel
+    g.fillStyle(0x1a1a30, 1);
+    g.fillRect(mx - 5, my - 5, mw + 10, mh + 10);
+    // Screen
+    g.fillStyle(0x060610, 1);
+    g.fillRect(mx, my, mw, mh);
+    // Glow lines
+    g.lineStyle(2, 0x06B6D4, 0.2);
+    g.lineBetween(mx, my, mx + mw, my);
+    g.lineBetween(mx, my + mh, mx + mw, my + mh);
+    g.lineStyle(1, 0x06B6D4, 0.08);
+    g.lineBetween(mx, my, mx, my + mh);
+    g.lineBetween(mx + mw, my, mx + mw, my + mh);
+    // Scanlines
+    g.fillStyle(0x000000, 0.04);
+    for (let ly = my; ly < my + mh; ly += 3) g.fillRect(mx, ly, mw, 1);
+
+    // "GLOBAL MARKETS" label
+    const labelFS = 3 * S;
+    const label = this.add.text(mx + mw / 2, my + 6, 'GLOBAL MARKETS', {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: labelFS + 'px',
+      color: '#06B6D4',
+      align: 'center',
+    });
+    label.setOrigin(0.5, 0);
+    label.setDepth(2);
+    label.setShadow(0, 0, 'rgba(6,182,212,0.4)', 4);
+
+    // ── Simplified world map using line art ──
+    const mapG = this.add.graphics();
+    mapG.setDepth(2);
+    const mapX = mx + 8;
+    const mapY = my + 6 + labelFS + 10;
+    const mapW = mw - 16;
+    const mapH = mh - labelFS - 30;
+
+    // Ocean grid lines (subtle)
+    mapG.lineStyle(1, 0x0a1a2a, 0.4);
+    for (let i = 0; i <= 4; i++) mapG.lineBetween(mapX, mapY + mapH * i / 4, mapX + mapW, mapY + mapH * i / 4);
+    for (let i = 0; i <= 6; i++) mapG.lineBetween(mapX + mapW * i / 6, mapY, mapX + mapW * i / 6, mapY + mapH);
+
+    // Continents — Mercator projection, traced from reference world map
+    // x: 0.0=180°W → 1.0=180°E,  y: 0.0=~82°N → 1.0=~60°S
+    const drawLand = (pts) => {
+      mapG.beginPath();
+      mapG.moveTo(mapX + pts[0][0] * mapW, mapY + pts[0][1] * mapH);
+      for (let i = 1; i < pts.length; i++) mapG.lineTo(mapX + pts[i][0] * mapW, mapY + pts[i][1] * mapH);
+      mapG.closePath();
+      mapG.fillPath();
+      mapG.strokePath();
+    };
+    mapG.fillStyle(0x1a3a2a, 0.55);
+    mapG.lineStyle(0.8, 0x2a5a3a, 0.5);
+
+    // ══════════════════════════════════════════
+    // NORTH AMERICA
+    // ══════════════════════════════════════════
+    // Alaska → Arctic coast → Labrador → East coast → Florida → Gulf → Mexico → West coast
+    drawLand([
+      // Alaska (west)
+      [0.02,0.17],[0.01,0.14],[0.03,0.11],[0.02,0.08],
+      // Alaska north slope → Canada Arctic
+      [0.05,0.06],[0.08,0.05],[0.11,0.04],[0.14,0.05],[0.17,0.04],
+      [0.20,0.05],[0.23,0.06],[0.25,0.08],
+      // Hudson Bay (indent going in then back out)
+      [0.23,0.10],[0.20,0.12],[0.18,0.14],[0.16,0.13],
+      [0.15,0.15],[0.17,0.16],[0.20,0.15],[0.22,0.13],
+      // Labrador
+      [0.25,0.10],[0.26,0.13],
+      // Newfoundland → Nova Scotia → New England
+      [0.25,0.16],[0.24,0.18],[0.23,0.20],
+      // Mid-Atlantic (NY, Chesapeake)
+      [0.22,0.23],[0.21,0.26],[0.22,0.28],
+      // Carolinas
+      [0.21,0.30],[0.20,0.33],[0.21,0.35],
+      // Florida
+      [0.20,0.37],[0.20,0.40],[0.19,0.42],[0.18,0.44],[0.17,0.42],
+      // Gulf coast (Alabama → Louisiana → Texas)
+      [0.15,0.41],[0.13,0.42],[0.12,0.40],[0.10,0.41],
+      // South Texas → Mexico
+      [0.09,0.42],[0.08,0.40],[0.07,0.42],[0.08,0.44],
+      [0.09,0.46],[0.10,0.48],
+      // Baja California / Mexico west
+      [0.07,0.44],[0.06,0.40],[0.05,0.37],
+      // California → Oregon → Washington
+      [0.04,0.34],[0.03,0.30],[0.04,0.26],[0.03,0.22],
+      // BC → Alaska panhandle
+      [0.03,0.19],[0.02,0.17],
+    ]);
+
+    // Central America
+    drawLand([
+      [0.10,0.48],[0.11,0.47],[0.12,0.48],[0.13,0.50],
+      [0.14,0.51],[0.15,0.52],[0.16,0.53],
+      [0.15,0.54],[0.14,0.52],[0.12,0.51],[0.10,0.50],
+    ]);
+
+    // ══════════════════════════════════════════
+    // SOUTH AMERICA
+    // ══════════════════════════════════════════
+    drawLand([
+      // Colombia → Venezuela → Guianas
+      [0.16,0.53],[0.18,0.51],[0.20,0.50],[0.23,0.49],[0.26,0.50],
+      // Brazil NE bulge (easternmost point ~Natal)
+      [0.28,0.50],[0.30,0.52],[0.29,0.55],
+      // Brazil east coast
+      [0.28,0.58],[0.28,0.62],[0.27,0.65],
+      // South Brazil → Uruguay
+      [0.25,0.68],[0.24,0.70],
+      // Argentina
+      [0.22,0.74],[0.21,0.78],[0.20,0.82],
+      // Tierra del Fuego
+      [0.19,0.86],[0.18,0.88],
+      // Chile west coast (going north)
+      [0.17,0.86],[0.17,0.82],[0.16,0.78],[0.16,0.74],
+      [0.15,0.70],[0.15,0.66],[0.15,0.62],
+      // Peru → Ecuador → Colombia
+      [0.14,0.58],[0.15,0.55],
+    ]);
+
+    // ══════════════════════════════════════════
+    // EUROPE
+    // ══════════════════════════════════════════
+    drawLand([
+      // Portugal
+      [0.39,0.28],[0.39,0.25],[0.40,0.23],
+      // N Spain → Bay of Biscay
+      [0.41,0.22],[0.43,0.21],
+      // France west coast
+      [0.43,0.19],[0.43,0.17],
+      // Brittany → English Channel → Low Countries
+      [0.44,0.16],[0.46,0.15],[0.47,0.14],
+      // Denmark / Jutland
+      [0.48,0.13],[0.48,0.11],
+      // Norway west coast going north
+      [0.47,0.09],[0.47,0.06],[0.48,0.04],
+      // Scandinavia top → Sweden → Finland
+      [0.50,0.03],[0.52,0.04],[0.54,0.06],
+      // Finland east → Russia / Baltic
+      [0.54,0.08],[0.53,0.10],[0.53,0.12],
+      // Baltic states → Poland
+      [0.52,0.14],[0.53,0.16],
+      // Ukraine / Russia west
+      [0.55,0.16],[0.57,0.17],[0.57,0.20],
+      // Crimea / Black Sea
+      [0.56,0.22],[0.54,0.24],
+      // Turkey / Aegean
+      [0.55,0.26],[0.56,0.27],[0.55,0.29],
+      // Greece (Peloponnese)
+      [0.53,0.28],[0.52,0.30],[0.51,0.29],
+      // Italy (boot shape)
+      [0.50,0.27],[0.49,0.29],[0.50,0.31],[0.49,0.30],
+      [0.48,0.28],
+      // Sardinia/Corsica gap → S France
+      [0.47,0.27],[0.45,0.27],
+      // S Spain → Gibraltar
+      [0.43,0.28],[0.41,0.29],[0.40,0.28],
+    ]);
+
+    // ══════════════════════════════════════════
+    // ASIA (main continental mass)
+    // ══════════════════════════════════════════
+    drawLand([
+      // Anatolia east → Caucasus
+      [0.56,0.23],[0.58,0.22],[0.59,0.19],
+      // Central Asia (Kazakhstan etc)
+      [0.60,0.16],[0.62,0.13],[0.64,0.10],[0.66,0.08],
+      // Siberia west → central → east
+      [0.70,0.06],[0.74,0.04],[0.78,0.03],[0.82,0.04],
+      [0.86,0.04],[0.89,0.05],
+      // Kamchatka peninsula
+      [0.91,0.06],[0.93,0.08],[0.93,0.11],[0.91,0.13],
+      // Sea of Okhotsk (indent)
+      [0.89,0.12],[0.87,0.14],
+      // Russian Far East / Vladivostok
+      [0.86,0.17],[0.85,0.19],
+      // Korea peninsula
+      [0.84,0.21],[0.83,0.24],[0.82,0.26],
+      // Shanghai / China coast going south
+      [0.81,0.28],[0.80,0.30],[0.79,0.33],
+      // South China coast / Hong Kong area
+      [0.78,0.35],[0.77,0.37],
+      // Vietnam coast
+      [0.76,0.39],[0.76,0.42],
+      // Indochina / Thailand east coast
+      [0.75,0.44],[0.74,0.42],[0.73,0.40],
+      // Myanmar / Bangladesh
+      [0.71,0.38],[0.70,0.36],
+      // Himalaya foothills / Nepal
+      [0.68,0.34],[0.66,0.32],[0.64,0.32],
+      // Pakistan / Afghanistan
+      [0.62,0.31],[0.61,0.30],
+      // Iran
+      [0.60,0.28],[0.58,0.27],
+      // Iraq/Syria → back to Turkey
+      [0.57,0.26],[0.56,0.25],
+    ]);
+
+    // India (separate — Arabian Sea west, Bay of Bengal east)
+    drawLand([
+      // Pakistan border → north India
+      [0.62,0.33],[0.64,0.34],[0.66,0.34],[0.68,0.36],
+      // Bangladesh / Bay of Bengal
+      [0.69,0.38],[0.70,0.40],
+      // India east coast going south
+      [0.69,0.42],[0.68,0.46],[0.67,0.49],
+      // India tip
+      [0.66,0.52],[0.65,0.51],
+      // India west coast going north
+      [0.64,0.48],[0.63,0.44],[0.62,0.40],
+      [0.61,0.37],[0.61,0.34],
+    ]);
+
+    // Arabian Peninsula (separate — Red Sea west, Persian Gulf north)
+    drawLand([
+      [0.55,0.30],[0.57,0.29],[0.58,0.30],[0.60,0.32],
+      [0.59,0.35],[0.58,0.38],[0.57,0.41],[0.56,0.43],
+      [0.55,0.41],[0.54,0.38],[0.53,0.35],[0.54,0.32],
+    ]);
+
+    // SE Asia / Malay peninsula (separate)
+    drawLand([
+      [0.73,0.42],[0.75,0.44],[0.76,0.42],[0.77,0.39],
+      [0.76,0.42],[0.76,0.46],[0.75,0.49],[0.74,0.52],
+      [0.73,0.54],[0.72,0.52],[0.72,0.48],[0.72,0.44],
+    ]);
+
+    // ══════════════════════════════════════════
+    // AFRICA
+    // ══════════════════════════════════════════
+    drawLand([
+      // Morocco / NW Africa (under Iberia)
+      [0.40,0.30],[0.42,0.29],[0.44,0.29],[0.46,0.30],
+      // Tunisia / Libya
+      [0.48,0.30],[0.50,0.30],[0.52,0.29],
+      // Egypt / Nile
+      [0.54,0.30],[0.55,0.32],
+      // Sinai → Red Sea coast
+      [0.56,0.34],[0.55,0.38],
+      // Horn of Africa (Djibouti → Somalia point)
+      [0.56,0.40],[0.58,0.42],[0.59,0.44],[0.58,0.46],
+      // East Africa (Kenya → Tanzania)
+      [0.56,0.48],[0.55,0.52],
+      // Mozambique
+      [0.55,0.56],[0.54,0.60],[0.53,0.64],
+      // South Africa east coast
+      [0.52,0.67],[0.51,0.70],
+      // Cape of Good Hope
+      [0.49,0.73],[0.47,0.73],
+      // South Africa west
+      [0.46,0.71],[0.45,0.68],
+      // Namibia → Angola
+      [0.44,0.64],[0.43,0.60],[0.42,0.55],
+      // Congo / Cameroon / Gulf of Guinea
+      [0.43,0.52],[0.44,0.49],[0.45,0.47],[0.44,0.45],
+      // West Africa bulge (Nigeria → Ghana → Senegal)
+      [0.42,0.44],[0.40,0.42],[0.38,0.41],[0.36,0.39],
+      // Mauritania / Western Sahara
+      [0.37,0.37],[0.38,0.34],[0.39,0.32],
+    ]);
+
+    // Madagascar
+    drawLand([
+      [0.56,0.60],[0.57,0.58],[0.58,0.60],[0.58,0.64],
+      [0.57,0.68],[0.56,0.66],[0.55,0.62],
+    ]);
+
+    // ══════════════════════════════════════════
+    // INDONESIA
+    // ══════════════════════════════════════════
+    // Sumatra
+    drawLand([
+      [0.74,0.52],[0.75,0.50],[0.76,0.52],[0.77,0.55],
+      [0.76,0.57],[0.74,0.55],
+    ]);
+    // Borneo
+    drawLand([
+      [0.78,0.48],[0.80,0.46],[0.82,0.48],[0.81,0.52],
+      [0.79,0.53],[0.77,0.51],
+    ]);
+    // Sulawesi
+    drawLand([
+      [0.83,0.50],[0.84,0.49],[0.85,0.51],[0.84,0.54],[0.83,0.52],
+    ]);
+    // Java
+    drawLand([
+      [0.77,0.57],[0.79,0.56],[0.81,0.57],[0.83,0.56],
+      [0.82,0.58],[0.79,0.58],[0.77,0.58],
+    ]);
+    // Papua / New Guinea
+    drawLand([
+      [0.87,0.50],[0.89,0.48],[0.91,0.49],[0.93,0.51],
+      [0.91,0.53],[0.89,0.54],[0.87,0.52],
+    ]);
+
+    // ══════════════════════════════════════════
+    // JAPAN
+    // ══════════════════════════════════════════
+    // Hokkaido
+    drawLand([[0.87,0.14],[0.89,0.13],[0.90,0.15],[0.89,0.17],[0.87,0.16]]);
+    // Honshu (main island)
+    drawLand([
+      [0.86,0.18],[0.88,0.17],[0.90,0.19],[0.89,0.22],
+      [0.88,0.24],[0.86,0.23],[0.85,0.21],[0.85,0.19],
+    ]);
+    // Kyushu
+    drawLand([[0.85,0.24],[0.86,0.23],[0.87,0.25],[0.86,0.26],[0.85,0.25]]);
+
+    // ══════════════════════════════════════════
+    // AUSTRALIA
+    // ══════════════════════════════════════════
+    drawLand([
+      // Arnhem Land / top
+      [0.81,0.58],[0.83,0.56],[0.86,0.55],[0.88,0.56],
+      // Gulf of Carpentaria (indent)
+      [0.89,0.57],[0.88,0.59],[0.89,0.58],
+      // Cape York
+      [0.90,0.56],[0.91,0.58],
+      // QLD east coast
+      [0.92,0.61],[0.93,0.64],[0.92,0.67],
+      // NSW / VIC
+      [0.91,0.70],[0.89,0.72],
+      // Bass Strait / south coast
+      [0.87,0.73],[0.84,0.74],[0.82,0.73],
+      // Great Australian Bight
+      [0.80,0.72],[0.79,0.70],
+      // WA south → west coast going north
+      [0.78,0.68],[0.77,0.64],[0.78,0.60],[0.80,0.58],
+    ]);
+    // Tasmania
+    drawLand([[0.90,0.74],[0.91,0.73],[0.92,0.75],[0.91,0.76],[0.90,0.75]]);
+
+    // ══════════════════════════════════════════
+    // NEW ZEALAND
+    // ══════════════════════════════════════════
+    drawLand([[0.95,0.68],[0.96,0.67],[0.96,0.71],[0.95,0.72],[0.94,0.70]]);
+    drawLand([[0.95,0.73],[0.96,0.72],[0.96,0.76],[0.95,0.77],[0.94,0.75]]);
+
+    // ══════════════════════════════════════════
+    // ISLANDS
+    // ══════════════════════════════════════════
+    // Greenland
+    drawLand([
+      [0.31,0.01],[0.34,0.00],[0.37,0.01],[0.39,0.04],
+      [0.38,0.07],[0.36,0.10],[0.34,0.12],
+      [0.32,0.11],[0.30,0.08],[0.29,0.05],[0.30,0.02],
+    ]);
+    // Great Britain
+    drawLand([
+      [0.43,0.11],[0.44,0.10],[0.45,0.12],[0.45,0.15],
+      [0.44,0.18],[0.43,0.19],[0.42,0.17],[0.42,0.14],
+    ]);
+    // Ireland
+    drawLand([
+      [0.41,0.13],[0.42,0.12],[0.42,0.15],[0.41,0.17],[0.40,0.15],
+    ]);
+    // Iceland
+    drawLand([
+      [0.38,0.06],[0.40,0.05],[0.41,0.06],[0.40,0.08],[0.38,0.07],
+    ]);
+    // Sri Lanka
+    drawLand([
+      [0.66,0.53],[0.67,0.52],[0.68,0.54],[0.67,0.56],[0.66,0.55],
+    ]);
+    // Taiwan
+    drawLand([[0.82,0.28],[0.83,0.27],[0.83,0.30],[0.82,0.31]]);
+    // Philippines
+    drawLand([
+      [0.81,0.36],[0.82,0.34],[0.83,0.36],[0.82,0.40],[0.81,0.42],[0.80,0.39],
+    ]);
+
+    // ── Blinking market dots ──
+    const markets = [
+      { x: 0.19, y: 0.28, label: 'NYC', color: 0x10B981 },
+      { x: 0.43, y: 0.16, label: 'LDN', color: 0x06B6D4 },
+      { x: 0.48, y: 0.15, label: 'FRA', color: 0x06B6D4 },
+      { x: 0.88, y: 0.18, label: 'TYO', color: 0xF59E0B },
+      { x: 0.79, y: 0.32, label: 'HKG', color: 0xEF4444 },
+      { x: 0.88, y: 0.66, label: 'SYD', color: 0x8B5CF6 },
+      { x: 0.24, y: 0.60, label: 'SAO', color: 0x10B981 },
+    ];
+
+    markets.forEach(mkt => {
+      const dx = mapX + mapW * mkt.x;
+      const dy = mapY + mapH * mkt.y;
+
+      // Glow ring
+      const ring = this.add.circle(dx, dy, 6, mkt.color, 0.15);
+      ring.setDepth(3);
+      this.tweens.add({
+        targets: ring,
+        scaleX: 2.5, scaleY: 2.5,
+        alpha: 0,
+        duration: 2000,
+        repeat: -1,
+        ease: 'Sine.easeOut',
+      });
+
+      // Dot
+      const dot = this.add.circle(dx, dy, 2.5, mkt.color, 1);
+      dot.setDepth(4);
+      this.tweens.add({
+        targets: dot,
+        alpha: 0.4,
+        duration: 800 + Math.random() * 400,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+
+      // City label
+      const cityText = this.add.text(dx + 5, dy - 4, mkt.label, {
+        fontFamily: '"JetBrains Mono", monospace',
+        fontSize: (2.5 * S) + 'px',
+        color: '#' + mkt.color.toString(16).padStart(6, '0'),
+      });
+      cityText.setDepth(4);
+      cityText.setAlpha(0.7);
+    });
+
+    console.log('[TradeArena/Phaser] Built world map display');
+  }
+
+  _buildBellPodium(S, W, H, T) {
+    // NYSE bell podium — elevated marble balcony, center-back
+    // Center at tile (18, 5), ~6 tiles wide
+    const cx = 18 * T;       // center x (center-back of room)
+    const baseY = 3.0 * T;   // floor level (pushed up closer to top wall)
+    const pw = 6 * T;        // podium width
+    const wallH = 1.4 * T;   // front wall height (compact base below balcony)
+    const ledgeOH = 0.3 * T; // ledge overhang on each side
+    const balH = 1.2 * T;    // balustrade height
+    const railW = 0.12 * T;  // rail/baluster thickness
+    const depth = 10;         // base depth layer
+
+    const g = this.add.graphics();
+
+    // ── 0. ELEVATED PLATFORM / STEPS (makes it look raised) ──
+    const stepCount = 3;
+    const stepH = T * 0.2;
+    const stepGrowth = T * 0.35; // each step wider than the one above
+    g.setDepth(baseY / T + wallH / T + 0.5);
+    for (let si = 0; si < stepCount; si++) {
+      const sw = pw + si * stepGrowth * 2;
+      const sx = cx - sw / 2;
+      const sy = baseY + wallH + si * stepH;
+      // Step top face
+      g.fillStyle(si === 0 ? 0xD8D0C0 : 0xC8C0B0, 1);
+      g.fillRect(sx, sy, sw, stepH);
+      // Step front face (darker)
+      g.fillStyle(0xB0A898, 0.7);
+      g.fillRect(sx, sy + stepH - 2, sw, 2);
+      // Step highlight
+      g.lineStyle(0.5, 0xffffff, 0.15);
+      g.lineBetween(sx + 2, sy, sx + sw - 2, sy);
+    }
+
+    // ── 1. FLOOR SHADOW (ground level, below steps) ──
+    g.setDepth(baseY / T - 0.1);
+    g.fillStyle(0x000000, 0.3);
+    g.fillEllipse(cx, baseY + wallH + stepCount * stepH + 6, pw * 1.1, T * 0.6);
+
+    // ── 2. FRONT WALL (marble face — the tall vertical part) ──
+    const wallTop = baseY;
+    const wallBot = baseY + wallH;
+    const wallLeft = cx - pw / 2;
+    const wallRight = cx + pw / 2;
+
+    // Main marble surface — warm white/cream
+    g.setDepth(depth);
+    g.fillStyle(0xE8E0D0, 1);
+    g.fillRect(wallLeft, wallTop, pw, wallH);
+
+    // Marble veining (subtle diagonal lines)
+    g.lineStyle(1, 0xD0C8B8, 0.3);
+    for (let i = 0; i < 6; i++) {
+      const vx = wallLeft + pw * 0.1 + i * pw * 0.15;
+      g.lineBetween(vx, wallTop + 10, vx + pw * 0.08, wallBot - 5);
+    }
+
+    // Horizontal trim lines (architectural detail)
+    g.lineStyle(2, 0xC8C0B0, 0.5);
+    g.lineBetween(wallLeft, wallTop + wallH * 0.15, wallRight, wallTop + wallH * 0.15);
+    g.lineBetween(wallLeft, wallBot - 4, wallRight, wallBot - 4);
+
+    // ── 2b. BALCONY SHADOW on front wall ──
+    // The ledge/balcony projects outward and casts a shadow downward onto the wall.
+    // Soft gradient shadow: darkest right under the ledge, fading to nothing.
+    g.setDepth(depth + 0.5);
+    const shadowDepthPx = wallH * 0.6; // how far down the shadow reaches
+    const shadowSteps = 10;
+    for (let si = 0; si < shadowSteps; si++) {
+      const frac = si / shadowSteps;
+      const alpha = 0.35 * (1 - frac) * (1 - frac); // quadratic falloff
+      g.fillStyle(0x000000, alpha);
+      const bandH = shadowDepthPx / shadowSteps;
+      g.fillRect(wallLeft, wallTop + si * bandH, pw, bandH);
+    }
+
+    // "TRADEARENA" text on the front wall (placed in the lighter lower half)
+    const taFS = 4.5 * S;
+    const taText = this.add.text(cx, wallTop + wallH * 0.7, 'TRADEARENA', {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: taFS + 'px',
+      color: '#8A8070',
+      align: 'center',
+      letterSpacing: 4,
+    });
+    taText.setOrigin(0.5, 0.5);
+    taText.setDepth(depth + 1);
+
+    // Side shading (left darker, right lighter — 3D illusion)
+    g.fillStyle(0x000000, 0.08);
+    g.fillRect(wallLeft, wallTop, pw * 0.05, wallH);
+    g.fillStyle(0xffffff, 0.06);
+    g.fillRect(wallRight - pw * 0.05, wallTop, pw * 0.05, wallH);
+
+    // ── 3. CORBELS / BRACKETS (under the ledge) ──
+    const corbelCount = 4;
+    const corbelW = T * 0.35;
+    const corbelH = T * 0.5;
+    const corbelSpacing = pw / (corbelCount + 1);
+
+    g.setDepth(depth + 2);
+    for (let i = 1; i <= corbelCount; i++) {
+      const cbx = wallLeft + i * corbelSpacing;
+      const cby = wallTop - 2;
+
+      // Corbel body (trapezoid shape)
+      g.fillStyle(0xD8D0C0, 1);
+      g.beginPath();
+      g.moveTo(cbx - corbelW * 0.3, cby);
+      g.lineTo(cbx + corbelW * 0.3, cby);
+      g.lineTo(cbx + corbelW * 0.5, cby - corbelH);
+      g.lineTo(cbx - corbelW * 0.5, cby - corbelH);
+      g.closePath();
+      g.fillPath();
+
+      // Corbel shadow
+      g.lineStyle(1, 0xB0A898, 0.5);
+      g.strokePath();
+    }
+
+    // ── 4. LEDGE (overhanging shelf) ──
+    const ledgeTop = wallTop - corbelH - 4;
+    const ledgeH = 8;
+    const ledgeLeft = wallLeft - ledgeOH;
+    const ledgeW = pw + ledgeOH * 2;
+
+    g.setDepth(depth + 3);
+    // Ledge underside (dark — the projecting slab's bottom face, visible because balcony juts out)
+    const undersideH = 6;
+    g.fillStyle(0x8A8278, 1);
+    g.fillRect(ledgeLeft, ledgeTop + ledgeH, ledgeW, undersideH);
+    // Underside shadow gradient (darkens toward the back)
+    g.fillStyle(0x000000, 0.25);
+    g.fillRect(ledgeLeft, ledgeTop + ledgeH, ledgeW, undersideH * 0.5);
+    g.fillStyle(0x000000, 0.12);
+    g.fillRect(ledgeLeft, ledgeTop + ledgeH + undersideH * 0.5, ledgeW, undersideH * 0.5);
+    // Ledge top surface (lighter — catches light from above)
+    g.fillStyle(0xF0E8D8, 1);
+    g.fillRect(ledgeLeft, ledgeTop, ledgeW, ledgeH);
+    // Ledge front edge (crisp shadow line where slab meets underside)
+    g.lineStyle(2, 0x9A9288, 0.8);
+    g.lineBetween(ledgeLeft, ledgeTop + ledgeH, ledgeLeft + ledgeW, ledgeTop + ledgeH);
+    // Ledge highlight top
+    g.lineStyle(1, 0xffffff, 0.35);
+    g.lineBetween(ledgeLeft + 2, ledgeTop, ledgeLeft + ledgeW - 2, ledgeTop);
+
+    // ── 5. BALUSTRADE (row of small columns + top rail) ──
+    const balBase = ledgeTop;
+    const balTop = balBase - balH;
+    const balCount = 9;
+    const balSpacing = (ledgeW - railW * 2) / (balCount + 1);
+
+    g.setDepth(depth + 4);
+
+    // Back panel (behind balusters — slightly darker)
+    g.fillStyle(0xD8D0C0, 0.4);
+    g.fillRect(ledgeLeft + railW, balTop + railW, ledgeW - railW * 2, balH - railW * 2);
+
+    // Bottom rail
+    g.fillStyle(0xE0D8C8, 1);
+    g.fillRect(ledgeLeft, balBase - railW, ledgeW, railW);
+
+    // Top rail
+    g.fillStyle(0xF0E8D8, 1);
+    g.fillRect(ledgeLeft, balTop, ledgeW, railW * 1.2);
+    // Top rail highlight
+    g.lineStyle(1, 0xffffff, 0.25);
+    g.lineBetween(ledgeLeft + 2, balTop, ledgeLeft + ledgeW - 2, balTop);
+
+    // Individual balusters
+    g.fillStyle(0xE8E0D0, 1);
+    for (let i = 1; i <= balCount; i++) {
+      const bx = ledgeLeft + railW + i * balSpacing;
+      const bw = railW * 0.8;
+      // Column shaft
+      g.fillRect(bx - bw / 2, balTop + railW * 1.2, bw, balH - railW * 2.2);
+      // Column base (wider)
+      g.fillRect(bx - bw * 0.7, balBase - railW - 3, bw * 1.4, 3);
+      // Column capital (wider top)
+      g.fillRect(bx - bw * 0.7, balTop + railW * 1.2, bw * 1.4, 3);
+    }
+
+    // Side pillars (thicker end columns)
+    const pillarW = railW * 2;
+    g.fillStyle(0xE0D8C8, 1);
+    g.fillRect(ledgeLeft, balTop, pillarW, balH);
+    g.fillRect(ledgeLeft + ledgeW - pillarW, balTop, pillarW, balH);
+    // Pillar highlight
+    g.fillStyle(0xffffff, 0.1);
+    g.fillRect(ledgeLeft + 1, balTop, pillarW * 0.4, balH);
+    g.fillRect(ledgeLeft + ledgeW - pillarW + 1, balTop, pillarW * 0.4, balH);
+
+    // ── 6. GOLDEN BELL (center front) ──
+    const bellCx = cx;
+    const bellCy = ledgeTop + ledgeH / 2 + 2;
+    const bellR = T * 0.4;
+
+    g.setDepth(depth + 5);
+
+    // Bell bracket/arm (small vertical bar)
+    g.fillStyle(0x8B7530, 1);
+    g.fillRect(bellCx - 2, bellCy - bellR - T * 0.3, 4, T * 0.3);
+
+    // Bell globe (outer ring — darker gold)
+    g.fillStyle(0x9B8530, 1);
+    g.fillCircle(bellCx, bellCy, bellR);
+
+    // Bell globe (inner — brighter gold)
+    g.fillStyle(0xD4AF37, 1);
+    g.fillCircle(bellCx, bellCy, bellR * 0.85);
+
+    // Bell highlight (specular)
+    g.fillStyle(0xFFD700, 0.6);
+    g.fillCircle(bellCx - bellR * 0.2, bellCy - bellR * 0.25, bellR * 0.35);
+
+    // Bell shine (small white dot)
+    g.fillStyle(0xffffff, 0.5);
+    g.fillCircle(bellCx - bellR * 0.25, bellCy - bellR * 0.3, bellR * 0.15);
+
+    // Globe grid lines (latitude/longitude)
+    g.lineStyle(0.8, 0x8B7530, 0.4);
+    g.lineBetween(bellCx - bellR * 0.7, bellCy, bellCx + bellR * 0.7, bellCy);
+    g.lineBetween(bellCx, bellCy - bellR * 0.7, bellCx, bellCy + bellR * 0.7);
+    // Curved latitude lines (approximated)
+    g.lineBetween(bellCx - bellR * 0.6, bellCy - bellR * 0.35, bellCx + bellR * 0.6, bellCy - bellR * 0.35);
+    g.lineBetween(bellCx - bellR * 0.6, bellCy + bellR * 0.35, bellCx + bellR * 0.6, bellCy + bellR * 0.35);
+
+    // Bell glow pulse
+    const bellGlow = this.add.circle(bellCx, bellCy, bellR * 1.3, 0xFFD700, 0.08);
+    bellGlow.setDepth(depth + 4.5);
+    this.tweens.add({
+      targets: bellGlow,
+      scaleX: 1.6, scaleY: 1.6,
+      alpha: 0,
+      duration: 2500,
+      repeat: -1,
+      ease: 'Sine.easeOut',
+    });
+
+    // ── 7. PLATFORM TOP SURFACE (visible behind balustrade — isometric) ──
+    g.setDepth(depth + 3.5);
+    g.fillStyle(0xE0D8C8, 0.6);
+    g.fillRect(ledgeLeft + pillarW, balTop - T * 0.6, ledgeW - pillarW * 2, T * 0.6);
+
+    // Gold base trim at floor level
+    g.setDepth(depth + 0.5);
+    g.fillStyle(0xC0A840, 0.7);
+    g.fillRect(wallLeft - 3, wallBot - 6, pw + 6, 8);
+    g.lineStyle(1, 0xD4AF37, 0.5);
+    g.lineBetween(wallLeft - 3, wallBot + 2, wallRight + 3, wallBot + 2);
+
+    console.log('[TradeArena/Phaser] Built bell podium');
+  }
+
+  _buildCoffeeStation(S, W, H, T) {
+    // Coffee station — tile (33, 4), 3x4 tiles
+    const ox = 33 * T;
+    const oy = 4 * T;
+    const cw = 3 * T;
+    const ch = 4 * T;
+
+    const g = this.add.graphics();
+    g.setDepth(4);
+
+    // ── Backsplash (wall behind counter) ──
+    g.fillStyle(0x222233, 1);
+    g.fillRect(ox, oy, cw, ch * 0.3);
+    // Tile lines on backsplash
+    g.lineStyle(0.5, 0x333348, 0.4);
+    for (let tx = ox; tx <= ox + cw; tx += T * 0.4) g.lineBetween(tx, oy, tx, oy + ch * 0.3);
+    for (let ty = oy; ty <= oy + ch * 0.3; ty += T * 0.3) g.lineBetween(ox, ty, ox + cw, ty);
+
+    // ── Counter top (marble/granite surface) ──
+    const ctY = oy + ch * 0.3;
+    const ctH = T * 0.35;
+    g.fillStyle(0x4a4a5a, 1);
+    g.fillRect(ox - 2, ctY, cw + 4, ctH);
+    // Granite speckle effect
+    g.fillStyle(0x5a5a6a, 0.5);
+    for (let sx = 0; sx < 12; sx++) {
+      g.fillRect(ox + sx * (cw / 12) + 2, ctY + 2, 2, 2);
+    }
+    // Front edge
+    g.fillStyle(0x3a3a4a, 1);
+    g.fillRect(ox - 2, ctY + ctH - 3, cw + 4, 3);
+    // Highlight
+    g.lineStyle(1, 0x6a6a7a, 0.3);
+    g.lineBetween(ox, ctY, ox + cw, ctY);
+
+    // ── Counter cabinet (below surface, compact) ──
+    const cabH = (ch - ch * 0.3 - ctH) * 0.5;
+    g.fillStyle(0x5a4530, 1);
+    g.fillRect(ox, ctY + ctH, cw, cabH);
+    // Cabinet doors (2 doors)
+    const doorW = cw * 0.45;
+    const doorH = cabH - 4;
+    const doorY = ctY + ctH + 2;
+    g.lineStyle(1, 0x6b5540, 0.5);
+    g.strokeRect(ox + 4, doorY, doorW - 4, doorH);
+    g.strokeRect(ox + cw * 0.5, doorY, doorW - 4, doorH);
+    // Door handles
+    g.fillStyle(0x8a7660, 1);
+    g.fillCircle(ox + doorW - 2, doorY + doorH / 2, 2);
+    g.fillCircle(ox + cw * 0.5 + 4, doorY + doorH / 2, 2);
+
+    // ── Espresso machine (proper silhouette) ──
+    const emX = ox + T * 0.2;
+    const emW = T * 0.9;
+    const emH = T * 1.0;
+    const emY = ctY - emH;
+    // Machine body (stainless steel)
+    g.fillStyle(0x2a2a38, 1);
+    g.fillRect(emX, emY, emW, emH);
+    // Top hopper
+    g.fillStyle(0x1a1a25, 1);
+    g.fillRect(emX + emW * 0.2, emY - T * 0.2, emW * 0.6, T * 0.22);
+    // Rounded top of hopper
+    g.fillCircle(emX + emW * 0.5, emY - T * 0.2, emW * 0.3);
+    // Chrome trim
+    g.lineStyle(1, 0x555570, 0.6);
+    g.lineBetween(emX, emY + emH * 0.35, emX + emW, emY + emH * 0.35);
+    g.lineBetween(emX, emY + emH * 0.7, emX + emW, emY + emH * 0.7);
+    // Portafilter / spout area
+    g.fillStyle(0x444458, 1);
+    g.fillRect(emX + emW * 0.2, emY + emH * 0.55, emW * 0.6, emH * 0.15);
+    // Drip tray
+    g.fillStyle(0x333340, 1);
+    g.fillRect(emX + emW * 0.1, emY + emH - 4, emW * 0.8, 4);
+    // Green power LED
+    g.fillStyle(0x10B981, 1);
+    g.fillCircle(emX + emW * 0.8, emY + emH * 0.2, 2);
+    // Red ready LED
+    g.fillStyle(0xEF4444, 0.6);
+    g.fillCircle(emX + emW * 0.8, emY + emH * 0.3, 1.5);
+
+    // ── Coffee cups on counter (3 cups, slightly different heights) ──
+    const cupBaseY = ctY;
+    [0, 1, 2].forEach(i => {
+      const cupX = ox + cw * 0.55 + i * T * 0.38;
+      const cupW = T * 0.18;
+      const cupH = T * 0.15 + i * 1.5;
+      // Saucer
+      g.fillStyle(0xE8E0D0, 0.6);
+      g.fillEllipse(cupX, cupBaseY - 1, cupW * 1.4, 3);
+      // Cup body (cylindrical)
+      g.fillStyle(0xD0C8B8, 1);
+      g.fillRect(cupX - cupW / 2, cupBaseY - cupH, cupW, cupH);
+      // Cup rim
+      g.fillStyle(0xE8E0D0, 1);
+      g.fillRect(cupX - cupW / 2 - 1, cupBaseY - cupH, cupW + 2, 2);
+      // Cup handle (tiny arc on the right)
+      g.lineStyle(1.5, 0xC0B8A8, 0.7);
+      g.beginPath();
+      g.arc(cupX + cupW / 2 + 2, cupBaseY - cupH * 0.5, 3, -1.2, 1.2);
+      g.strokePath();
+      // Coffee liquid (dark brown inside cup)
+      g.fillStyle(0x3a2010, 0.8);
+      g.fillRect(cupX - cupW / 2 + 1, cupBaseY - cupH + 2, cupW - 2, 3);
+    });
+
+    // ── Napkin holder (right side of counter) ──
+    const nhX = ox + cw * 0.85;
+    const nhW = T * 0.2;
+    const nhH = T * 0.25;
+    g.fillStyle(0x444458, 1);
+    g.fillRect(nhX - nhW / 2, ctY - nhH, nhW, nhH);
+    // Napkins peeking out top
+    g.fillStyle(0xE8E0D0, 0.7);
+    g.fillRect(nhX - nhW / 2 + 2, ctY - nhH - 3, nhW - 4, 4);
+
+    // ── Steam wisps from machine ──
+    for (let i = 0; i < 3; i++) {
+      const steam = this.add.text(emX + emW * 0.3 + i * 6, emY - T * 0.15, '~', {
+        fontSize: (4 * S) + 'px',
+        color: '#aaaacc',
+      });
+      steam.setDepth(5);
+      steam.setAlpha(0);
+      this.tweens.add({
+        targets: steam,
+        y: emY - T * 0.5 - i * 5,
+        alpha: { from: 0.2, to: 0 },
+        duration: 2500 + i * 400,
+        delay: i * 800,
+        repeat: -1,
+        ease: 'Sine.easeOut',
+      });
+    }
+
+    console.log('[TradeArena/Phaser] Built coffee station');
+  }
+
+  _buildAnalystBooth(S, W, H, T) {
+    // Analyst booth — tile (33, 9), 3x3 tiles
+    const ox = 33 * T;
+    const oy = 9 * T;
+    const bw = 3 * T;
+    const bh = 3 * T;
+
+    const g = this.add.graphics();
+    g.setDepth(9);
+
+    // Three-sided partition walls
+    g.fillStyle(0x28283a, 1);
+    // Back wall
+    g.fillRect(ox, oy, bw, 4);
+    // Left wall
+    g.fillRect(ox, oy, 4, bh);
+    // Right wall
+    g.fillRect(ox + bw - 4, oy, 4, bh);
+
+    // Floor inside
+    g.fillStyle(0x1e1e2e, 1);
+    g.fillRect(ox + 4, oy + 4, bw - 8, bh - 4);
+
+    // Small desk
+    const dw = bw * 0.6;
+    const dh = T * 0.5;
+    const dx = ox + (bw - dw) / 2;
+    const dy = oy + bh * 0.25;
+    g.fillStyle(0x5a4a3a, 1);
+    g.fillRect(dx, dy, dw, dh);
+
+    // Single monitor on desk
+    const monW = dw * 0.5;
+    const monH = dh * 0.7;
+    g.fillStyle(0x111118, 1);
+    g.fillRect(dx + (dw - monW) / 2, dy - monH + 2, monW, monH);
+    // Screen glow
+    g.fillStyle(0x2563EB, 0.3);
+    g.fillRect(dx + (dw - monW) / 2 + 2, dy - monH + 4, monW - 4, monH - 4);
+
+    // Overhead light (small glowing rectangle)
+    const lightW = bw * 0.4;
+    g.fillStyle(0xFFFFFF, 0.08);
+    g.fillRect(ox + (bw - lightW) / 2, oy + 6, lightW, 3);
+
+    // Label
+    const label = this.add.text(ox + bw / 2, oy + bh + 6, 'ANALYST', {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: (3 * S) + 'px',
+      color: '#3B82F6',
+      align: 'center',
+    });
+    label.setOrigin(0.5, 0);
+    label.setDepth(10);
+    label.setAlpha(0.6);
+
+    console.log('[TradeArena/Phaser] Built analyst booth');
+  }
+
+  _buildRiskDesk(S, W, H, T) {
+    // Risk management desk — tile (32, 13), 4x5 tiles
+    const ox = 32 * T;
+    const oy = 13 * T;
+    const rw = 4 * T;
+    const rh = 5 * T;
+
+    const g = this.add.graphics();
+    g.setDepth(13);
+
+    // L-shaped desk: horizontal part
+    const deskH = T * 0.7;
+    g.fillStyle(0x5a4a3a, 1);
+    g.fillRect(ox, oy + T * 0.5, rw * 0.85, deskH);
+    // L-shaped desk: vertical part
+    g.fillRect(ox, oy + T * 0.5, T * 0.7, rh * 0.6);
+    // Desk edge highlight
+    g.fillStyle(0x6b5a4a, 1);
+    g.fillRect(ox, oy + T * 0.5, rw * 0.85, 2);
+
+    // 3 monitors across top of desk
+    for (let i = 0; i < 3; i++) {
+      const monX = ox + T * 0.3 + i * T * 1.0;
+      const monY = oy + T * 0.1;
+      const monW = T * 0.7;
+      const monH = T * 0.4;
+      g.fillStyle(0x111118, 1);
+      g.fillRect(monX, monY, monW, monH);
+      // Screen content glow (alternating colors)
+      const colors = [0x10B981, 0xEF4444, 0x2563EB];
+      g.fillStyle(colors[i], 0.25);
+      g.fillRect(monX + 2, monY + 2, monW - 4, monH - 4);
+    }
+
+    // "RISK MGMT" label on desk
+    const riskLabel = this.add.text(ox + rw * 0.45, oy + T * 1.4, 'RISK MGMT', {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: (3 * S) + 'px',
+      color: '#A855F7',
+      align: 'center',
+    });
+    riskLabel.setOrigin(0.5, 0);
+    riskLabel.setDepth(14);
+    riskLabel.setAlpha(0.7);
+
+    // Blinking alert indicators
+    for (let i = 0; i < 2; i++) {
+      const alertDot = this.add.circle(ox + rw * 0.7 + i * T * 0.4, oy + T * 1.8, 3, 0xEF4444, 0.8);
+      alertDot.setDepth(14);
+      this.tweens.add({
+        targets: alertDot,
+        alpha: 0.15,
+        duration: 800 + i * 300,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    }
+
+    // Chair
+    const chairX = ox + T * 1.2;
+    const chairY = oy + rh * 0.55;
+    g.fillStyle(0x28283a, 1);
+    g.fillCircle(chairX, chairY, T * 0.3);
+    g.fillStyle(0x333344, 1);
+    g.fillCircle(chairX, chairY, T * 0.2);
+
+    console.log('[TradeArena/Phaser] Built risk desk');
+  }
+
+  _buildLoungeArea(S, W, H, T) {
+    // Lounge area — tile (15, 5), 6x3 tiles (between bell and desk clusters)
+    const ox = 15 * T;
+    const oy = 5 * T;
+    const lw = 6 * T;
+    const lh = 3 * T;
+
+    const g = this.add.graphics();
+    g.setDepth(5);
+
+    // Subtle rug (slightly lighter floor area)
+    g.fillStyle(0x252535, 0.6);
+    g.fillRect(ox + T * 0.3, oy + T * 0.3, lw - T * 0.6, lh - T * 0.6);
+    g.lineStyle(1, 0x333348, 0.4);
+    g.strokeRect(ox + T * 0.3, oy + T * 0.3, lw - T * 0.6, lh - T * 0.6);
+    // Rug inner border
+    g.lineStyle(1, 0x3a3a50, 0.3);
+    g.strokeRect(ox + T * 0.5, oy + T * 0.5, lw - T, lh - T);
+
+    // Low coffee table (center)
+    const tw = T * 1.8;
+    const th = T * 0.8;
+    const tx = ox + (lw - tw) / 2;
+    const ty = oy + (lh - th) / 2;
+    g.fillStyle(0x4a3a28, 1);
+    g.fillRect(tx, ty, tw, th);
+    g.fillStyle(0x5a4a38, 1);
+    g.fillRect(tx, ty, tw, 2);
+    // Table legs (dark dots at corners)
+    g.fillStyle(0x2a2018, 1);
+    g.fillCircle(tx + 4, ty + th - 2, 2);
+    g.fillCircle(tx + tw - 4, ty + th - 2, 2);
+
+    // Armchairs (4 chairs around table, reusing desk chair pattern)
+    const chairPositions = [
+      { x: tx - T * 0.5, y: ty + th / 2 },        // left
+      { x: tx + tw + T * 0.5, y: ty + th / 2 },    // right
+      { x: tx + tw / 2, y: ty - T * 0.4 },          // top
+      { x: tx + tw / 2, y: ty + th + T * 0.4 },     // bottom
+    ];
+    chairPositions.forEach(cp => {
+      // Chair base
+      g.fillStyle(0x28283a, 1);
+      g.fillCircle(cp.x, cp.y, T * 0.3);
+      // Chair seat
+      g.fillStyle(0x333344, 1);
+      g.fillCircle(cp.x, cp.y, T * 0.2);
+      // Highlight
+      g.fillStyle(0x3e3e55, 0.5);
+      g.fillCircle(cp.x - 1, cp.y - 1, T * 0.1);
+    });
+
+    console.log('[TradeArena/Phaser] Built lounge area');
   }
 
   _buildDesk(T, tileX, tileY) {
@@ -922,20 +2151,21 @@ class GameScene extends Phaser.Scene {
       shadow.setDepth(ag.py - 0.01);
 
       // Selection ring (below sprite, visible when selected)
-      const selRing = this.add.ellipse(px, py + DH * 0.48, 50, 20, 0xffffff, 0.3);
+      const selRing = this.add.ellipse(px, py + DH * 0.48, 40, 16, 0xffffff, 0.3);
       selRing.setDepth(ag.py - 0.005);
       selRing.setVisible(false);
 
       // Focus ring (dashed style approximated with stroke)
-      const focusRing = this.add.ellipse(px, py + DH * 0.48, 50, 20);
+      const focusRing = this.add.ellipse(px, py + DH * 0.48, 40, 16);
       focusRing.setStrokeStyle(2, 0x06B6D4, 0.6);
       focusRing.setFillStyle(0x000000, 0);
       focusRing.setDepth(ag.py - 0.004);
       focusRing.setVisible(false);
 
-      // Character sprite
+      // Character sprite (uses agent's assigned sheet)
+      const charKey = 'char' + ag.sheetIdx;
       const idleFrame = (ag.bRow * 4 + D2R[0]) * FPR + (ag.bCol * 3 + 1);
-      const sprite = this.add.sprite(px, py, 'char3', idleFrame);
+      const sprite = this.add.sprite(px, py, charKey, idleFrame);
       sprite.setScale(CHR_S);
       sprite.setDepth(ag.py);
 
@@ -1204,6 +2434,7 @@ class GameScene extends Phaser.Scene {
         }
       });
     });
+
   }
 }
 
@@ -1220,8 +2451,8 @@ function createPhaserGame() {
   phaserGame = new Phaser.Game({
     type: Phaser.AUTO,
     parent: 'phaser-container',
-    width: ROOM_W * TS * SCALE,   // 1664
-    height: ROOM_H * TS * SCALE,  // 1152
+    width: ROOM_W * TS * SCALE,   // 1638.4
+    height: ROOM_H * TS * SCALE,  // 921.6
     pixelArt: true,
     antialias: false,
     backgroundColor: '#1a1a28',
@@ -1259,11 +2490,11 @@ function buildGrid() {
   });
   // Unblock chair tile (1 tile below desk center) so agent can sit there
   DESKS.forEach(d => { if (d.y + 1 < ROOM_H) g[d.y + 1][d.x] = true; });
-  // Block circular trading post areas (triangle layout)
+  // Block circular trading post areas (even front row, lowered)
   const postCenters = [
-    { x: Math.round(ROOM_W * 0.50), y: Math.round(ROOM_H * 0.41) },
-    { x: Math.round(ROOM_W * 0.25), y: Math.round(ROOM_H * 0.82) },
-    { x: Math.round(ROOM_W * 0.75), y: Math.round(ROOM_H * 0.82) },
+    { x: 5, y: 15 },
+    { x: 16, y: 15 },
+    { x: 27, y: 15 },
   ];
   const postR = 4;
   postCenters.forEach(c => {
@@ -1275,6 +2506,24 @@ function buildGrid() {
       }
     }
   });
+  // Block bell podium area (center-back, tile 18, y 2-7 including steps)
+  for (let py = 2; py <= 7; py++) {
+    for (let px = 14; px <= 22; px++) {
+      if (py >= 0 && py < ROOM_H && px >= 0 && px < ROOM_W) g[py][px] = false;
+    }
+  }
+  // Block coffee station (tile 33, y 4-7)
+  for (let py = 4; py <= 7; py++) {
+    for (let px = 33; px <= 35; px++) {
+      if (py >= 0 && py < ROOM_H && px >= 0 && px < ROOM_W) g[py][px] = false;
+    }
+  }
+  // Block lounge area (tile 15, y 5-7) — note: overlaps with bell podium blocking above
+  for (let py = 5; py <= 7; py++) {
+    for (let px = 15; px <= 20; px++) {
+      if (py >= 0 && py < ROOM_H && px >= 0 && px < ROOM_W) g[py][px] = false;
+    }
+  }
   return g;
 }
 
@@ -1404,7 +2653,7 @@ function updateAgent(ag, dt) {
 // DRAWING
 // ═════════════════════════════════════════════════
 const S = SCALE;
-const CHR_S = 2.4; // character sprite scale (64x64 frames → 154x154 display, 20% smaller)
+const CHR_S = 1.92; // character sprite scale (64x64 frames, 20% smaller)
 
 // drawChar — REMOVED (all character rendering now via Phaser sprites)
 
@@ -1568,14 +2817,34 @@ function playSound(type) {
 }
 
 // ── Leaderboard modal ──
-function showLeaderboardModal() {
+function showLeaderboardModal(type) {
+  if (panel.classList.contains('open')) closePanel();
   const modal = document.getElementById('lb-modal');
   const body = document.getElementById('lb-body');
+  const titleEl = modal.querySelector('.section-title');
   body.innerHTML = '';
-  leaderboard.forEach((c, i) => {
+
+  let entries = [...leaderboard];
+  if (type === 'scores') {
+    titleEl.textContent = 'TOP SCORES';
+    entries.sort((a, b) => (b.composite_score || 0) - (a.composite_score || 0));
+  } else if (type === 'winrates') {
+    titleEl.textContent = 'WIN RATES';
+    entries.sort((a, b) => (b.win_rate || 0) - (a.win_rate || 0));
+  } else {
+    titleEl.textContent = 'LEADERBOARD';
+  }
+
+  entries.forEach((c, i) => {
     const up = (c.win_rate || 0) > 0.5;
     const row = document.createElement('div'); row.className = 'lb-row';
-    row.innerHTML = `<span class="lb-rank">${i+1}</span><span class="lb-name">${c.display_name||c.creator_id}</span><span class="lb-score" style="color:${up?'var(--green)':'var(--red)'}">${((c.composite_score||0)*100).toFixed(1)}</span>`;
+    let valStr;
+    if (type === 'winrates') {
+      valStr = ((c.win_rate || 0) * 100).toFixed(0) + '%';
+    } else {
+      valStr = ((c.composite_score || 0) * 100).toFixed(1);
+    }
+    row.innerHTML = `<span class="lb-rank">${i+1}</span><span class="lb-name">${c.display_name||c.creator_id}</span><span class="lb-score" style="color:${up?'var(--green)':'var(--red)'}">${valStr}</span>`;
     row.style.cursor = 'pointer';
     row.onclick = () => { closeLbModal(); const ag = agents.find(a=>a.creator.creator_id===c.creator_id); if(ag) openPanel(ag); };
     body.appendChild(row);
@@ -1609,6 +2878,9 @@ document.addEventListener('keydown', e => {
 // PANEL
 // ═════════════════════════════════════════════════
 function openPanel(ag) {
+  // Close any open modals to prevent overlap
+  document.getElementById('lb-modal').classList.remove('show');
+  document.getElementById('bh-modal').classList.remove('show');
   selected = ag;
   document.getElementById('ph-name').textContent = ag.creator.display_name||ag.creator.creator_id||'?';
   const div = (ag.creator.division||'multi').toLowerCase();
@@ -1623,10 +2895,9 @@ function openPanel(ag) {
 
   const dims = [
     {l:'Win Rate',v:(ag.creator.win_rate||0)*100,c:'#10B981'},
-    {l:'Risk/Return',v:Math.min((ag.creator.risk_adjusted_return||0)*100/2,100),c:'#2563EB'},
+    {l:'Risk/Return',v:(ag.creator.risk_adjusted_return||0)*100,c:'#2563EB'},
     {l:'Consistency',v:(ag.creator.consistency||0)*100,c:'#F59E0B'},
     {l:'Confidence',v:(ag.creator.confidence_calibration||0)*100,c:'#8B5CF6'},
-    {l:'Reasoning',v:(ag.creator.reasoning_quality||0)*100,c:'#EF4444'},
   ];
   const de = document.getElementById('dims'); de.innerHTML = '';
   dims.forEach((d, i) => {
@@ -1635,6 +2906,21 @@ function openPanel(ag) {
     de.appendChild(r);
     setTimeout(() => { const fill = r.querySelector('.dim-fill'); fill.style.transition = 'width 400ms ease-out'; fill.style.width = d.v.toFixed(0) + '%'; }, 120 + i * 60);
   });
+
+  // Load battle stats for this creator
+  fetch(API+'/battles/history?creator_id='+encodeURIComponent(ag.creator.creator_id||'')+'&status=RESOLVED&limit=100')
+    .then(r=>r.json()).then(data => {
+      const battles = data.battles || [];
+      let w=0,l=0,d=0;
+      battles.forEach(b => {
+        if (!b.winner_id) d++;
+        else if (b.winner_id === ag.creator.creator_id) w++;
+        else l++;
+      });
+      document.getElementById('bs-w').textContent = w+'W';
+      document.getElementById('bs-l').textContent = l+'L';
+      document.getElementById('bs-d').textContent = d+'D';
+    }).catch(() => {});
 
   const tl = document.getElementById('sig-timeline');
   tl.innerHTML = '';
@@ -1664,18 +2950,18 @@ function openPanel(ag) {
     }).catch(() => { se.innerHTML = '<div class="sig-empty">No signals yet</div>'; });
   // Defer .open class by two frames so CSS transition animates properly
   requestAnimationFrame(() => {
-    requestAnimationFrame(() => { panel.classList.add('open'); resize(); });
+    requestAnimationFrame(() => { panel.classList.add('open'); resizeAfterTransition(); });
   });
 }
 
-function closePanel() { selected = null; panel.classList.remove('open'); playSound('panelClose'); resize(); }
+function closePanel() { selected = null; panel.classList.remove('open'); playSound('panelClose'); resizeAfterTransition(); }
 
 // ═════════════════════════════════════════════════
 // TICKER
 // ═════════════════════════════════════════════════
 function buildTicker(list) {
   const wrap = document.getElementById('tk-wrap');
-  if (wrap.children.length) return;
+  wrap.innerHTML = '';
   const all = [...list,...list,...list,...list];
   all.forEach(c => {
     const s = document.createElement('span'); s.className = 'tk-item';
@@ -1706,7 +2992,7 @@ function loadData() {
       agentsSpawned = true;
       agents = [];
       const seen = new Set();
-      leaderboard.slice(0, Math.min(4, DESKS.length)).forEach((c, i) => {
+      leaderboard.slice(0, Math.min(8, DESKS.length)).forEach((c, i) => {
         const id = c.creator_id || ('agent-'+i);
         if (seen.has(id)) return;
         seen.add(id);
@@ -1746,9 +3032,37 @@ function loadData() {
 }
 
 // ═════════════════════════════════════════════════
-// BATTLE MODE (Pokémon-style head-to-head)
+// BATTLE MODE (Pokémon-style head-to-head, backed by real API data)
 // ═════════════════════════════════════════════════
+function showToast(msg) {
+  let toast = document.getElementById('ta-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'ta-toast';
+    toast.style.cssText = 'position:fixed;top:56px;left:50%;transform:translateX(-50%);background:var(--surface2);color:var(--text);border:1px solid var(--border2);padding:8px 18px;border-radius:6px;font-size:.75rem;z-index:400;opacity:0;transition:opacity .3s;pointer-events:none';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.style.opacity = '1';
+  setTimeout(() => { toast.style.opacity = '0'; }, 3000);
+}
+
 let battleActive = false;
+
+function _battleFlash() {
+  const el = document.getElementById('battle-flash');
+  el.classList.add('on');
+  setTimeout(() => el.classList.remove('on'), 80);
+}
+
+function _updateWinsBar(side, wins) {
+  const fill = document.getElementById('hp-' + side);
+  const lbl = document.getElementById('hp-' + side + '-lbl');
+  fill.style.width = (wins * 25) + '%';
+  fill.className = 'battle-hp-fill' + (wins >= 3 ? '' : wins >= 1 ? ' mid' : ' low');
+  lbl.textContent = wins + ' / 4';
+}
+
 function startBattle() {
   if (!selected || agents.length < 2) return;
   const fighter1 = selected;
@@ -1756,19 +3070,41 @@ function startBattle() {
   while (fighter2 === fighter1 && agents.length > 1) fighter2 = agents[Math.floor(Math.random() * agents.length)];
   closePanel();
   battleActive = true;
-  playSound('battle');
 
   const overlay = document.getElementById('battle-overlay');
   overlay.classList.add('show');
+  // Fade in background
+  requestAnimationFrame(() => requestAnimationFrame(() => overlay.classList.add('fade-in')));
+
+  // Reset all elements
+  document.getElementById('battle-header').classList.remove('show');
+  document.getElementById('battle-vs').classList.remove('show');
+  document.getElementById('battle-round').textContent = '';
   document.getElementById('bn-left').textContent = fighter1.creator.display_name || fighter1.creator.creator_id || '?';
   document.getElementById('bn-right').textContent = fighter2.creator.display_name || fighter2.creator.creator_id || '?';
-  document.getElementById('hp-left').style.width = '100%';
-  document.getElementById('hp-right').style.width = '100%';
+  _updateWinsBar('left', 0);
+  _updateWinsBar('right', 0);
   document.getElementById('battle-log').innerHTML = '';
   document.getElementById('battle-result').className = 'battle-result';
+  document.getElementById('battle-result').innerHTML = '';
   document.getElementById('battle-close').style.display = 'none';
 
-  // Draw fighter sprites on battle canvases
+  // Reset fighters
+  const bfLeft = document.getElementById('bf-left');
+  const bfRight = document.getElementById('bf-right');
+  bfLeft.className = 'battle-fighter';
+  bfRight.className = 'battle-fighter';
+
+  // Reset stat rows
+  document.querySelectorAll('.battle-stat-row').forEach((row, i) => {
+    row.classList.remove('show', 'active');
+    document.getElementById('bsv-l-' + i).textContent = '-';
+    document.getElementById('bsv-r-' + i).textContent = '-';
+    document.getElementById('bsb-l-' + i).style.width = '50%';
+    document.getElementById('bsb-r-' + i).style.width = '50%';
+  });
+
+  // Draw fighter sprites on battle canvases (larger display)
   [['bc-left', fighter1], ['bc-right', fighter2]].forEach(([id, ag]) => {
     const bc = document.getElementById(id);
     const bctx = bc.getContext('2d');
@@ -1782,64 +3118,180 @@ function startBattle() {
     }
   });
 
-  // Auto-play 3 rounds
-  let hp1 = 100, hp2 = 100, round = 0;
-  const dims1 = fighter1.creator, dims2 = fighter2.creator;
-  const stats = ['win_rate', 'risk_adjusted_return', 'consistency'];
-  const statNames = ['WIN RATE', 'RISK/RETURN', 'CONSISTENCY'];
+  // Staged intro sequence
+  setTimeout(() => {
+    playSound('battle');
+    document.getElementById('battle-header').classList.add('show');
+  }, 200);
+  setTimeout(() => { bfLeft.classList.add('enter-left'); }, 500);
+  setTimeout(() => { bfRight.classList.add('enter-right'); }, 700);
+  setTimeout(() => { document.getElementById('battle-vs').classList.add('show'); _battleFlash(); }, 1000);
+
+  // Create battle on backend, then animate
+  const c1id = fighter1.creator.creator_id;
+  const c2id = fighter2.creator.creator_id;
+  fetch(API+'/battle/create', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({creator1_id: c1id, creator2_id: c2id, window_days: 7})
+  }).then(r => {
+    if (r.status === 409) {
+      closeBattle();
+      showToast('Active battle already exists between these traders');
+      return null;
+    }
+    return r.json();
+  }).then(battle => {
+    if (!battle) return;
+    const battleId = battle.battle_id;
+    const d1 = fighter1.creator;
+    const d2 = fighter2.creator;
+    // Start battle after intro sequence finishes
+    setTimeout(() => animateBattle(fighter1, fighter2, d1, d2, null, battleId), 1400);
+  }).catch(() => {
+    setTimeout(() => animateBattle(fighter1, fighter2, fighter1.creator, fighter2.creator, null, null), 1400);
+  });
+}
+
+function animateBattle(fighter1, fighter2, d1, d2, battleData, battleId) {
+  let wins1 = 0, wins2 = 0, round = 0;
+  const stats = ['win_rate', 'risk_adjusted_return', 'consistency', 'confidence_calibration'];
+  const statNames = ['WIN RATE', 'RISK/RETURN', 'CONSISTENCY', 'CALIBRATION'];
+  const maxRounds = 4;
   const log = document.getElementById('battle-log');
+  const roundEl = document.getElementById('battle-round');
+  const name1 = fighter1.creator.display_name || 'P1';
+  const name2 = fighter2.creator.display_name || 'P2';
 
   function playRound() {
-    if (round >= 3 || hp1 <= 0 || hp2 <= 0) { finishBattle(); return; }
-    const stat = stats[round];
-    const v1 = (dims1[stat] || 0) + Math.random() * 0.15;
-    const v2 = (dims2[stat] || 0) + Math.random() * 0.15;
-    const dmg = 15 + Math.floor(Math.random() * 20);
-    const roundName = statNames[round];
-    round++;
+    if (round >= maxRounds) { finishBattle(); return; }
 
-    const roundWinner = v1 >= v2 ? fighter1 : fighter2;
-    battleRounds.push({ stat: roundName, winner: roundWinner.creator.display_name || '?' });
-    if (v1 >= v2) {
-      hp2 = Math.max(0, hp2 - dmg);
-      document.getElementById('hp-right').style.width = hp2 + '%';
-      if (hp2 < 40) document.getElementById('hp-right').style.background = 'var(--red)';
+    const stat = stats[round];
+    const v1 = d1[stat] || 0;
+    const v2 = d2[stat] || 0;
+    const diff = Math.abs(v1 - v2);
+    const isCrit = diff > 0.2;
+    const roundName = statNames[round];
+
+    roundEl.textContent = `ROUND ${round + 1} / ${maxRounds}`;
+
+    const statRows = document.querySelectorAll('.battle-stat-row');
+    statRows.forEach(r => r.classList.remove('active'));
+    const activeRow = statRows[round];
+    activeRow.classList.add('show', 'active');
+
+    const total = (v1 + v2) || 1;
+    const pctL = Math.round((v1 / total) * 100);
+    const pctR = 100 - pctL;
+    document.getElementById('bsv-l-' + round).textContent = (v1 * 100).toFixed(0);
+    document.getElementById('bsv-r-' + round).textContent = (v2 * 100).toFixed(0);
+    document.getElementById('bsb-l-' + round).style.width = pctL + '%';
+    document.getElementById('bsb-r-' + round).style.width = pctR + '%';
+
+    round++;
+    const hitClass = isCrit ? 'round-crit' : 'round-hit';
+    const critTag = isCrit ? ' CRITICAL!' : '';
+    const v1Disp = (v1 * 100).toFixed(0);
+    const v2Disp = (v2 * 100).toFixed(0);
+
+    if (v1 > v2) {
+      wins1++;
+      _updateWinsBar('left', wins1);
+      document.getElementById('bf-right').classList.remove('hit');
+      void document.getElementById('bf-right').offsetWidth;
       document.getElementById('bf-right').classList.add('hit');
-      setTimeout(() => document.getElementById('bf-right').classList.remove('hit'), 300);
-      log.innerHTML += `<div>R${round}: ${roundName} — ${fighter1.creator.display_name||'P1'} hits for ${dmg}!</div>`;
-    } else {
-      hp1 = Math.max(0, hp1 - dmg);
-      document.getElementById('hp-left').style.width = hp1 + '%';
-      if (hp1 < 40) document.getElementById('hp-left').style.background = 'var(--red)';
+      log.innerHTML += `<div class="${hitClass}">R${round} ${roundName} — ${name1} ${v1Disp} vs ${name2} ${v2Disp} — ${name1} wins!${critTag}</div>`;
+    } else if (v2 > v1) {
+      wins2++;
+      _updateWinsBar('right', wins2);
+      document.getElementById('bf-left').classList.remove('hit');
+      void document.getElementById('bf-left').offsetWidth;
       document.getElementById('bf-left').classList.add('hit');
-      setTimeout(() => document.getElementById('bf-left').classList.remove('hit'), 300);
-      log.innerHTML += `<div>R${round}: ${roundName} — ${fighter2.creator.display_name||'P2'} hits for ${dmg}!</div>`;
+      log.innerHTML += `<div class="${hitClass}">R${round} ${roundName} — ${name1} ${v1Disp} vs ${name2} ${v2Disp} — ${name2} wins!${critTag}</div>`;
+    } else {
+      log.innerHTML += `<div class="round-hit">R${round} ${roundName} — ${name1} ${v1Disp} vs ${name2} ${v2Disp} — DRAW!</div>`;
     }
+
     playSound('battleHit');
+    if (isCrit) _battleFlash();
     log.scrollTop = log.scrollHeight;
     setTimeout(playRound, 1200);
   }
 
-  const battleRounds = [];
   function finishBattle() {
-    const winner = hp1 >= hp2 ? fighter1 : fighter2;
-    const loser = hp1 >= hp2 ? fighter2 : fighter1;
-    const result = document.getElementById('battle-result');
-    result.textContent = (winner.creator.display_name || winner.creator.creator_id) + ' WINS!';
-    result.classList.add('show');
-    document.getElementById('battle-close').style.display = 'block';
-    playSound('battleWin');
-    triggerScreenShake(8, 400);
-    emitParticles(winner, '#F59E0B');
-    addFloatingText(winner, 'WINNER!', '#F59E0B');
-    saveBattleResult(winner, loser, battleRounds);
+    roundEl.textContent = 'BATTLE COMPLETE';
+    document.querySelectorAll('.battle-stat-row').forEach(r => { r.classList.add('show'); r.classList.remove('active'); });
+
+    if (battleId) {
+      fetch(API+'/battle/'+battleId+'/resolve', {method:'POST'})
+        .then(r => r.ok ? r.json() : null)
+        .then(resolved => showBattleResult(resolved || null))
+        .catch(() => showBattleResult(null));
+    } else {
+      showBattleResult(battleData);
+    }
+
+    function showBattleResult(resolvedData) {
+      let winnerName, winnerAgent, loserSide;
+      if (resolvedData && resolvedData.winner_id) {
+        const isC1 = resolvedData.winner_id === fighter1.creator.creator_id;
+        winnerAgent = isC1 ? fighter1 : fighter2;
+        winnerName = winnerAgent.creator.display_name || winnerAgent.creator.creator_id;
+        loserSide = isC1 ? 'right' : 'left';
+      } else if (resolvedData && resolvedData.winner_id === null && resolvedData.status === 'RESOLVED') {
+        winnerAgent = null;
+        winnerName = null;
+      } else {
+        // Fallback: use dimension wins, then composite score
+        if (wins1 > wins2) {
+          winnerAgent = fighter1; loserSide = 'right';
+        } else if (wins2 > wins1) {
+          winnerAgent = fighter2; loserSide = 'left';
+        } else {
+          const comp1 = d1.composite_score || d1.composite || 0;
+          const comp2 = d2.composite_score || d2.composite || 0;
+          if (comp1 > comp2) { winnerAgent = fighter1; loserSide = 'right'; }
+          else if (comp2 > comp1) { winnerAgent = fighter2; loserSide = 'left'; }
+          else { winnerAgent = null; }
+        }
+        winnerName = winnerAgent ? (winnerAgent.creator.display_name || winnerAgent.creator.creator_id) : null;
+      }
+
+      const result = document.getElementById('battle-result');
+      if (winnerName) {
+        let marginText = '';
+        if (resolvedData && resolvedData.margin) {
+          marginText = `<span class="result-subtitle">Victory margin: ${(resolvedData.margin*100).toFixed(1)} pts</span>`;
+        } else {
+          marginText = `<span class="result-subtitle">Dimensions won: ${Math.max(wins1,wins2)} – ${Math.min(wins1,wins2)}</span>`;
+        }
+        result.innerHTML = winnerName + ' WINS!' + marginText;
+        const winSide = loserSide === 'right' ? 'left' : 'right';
+        document.getElementById('bf-' + winSide).classList.add('winner-glow');
+        document.getElementById('bf-' + loserSide).classList.add('loser-dim');
+      } else {
+        result.innerHTML = 'DRAW!<span class="result-subtitle">Too close to call</span>';
+      }
+      result.classList.add('show');
+      document.getElementById('battle-close').style.display = 'block';
+      _battleFlash();
+      playSound('battleWin');
+      triggerScreenShake(8, 400);
+      if (winnerAgent) {
+        emitParticles(winnerAgent, '#F59E0B');
+        addFloatingText(winnerAgent, 'WINNER!', '#F59E0B');
+      }
+    }
   }
 
-  setTimeout(playRound, 800);
+  setTimeout(playRound, 400);
 }
+
 function closeBattle() {
-  document.getElementById('battle-overlay').classList.remove('show');
+  const overlay = document.getElementById('battle-overlay');
+  overlay.classList.remove('fade-in');
+  setTimeout(() => { overlay.classList.remove('show'); }, 400);
   battleActive = false;
+  resize();
 }
 
 // ═════════════════════════════════════════════════
@@ -1948,18 +3400,8 @@ const persist = {
 const _origToggleMute = toggleMute;
 toggleMute = function() { _origToggleMute(); persist.set('muted', soundMuted); };
 
-// Battle history helpers
-function saveBattleResult(winner, loser, rounds) {
-  const history = persist.get('battle_history') || [];
-  history.unshift({
-    winner: winner.creator.display_name || winner.creator.creator_id || '?',
-    loser: loser.creator.display_name || loser.creator.creator_id || '?',
-    date: new Date().toLocaleDateString(),
-    rounds,
-  });
-  if (history.length > 10) history.length = 10;
-  persist.set('battle_history', history);
-}
+// Battle history helpers (backend-backed, saveBattleResult is a no-op now)
+function saveBattleResult() {}
 
 // Save scores after data refresh
 function persistScores() {
@@ -1972,20 +3414,47 @@ function persistScores() {
 // BATTLE HISTORY MODAL
 // ═════════════════════════════════════════════════
 function showBattleHistory() {
+  if (panel.classList.contains('open')) closePanel();
   const modal = document.getElementById('bh-modal');
   const body = document.getElementById('bh-body');
-  body.innerHTML = '';
-  const history = persist.get('battle_history') || [];
-  if (!history.length) {
-    body.innerHTML = '<div class="bh-empty">No battles yet — challenge a trader!</div>';
-  } else {
-    history.forEach(h => {
+  body.innerHTML = '<div class="bh-empty">Loading…</div>';
+  modal.classList.add('show');
+
+  fetch(API+'/battles/history?limit=20').then(r=>r.json()).then(data => {
+    const battles = data.battles || [];
+    if (!battles.length) {
+      body.innerHTML = '<div class="bh-empty">No battles yet — challenge a trader!</div>';
+      return;
+    }
+    body.innerHTML = '';
+    // Build a name lookup from current agents
+    const nameMap = {};
+    agents.forEach(ag => { nameMap[ag.creator.creator_id] = ag.creator.display_name || ag.creator.creator_id; });
+
+    battles.forEach(b => {
       const row = document.createElement('div'); row.className = 'bh-row';
-      row.innerHTML = `<span class="bh-winner">${h.winner}</span><span class="bh-vs">vs</span><span class="bh-loser">${h.loser}</span><span class="bh-date">${h.date}</span>`;
+      const n1 = nameMap[b.creator1_id] || b.creator1_id;
+      const n2 = nameMap[b.creator2_id] || b.creator2_id;
+      const winnerName = b.winner_id ? (nameMap[b.winner_id] || b.winner_id) : null;
+      const loserName = b.winner_id ? (b.winner_id === b.creator1_id ? n2 : n1) : null;
+      const date = b.resolved_at ? new Date(b.resolved_at).toLocaleDateString() : (b.created_at ? new Date(b.created_at).toLocaleDateString() : '');
+      const status = b.status === 'ACTIVE' ? '<span style="color:var(--cyan);font-size:.45rem">ACTIVE</span>' : '';
+      const typeColor = b.battle_type === 'AUTO' ? 'var(--cyan)' : 'var(--gold)';
+      const typeLabel = b.battle_type === 'AUTO' ? 'AUTO' : 'CHALLENGE';
+      const typeBadge = `<span class="bh-type" style="background:${typeColor};color:#111;font-size:.35rem;padding:2px 5px;border-radius:3px;letter-spacing:.05em;margin-right:6px">${typeLabel}</span>`;
+
+      if (winnerName) {
+        row.innerHTML = typeBadge + `<span class="bh-winner">${winnerName}</span><span class="bh-vs">vs</span><span class="bh-loser">${loserName}</span><span class="bh-date">${date}</span>`;
+      } else if (b.status === 'RESOLVED') {
+        row.innerHTML = typeBadge + `<span style="color:var(--gold);flex:1">${n1}</span><span class="bh-vs">DRAW</span><span style="color:var(--gold);flex:1;text-align:right">${n2}</span><span class="bh-date">${date}</span>`;
+      } else {
+        row.innerHTML = typeBadge + `<span style="flex:1">${n1}</span><span class="bh-vs">vs</span><span style="flex:1;text-align:right">${n2}</span><span class="bh-date">${status}</span>`;
+      }
       body.appendChild(row);
     });
-  }
-  modal.classList.add('show');
+  }).catch(() => {
+    body.innerHTML = '<div class="bh-empty">Could not load battle history</div>';
+  });
 }
 function closeBhModal() { document.getElementById('bh-modal').classList.remove('show'); }
 

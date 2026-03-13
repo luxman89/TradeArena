@@ -33,7 +33,7 @@ uv run python scripts/seed_demo.py
 
 ## Architecture
 
-TradeArena is a signal-tracking platform where traders submit cryptographically committed predictions that are scored across five dimensions.
+TradeArena is a signal-tracking platform where traders submit cryptographically committed predictions that are scored across four dimensions.
 
 ### Core pipeline: Signal submission flow
 
@@ -42,7 +42,7 @@ TradeArena is a signal-tracking platform where traders submit cryptographically 
 3. **Validation** (`src/tradearena/core/validation.py`) — shared between SDK and API (side-effect-free). Enforces: action enum (buy/sell/yes/no/long/short), confidence (0.01–0.99), reasoning ≥20 words, supporting_data ≥2 keys.
 4. **Commitment** (`src/tradearena/core/commitment.py`) — SHA-256 hash of signal fields + nonce for tamper-proof audit trail. Generates signal_id (UUID4 hex) and committed_at timestamp.
 5. **Storage** (`src/tradearena/db/database.py`) — SQLAlchemy ORM. Three tables: CreatorORM, SignalORM (append-only), CreatorScoreORM. SQLite for dev, Postgres-compatible.
-6. **Scoring** (`src/tradearena/core/scoring.py`) — five-dimension composite: Win Rate (25%), Risk-Adjusted Return (25%), Reasoning Quality (20%), Consistency (20%), Confidence Calibration (10%). All normalized [0,1].
+6. **Scoring** (`src/tradearena/core/scoring.py`) — four-dimension composite: Win Rate (30%), Risk-Adjusted Return (30%), Consistency (25%), Confidence Calibration (15%). All normalized [0,1].
 
 ### Key conventions
 

@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TradeArena — Rules</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --text: #e8e6e3;
+    --gold: #F59E0B;
+    --cyan: #06B6D4;
+    --green: #10B981;
+    --red: #EF4444;
+    --muted: #6b7280;
+    --card-bg: #111118;
+    --card-border: #1e1e2a;
+    --font-pixel: 'Press Start 2P', monospace;
+    --font-body: 'Courier New', Courier, monospace;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.7;
+    min-height: 100vh;
+  }
+
+  .container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 24px 20px 60px;
+  }
+
+  .back-link {
+    display: inline-block;
+    font-family: var(--font-pixel);
+    font-size: 0.55rem;
+    color: var(--cyan);
+    text-decoration: none;
+    padding: 8px 0;
+    margin-bottom: 16px;
+    transition: color 0.2s;
+  }
+  .back-link:hover { color: var(--gold); }
+
+  h1 {
+    font-family: var(--font-pixel);
+    font-size: 0.9rem;
+    color: var(--gold);
+    text-align: center;
+    margin-bottom: 8px;
+    letter-spacing: 2px;
+  }
+
+  .subtitle {
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    margin-bottom: 32px;
+  }
+
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+
+  .card h2 {
+    font-family: var(--font-pixel);
+    font-size: 0.6rem;
+    color: var(--cyan);
+    margin-bottom: 16px;
+    letter-spacing: 1px;
+    line-height: 1.6;
+  }
+
+  .card p {
+    margin-bottom: 12px;
+    color: var(--text);
+  }
+
+  .card ul {
+    list-style: none;
+    padding: 0;
+    margin-bottom: 12px;
+  }
+
+  .card ul li {
+    padding: 4px 0 4px 18px;
+    position: relative;
+    color: var(--text);
+  }
+
+  .card ul li::before {
+    content: '>';
+    position: absolute;
+    left: 0;
+    color: var(--gold);
+    font-weight: bold;
+  }
+
+  .highlight { color: var(--gold); }
+  .cyan { color: var(--cyan); }
+  .green { color: var(--green); }
+  .red { color: var(--red); }
+
+  code {
+    background: #1a1a24;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 13px;
+    color: var(--cyan);
+  }
+
+  /* Scoring table */
+  .score-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 13px;
+  }
+
+  .score-table th {
+    font-family: var(--font-pixel);
+    font-size: 0.45rem;
+    color: var(--gold);
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 2px solid var(--gold);
+    letter-spacing: 0.5px;
+  }
+
+  .score-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--card-border);
+    vertical-align: top;
+  }
+
+  .score-table tr:nth-child(even) td {
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .score-table .dim-name {
+    color: var(--cyan);
+    white-space: nowrap;
+    font-weight: bold;
+  }
+
+  .score-table .dim-weight {
+    color: var(--gold);
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .score-table .dim-desc {
+    color: var(--text);
+  }
+
+  .composite-row td {
+    border-top: 2px solid var(--gold);
+    font-weight: bold;
+  }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--card-border);
+    margin: 16px 0;
+  }
+
+  .division-badge {
+    display: inline-block;
+    font-family: var(--font-pixel);
+    font-size: 0.45rem;
+    padding: 3px 8px;
+    border-radius: 3px;
+    margin-right: 6px;
+  }
+  .division-badge.rookie { background: #374151; color: var(--muted); }
+  .division-badge.pro { background: #1e3a5f; color: var(--cyan); }
+  .division-badge.elite { background: #422006; color: var(--gold); }
+
+  @media (max-width: 600px) {
+    .container { padding: 16px 12px 40px; }
+    .card { padding: 16px; }
+    h1 { font-size: 0.7rem; }
+    .score-table { font-size: 12px; }
+    .score-table th, .score-table td { padding: 8px 6px; }
+    .score-table .dim-name { white-space: normal; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <a href="/" class="back-link">&larr; Back to Arena</a>
+
+  <h1>TRADEARENA RULES</h1>
+  <p class="subtitle">How signals, scoring, battles, and rankings work</p>
+
+  <!-- Section 1: How Signals Work -->
+  <div class="card">
+    <h2>1. How Signals Work</h2>
+    <p>
+      Traders submit <span class="highlight">cryptographically committed predictions</span> called signals.
+      Each signal is hashed with <code>SHA-256</code> plus a random nonce, creating a tamper-proof commitment
+      that proves you made your call before the outcome was known.
+    </p>
+    <p>Every signal must include:</p>
+    <ul>
+      <li><span class="cyan">Asset</span> &mdash; the ticker or instrument you are predicting</li>
+      <li><span class="cyan">Action</span> &mdash; one of <code>buy</code> <code>sell</code> <code>yes</code> <code>no</code> <code>long</code> <code>short</code></li>
+      <li><span class="cyan">Confidence</span> &mdash; a value between <code>0.01</code> and <code>0.99</code></li>
+      <li><span class="cyan">Reasoning</span> &mdash; at least 20 words explaining your thesis</li>
+      <li><span class="cyan">Supporting Data</span> &mdash; at least 2 key-value data points backing your call</li>
+    </ul>
+    <hr class="divider">
+    <p>
+      Signals are <span class="highlight">append-only</span> &mdash; once submitted, they cannot be edited or deleted.
+      Each signal is assigned a UUID4 identifier and a 64-character SHA-256 commitment hash.
+    </p>
+    <p>Possible outcomes:</p>
+    <ul>
+      <li><span class="green">WIN</span> &mdash; the prediction was correct</li>
+      <li><span class="red">LOSS</span> &mdash; the prediction was incorrect</li>
+      <li><span class="highlight">NEUTRAL</span> &mdash; inconclusive or no significant move</li>
+      <li><span class="cyan">NULL</span> &mdash; pending resolution</li>
+    </ul>
+  </div>
+
+  <!-- Section 2: The 5 Scoring Dimensions -->
+  <div class="card">
+    <h2>2. The 4 Scoring Dimensions</h2>
+    <p>
+      Every trader receives a <span class="highlight">composite score</span> between 0 and 1,
+      calculated as a weighted sum of four independent dimensions:
+    </p>
+    <table class="score-table">
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th>Weight</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="dim-name">Win Rate</td>
+          <td class="dim-weight">30%</td>
+          <td class="dim-desc">Fraction of resolved signals that resulted in a WIN outcome</td>
+        </tr>
+        <tr>
+          <td class="dim-name">Risk-Adjusted Return</td>
+          <td class="dim-weight">30%</td>
+          <td class="dim-desc">Sharpe-like metric measuring confidence-weighted returns relative to variance</td>
+        </tr>
+        <tr>
+          <td class="dim-name">Consistency</td>
+          <td class="dim-weight">25%</td>
+          <td class="dim-desc">Rolling-window win-rate stability over time; rewards steady performance</td>
+        </tr>
+        <tr>
+          <td class="dim-name">Confidence Calibration</td>
+          <td class="dim-weight">15%</td>
+          <td class="dim-desc">Brier score measuring how accurately your confidence matches actual outcomes</td>
+        </tr>
+        <tr class="composite-row">
+          <td class="dim-name" style="color:var(--gold)">Composite Score</td>
+          <td class="dim-weight">100%</td>
+          <td class="dim-desc">Weighted sum of all 4 dimensions, normalized to <code>[0, 1]</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Section 3: Battles & Challenges -->
+  <div class="card">
+    <h2>3. Battles &amp; Challenges</h2>
+    <p>
+      Battles are head-to-head competitions between two traders, resolved by comparing
+      composite scores from signals submitted during the battle window.
+    </p>
+    <hr class="divider">
+    <p><span class="highlight">Manual Challenges</span></p>
+    <ul>
+      <li>Click <span class="cyan">CHALLENGE</span> on any trader in the arena to initiate a battle</li>
+      <li>Creates a <span class="highlight">7-day battle window</span> starting immediately</li>
+    </ul>
+    <p><span class="highlight">Weekly Auto-Matches</span></p>
+    <ul>
+      <li>The system automatically pairs traders by score tier each week</li>
+      <li>Tiers: top 33%, middle 33%, bottom 33% &mdash; matched within the same tier</li>
+    </ul>
+    <hr class="divider">
+    <p><span class="highlight">Resolution Rules</span></p>
+    <ul>
+      <li>Each trader must have <span class="cyan">&ge;2 resolved signals</span> during the battle window</li>
+      <li>Winner is determined by higher composite score within that window</li>
+      <li>If the score margin is less than <code>0.01</code>, the battle ends in a <span class="highlight">draw</span></li>
+    </ul>
+  </div>
+
+  <!-- Section 4: The Leaderboard -->
+  <div class="card">
+    <h2>4. The Leaderboard</h2>
+    <p>
+      The leaderboard ranks all traders by their composite score, reflecting
+      <span class="highlight">signal quality over quantity</span>.
+    </p>
+    <ul>
+      <li>Rankings are updated every <span class="cyan">5 minutes</span> by the background oracle</li>
+      <li>Composite score is the weighted sum of all 4 scoring dimensions</li>
+    </ul>
+    <hr class="divider">
+    <p>Traders are placed into three divisions:</p>
+    <p style="margin-top:8px;">
+      <span class="division-badge rookie">ROOKIE</span>
+      <span class="division-badge pro">PRO</span>
+      <span class="division-badge elite">ELITE</span>
+    </p>
+    <p style="margin-top:12px;">
+      Division placement is based on your composite score relative to the field.
+      Climb the ranks by submitting better signals, not more signals.
+    </p>
+  </div>
+
+  <!-- Section 5: How Points are Earned -->
+  <div class="card">
+    <h2>5. How Points Are Earned</h2>
+    <p>Your composite score improves when you:</p>
+    <ul>
+      <li>Achieve consistent <span class="green">WIN</span> outcomes across your signals</li>
+      <li>Maintain good <span class="cyan">confidence calibration</span> &mdash; predict what you actually believe</li>
+      <li>Win <span class="highlight">battles</span> against other traders</li>
+      <li>Stay consistent over time rather than getting lucky once</li>
+    </ul>
+    <hr class="divider">
+    <p>
+      A higher composite score moves you into higher divisions.
+      The system rewards <span class="highlight">skill and discipline</span> &mdash;
+      not volume, not hype.
+    </p>
+  </div>
+
+</div>
+</body>
+</html>

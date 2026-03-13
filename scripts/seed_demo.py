@@ -197,7 +197,7 @@ DEMO_SIGNALS = [
         "stop_loss": 13.0,
         "timeframe": "1d",
         "outcome": None,
-        "days_ago": 1,
+        "days_ago": 3,
     },
     # Bob — 7 signals (average performer)
     {
@@ -327,7 +327,7 @@ DEMO_SIGNALS = [
         "stop_loss": 105.0,
         "timeframe": "1d",
         "outcome": None,
-        "days_ago": 2,
+        "days_ago": 4,
     },
     # Carol — 5 signals (newcomer)
     {
@@ -419,7 +419,7 @@ DEMO_SIGNALS = [
         "stop_loss": 4.5,
         "timeframe": "1w",
         "outcome": None,
-        "days_ago": 3,
+        "days_ago": 10,
     },
 ]
 
@@ -454,6 +454,15 @@ def seed():
                 updated += 1
         db.commit()
         print(f"Creators: {inserted} inserted, {updated} updated.")
+
+        # Clear existing signals for demo creators before re-seeding
+        demo_ids = [c["id"] for c in DEMO_CREATORS]
+        deleted = db.query(SignalORM).filter(SignalORM.creator_id.in_(demo_ids)).delete(
+            synchronize_session="fetch"
+        )
+        if deleted:
+            db.commit()
+            print(f"Cleared {deleted} existing demo signals.")
 
         # Insert signals
         count = 0
@@ -502,9 +511,8 @@ def seed():
             signals = db.query(SignalORM).filter(SignalORM.creator_id == creator.id).all()
             outcomes = [s.outcome for s in signals]
             confidences = [s.confidence for s in signals]
-            reasonings = [s.reasoning for s in signals]
 
-            dims = compute_score(outcomes, confidences, reasonings)
+            dims = compute_score(outcomes, confidences)
 
             existing_score = (
                 db.query(CreatorScoreORM).filter(CreatorScoreORM.creator_id == creator.id).first()
@@ -512,7 +520,6 @@ def seed():
             if existing_score:
                 existing_score.win_rate = dims.win_rate
                 existing_score.risk_adjusted_return = dims.risk_adjusted_return
-                existing_score.reasoning_quality = dims.reasoning_quality
                 existing_score.consistency = dims.consistency
                 existing_score.confidence_calibration = dims.confidence_calibration
                 existing_score.composite_score = dims.composite
@@ -523,7 +530,6 @@ def seed():
                     creator_id=creator.id,
                     win_rate=dims.win_rate,
                     risk_adjusted_return=dims.risk_adjusted_return,
-                    reasoning_quality=dims.reasoning_quality,
                     consistency=dims.consistency,
                     confidence_calibration=dims.confidence_calibration,
                     composite_score=dims.composite,
