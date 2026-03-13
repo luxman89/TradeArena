@@ -53,7 +53,7 @@ DEMO_SIGNALS = [
     {
         "creator_id": "alice",
         "asset": "BTC/USDT",
-        "action": "BUY",
+        "action": "buy",
         "confidence": 0.82,
         "reasoning": (
             "Bitcoin is forming a classic ascending triangle pattern on the 4-hour chart. "
@@ -72,7 +72,7 @@ DEMO_SIGNALS = [
     {
         "creator_id": "alice",
         "asset": "ETH/USDT",
-        "action": "BUY",
+        "action": "buy",
         "confidence": 0.75,
         "reasoning": (
             "Ethereum is breaking out of a 3-week consolidation range with a confirmed "
@@ -91,7 +91,7 @@ DEMO_SIGNALS = [
     {
         "creator_id": "alice",
         "asset": "SOL/USDT",
-        "action": "BUY",
+        "action": "buy",
         "confidence": 0.68,
         "reasoning": (
             "Solana is testing a major support zone that has held four times historically. "
@@ -110,7 +110,7 @@ DEMO_SIGNALS = [
     {
         "creator_id": "alice",
         "asset": "BNB/USDT",
-        "action": "SELL",
+        "action": "sell",
         "confidence": 0.71,
         "reasoning": (
             "BNB has rallied into a strong resistance zone after a 35% move in 2 weeks. "
@@ -129,7 +129,7 @@ DEMO_SIGNALS = [
     {
         "creator_id": "alice",
         "asset": "ADA/USDT",
-        "action": "BUY",
+        "action": "buy",
         "confidence": 0.55,
         "reasoning": (
             "Cardano is showing a potential reversal at the weekly demand zone. While the "
@@ -148,7 +148,7 @@ DEMO_SIGNALS = [
     {
         "creator_id": "alice",
         "asset": "BTC/USDT",
-        "action": "BUY",
+        "action": "buy",
         "confidence": 0.78,
         "reasoning": (
             "Bitcoin is consolidating above the prior all-time high turned support at 45000. "
@@ -167,7 +167,7 @@ DEMO_SIGNALS = [
     {
         "creator_id": "alice",
         "asset": "ETH/USDT",
-        "action": "HOLD",
+        "action": "long",
         "confidence": 0.62,
         "reasoning": (
             "Ethereum is in a decision point between two key levels. The risk-reward for "
@@ -184,7 +184,7 @@ DEMO_SIGNALS = [
     {
         "creator_id": "alice",
         "asset": "LINK/USDT",
-        "action": "BUY",
+        "action": "buy",
         "confidence": 0.73,
         "reasoning": (
             "Chainlink is breaking out of a multi-month base with a volume surge 3x the "
@@ -203,7 +203,7 @@ DEMO_SIGNALS = [
     {
         "creator_id": "bob",
         "asset": "BTC/USDT",
-        "action": "SHORT",
+        "action": "short",
         "confidence": 0.65,
         "reasoning": (
             "Bitcoin is approaching a key resistance zone after a dead cat bounce. "
@@ -219,7 +219,7 @@ DEMO_SIGNALS = [
     {
         "creator_id": "bob",
         "asset": "ETH/USDT",
-        "action": "BUY",
+        "action": "buy",
         "confidence": 0.58,
         "reasoning": (
             "Ethereum staking rewards remain attractive. The network's deflationary "
@@ -238,7 +238,7 @@ DEMO_SIGNALS = [
     {
         "creator_id": "bob",
         "asset": "MATIC/USDT",
-        "action": "BUY",
+        "action": "buy",
         "confidence": 0.61,
         "reasoning": (
             "Polygon is seeing increased developer activity and L2 adoption metrics. "
@@ -257,7 +257,7 @@ DEMO_SIGNALS = [
     {
         "creator_id": "bob",
         "asset": "DOGE/USDT",
-        "action": "BUY",
+        "action": "buy",
         "confidence": 0.42,
         "reasoning": (
             "Dogecoin has a historically strong correlation with social sentiment "
@@ -276,7 +276,7 @@ DEMO_SIGNALS = [
     {
         "creator_id": "bob",
         "asset": "BTC/USDT",
-        "action": "BUY",
+        "action": "buy",
         "confidence": 0.69,
         "reasoning": (
             "Bitcoin weekly chart is printing a bullish engulfing candle at the 50-week "
@@ -295,7 +295,7 @@ DEMO_SIGNALS = [
     {
         "creator_id": "bob",
         "asset": "XRP/USDT",
-        "action": "BUY",
+        "action": "buy",
         "confidence": 0.53,
         "reasoning": (
             "XRP legal clarity has improved following recent court rulings. The token "
@@ -314,7 +314,7 @@ DEMO_SIGNALS = [
     {
         "creator_id": "bob",
         "asset": "SOL/USDT",
-        "action": "BUY",
+        "action": "buy",
         "confidence": 0.66,
         "reasoning": (
             "Solana's ecosystem metrics are at all-time highs including DEX volume and "
@@ -333,7 +333,7 @@ DEMO_SIGNALS = [
     {
         "creator_id": "carol",
         "asset": "BTC/USDT",
-        "action": "BUY",
+        "action": "buy",
         "confidence": 0.55,
         "reasoning": (
             "Bitcoin looks like it wants to go up. The price has been going sideways and "
@@ -352,7 +352,7 @@ DEMO_SIGNALS = [
     {
         "creator_id": "carol",
         "asset": "ETH/USDT",
-        "action": "BUY",
+        "action": "buy",
         "confidence": 0.48,
         "reasoning": (
             "Ethereum seems undervalued compared to Bitcoin right now. The ETH/BTC ratio "
@@ -368,7 +368,7 @@ DEMO_SIGNALS = [
     {
         "creator_id": "carol",
         "asset": "AVAX/USDT",
-        "action": "BUY",
+        "action": "buy",
         "confidence": 0.51,
         "reasoning": (
             "Avalanche has been mentioned a lot on crypto Twitter lately. The project "
@@ -387,7 +387,7 @@ DEMO_SIGNALS = [
     {
         "creator_id": "carol",
         "asset": "BNB/USDT",
-        "action": "BUY",
+        "action": "buy",
         "confidence": 0.57,
         "reasoning": (
             "Binance Smart Chain activity is picking up again. BNB has been holding "
@@ -406,7 +406,7 @@ DEMO_SIGNALS = [
     {
         "creator_id": "carol",
         "asset": "DOT/USDT",
-        "action": "BUY",
+        "action": "buy",
         "confidence": 0.44,
         "reasoning": (
             "Polkadot parachain auctions are heating up again and there is renewed interest "
@@ -502,9 +502,8 @@ def seed():
             signals = db.query(SignalORM).filter(SignalORM.creator_id == creator.id).all()
             outcomes = [s.outcome for s in signals]
             confidences = [s.confidence for s in signals]
-            reasonings = [s.reasoning for s in signals]
 
-            dims = compute_score(outcomes, confidences, reasonings)
+            dims = compute_score(outcomes, confidences)
 
             existing_score = (
                 db.query(CreatorScoreORM).filter(CreatorScoreORM.creator_id == creator.id).first()
@@ -512,7 +511,6 @@ def seed():
             if existing_score:
                 existing_score.win_rate = dims.win_rate
                 existing_score.risk_adjusted_return = dims.risk_adjusted_return
-                existing_score.reasoning_quality = dims.reasoning_quality
                 existing_score.consistency = dims.consistency
                 existing_score.confidence_calibration = dims.confidence_calibration
                 existing_score.composite_score = dims.composite
@@ -523,7 +521,6 @@ def seed():
                     creator_id=creator.id,
                     win_rate=dims.win_rate,
                     risk_adjusted_return=dims.risk_adjusted_return,
-                    reasoning_quality=dims.reasoning_quality,
                     consistency=dims.consistency,
                     confidence_calibration=dims.confidence_calibration,
                     composite_score=dims.composite,

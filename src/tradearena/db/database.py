@@ -52,7 +52,7 @@ class CreatorORM(Base):
     id = Column(String(64), primary_key=True)
     display_name = Column(String(128), nullable=False)
     created_at = Column(DateTime, nullable=False)
-    division = Column(String(32), nullable=False, default="rookie")  # rookie | pro | elite
+    division = Column(String(32), nullable=False, default="crypto")  # crypto | polymarket | multi
     # api_key_dev: plaintext key, only populated by seed_demo.py for local dev.
     # In production this is null and api_key_hash is used for authentication.
     api_key_dev = Column(String(128), nullable=True)
@@ -108,7 +108,6 @@ class CreatorScoreORM(Base):
     creator_id = Column(String(64), ForeignKey("creators.id"), primary_key=True)
     win_rate = Column(Float, nullable=False, default=0.0)
     risk_adjusted_return = Column(Float, nullable=False, default=0.0)
-    reasoning_quality = Column(Float, nullable=False, default=0.0)
     consistency = Column(Float, nullable=False, default=0.0)
     confidence_calibration = Column(Float, nullable=False, default=0.0)
     composite_score = Column(Float, nullable=False, default=0.0)

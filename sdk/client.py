@@ -18,7 +18,7 @@ except ImportError:
 
 # Validation is vendored here so the SDK has zero dependency on the server package.
 # Keep in sync with src/tradearena/core/validation.py.
-ALLOWED_ACTIONS = {"BUY", "SELL", "HOLD", "SHORT", "COVER"}
+ALLOWED_ACTIONS = {"buy", "sell", "yes", "no", "long", "short"}
 
 
 def _validate_local(data: dict[str, Any]) -> list[str]:
@@ -27,7 +27,7 @@ def _validate_local(data: dict[str, Any]) -> list[str]:
     action = data.get("action")
     if action is None:
         errors.append("action is required")
-    elif action not in ALLOWED_ACTIONS:
+    elif str(action).lower() not in ALLOWED_ACTIONS:
         errors.append(f"action must be one of {sorted(ALLOWED_ACTIONS)}, got '{action}'")
 
     confidence = data.get("confidence")
@@ -39,8 +39,8 @@ def _validate_local(data: dict[str, Any]) -> list[str]:
         except (TypeError, ValueError):
             errors.append("confidence must be a number")
             conf_f = None
-        if conf_f is not None and (conf_f <= 0.0 or conf_f >= 1.0):
-            errors.append(f"confidence must be strictly between 0 and 1 (exclusive), got {conf_f}")
+        if conf_f is not None and (conf_f < 0.01 or conf_f > 0.99):
+            errors.append(f"confidence must be between 0.01 and 0.99 (inclusive), got {conf_f}")
 
     reasoning = data.get("reasoning", "")
     if not reasoning:
@@ -58,10 +58,8 @@ def _validate_local(data: dict[str, Any]) -> list[str]:
     elif len(supporting_data) < 2:
         errors.append(f"supporting_data must have at least 2 keys (got {len(supporting_data)})")
 
-    if not data.get("symbol"):
-        errors.append("symbol is required")
-    if not data.get("creator_id"):
-        errors.append("creator_id is required")
+    if not data.get("asset"):
+        errors.append("asset is required")
 
     return errors
 

@@ -1,11 +1,10 @@
-"""Five-dimension composite score engine.
+"""Four-dimension composite score engine.
 
 Weights:
-    win_rate                25%
-    risk_adjusted_return    25%
-    reasoning_quality       20%
-    consistency             20%
-    confidence_calibration  10%
+    win_rate                30%
+    risk_adjusted_return    30%
+    consistency             25%
+    confidence_calibration  15%
 
 Each dimension is normalised to [0.0, 1.0] before weighting.
 """
@@ -13,16 +12,14 @@ Each dimension is normalised to [0.0, 1.0] before weighting.
 from __future__ import annotations
 
 import math
-import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 
 WEIGHTS = {
-    "win_rate": 0.25,
-    "risk_adjusted_return": 0.25,
-    "reasoning_quality": 0.20,
-    "consistency": 0.20,
-    "confidence_calibration": 0.10,
+    "win_rate": 0.30,
+    "risk_adjusted_return": 0.30,
+    "consistency": 0.25,
+    "confidence_calibration": 0.15,
 }
 
 
@@ -30,7 +27,6 @@ WEIGHTS = {
 class ScoreDimensions:
     win_rate: float = 0.0
     risk_adjusted_return: float = 0.0
-    reasoning_quality: float = 0.0
     consistency: float = 0.0
     confidence_calibration: float = 0.0
 
@@ -39,7 +35,6 @@ class ScoreDimensions:
         return (
             self.win_rate * WEIGHTS["win_rate"]
             + self.risk_adjusted_return * WEIGHTS["risk_adjusted_return"]
-            + self.reasoning_quality * WEIGHTS["reasoning_quality"]
             + self.consistency * WEIGHTS["consistency"]
             + self.confidence_calibration * WEIGHTS["confidence_calibration"]
         )
@@ -50,7 +45,7 @@ def _clamp(value: float, lo: float = 0.0, hi: float = 1.0) -> float:
 
 
 # ---------------------------------------------------------------------------
-# Win Rate (25%)
+# Win Rate (30%)
 # ---------------------------------------------------------------------------
 
 
@@ -67,7 +62,7 @@ def score_win_rate(outcomes: Sequence[str | None]) -> float:
 
 
 # ---------------------------------------------------------------------------
-# Risk-Adjusted Return (25%)
+# Risk-Adjusted Return (30%)
 # ---------------------------------------------------------------------------
 
 
@@ -105,77 +100,7 @@ def score_risk_adjusted_return(
 
 
 # ---------------------------------------------------------------------------
-# Reasoning Quality (20%)
-# ---------------------------------------------------------------------------
-
-_QUALITY_KEYWORDS = {
-    "support",
-    "resistance",
-    "volume",
-    "trend",
-    "momentum",
-    "divergence",
-    "rsi",
-    "macd",
-    "ema",
-    "sma",
-    "bollinger",
-    "fibonacci",
-    "breakout",
-    "pattern",
-    "fundamental",
-    "earnings",
-    "revenue",
-    "margin",
-    "volatility",
-    "correlation",
-    "beta",
-    "alpha",
-    "liquidity",
-    "spread",
-    "orderbook",
-}
-
-
-def score_reasoning_quality(reasoning_texts: Sequence[str]) -> float:
-    """Heuristic quality score for a creator's reasoning corpus.
-
-    Factors:
-    - Average word count per signal (more words → higher quality, up to 150)
-    - Keyword density (technical terms from a curated set)
-    - Average sentence count (structured multi-sentence reasoning is better)
-    """
-    if not reasoning_texts:
-        return 0.0
-
-    word_counts = []
-    keyword_densities = []
-    sentence_counts = []
-
-    for text in reasoning_texts:
-        words = [w.lower() for w in re.split(r"\s+", text.strip()) if w]
-        word_count = len(words)
-        keyword_hits = sum(1 for w in words if w.rstrip(".,;:") in _QUALITY_KEYWORDS)
-        sentences = len([s for s in re.split(r"[.!?]+", text) if s.strip()])
-
-        word_counts.append(word_count)
-        keyword_densities.append(keyword_hits / max(word_count, 1))
-        sentence_counts.append(sentences)
-
-    avg_words = sum(word_counts) / len(word_counts)
-    avg_kd = sum(keyword_densities) / len(keyword_densities)
-    avg_sentences = sum(sentence_counts) / len(sentence_counts)
-
-    # Normalise each sub-score
-    word_score = _clamp(avg_words / 150.0)  # 150 words = perfect word score
-    kd_score = _clamp(avg_kd / 0.10)  # 10% keyword density = perfect
-    sentence_score = _clamp(avg_sentences / 5.0)  # 5 sentences = perfect
-
-    return _clamp(0.4 * word_score + 0.4 * kd_score + 0.2 * sentence_score)
-
-
-# ---------------------------------------------------------------------------
-# Consistency (20%)
+# Consistency (25%)
 # ---------------------------------------------------------------------------
 
 
@@ -210,7 +135,7 @@ def score_consistency(
 
 
 # ---------------------------------------------------------------------------
-# Confidence Calibration (10%)
+# Confidence Calibration (15%)
 # ---------------------------------------------------------------------------
 
 
@@ -245,13 +170,11 @@ def score_confidence_calibration(
 def compute_score(
     outcomes: list[str | None],
     confidences: list[float],
-    reasoning_texts: list[str],
 ) -> ScoreDimensions:
-    """Compute all five dimensions and return a ScoreDimensions instance."""
+    """Compute all four dimensions and return a ScoreDimensions instance."""
     return ScoreDimensions(
         win_rate=score_win_rate(outcomes),
         risk_adjusted_return=score_risk_adjusted_return(outcomes, confidences),
-        reasoning_quality=score_reasoning_quality(reasoning_texts),
         consistency=score_consistency(outcomes),
         confidence_calibration=score_confidence_calibration(outcomes, confidences),
     )
