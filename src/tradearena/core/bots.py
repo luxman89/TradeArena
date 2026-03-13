@@ -153,8 +153,8 @@ def _ema_cross_signal(rng: random.Random) -> dict[str, Any] | None:
 def _bb_squeeze_signal(rng: random.Random) -> dict[str, Any] | None:
     """Bollinger Band squeeze + touch breakout."""
     asset = rng.choice(["BTC/USDT", "ETH/USDT", "BNB/USDT"])
-    bb_width = rng.uniform(0.3, 6.0)   # % bandwidth
-    price_pos = rng.uniform(0, 100)    # % position within band (0=lower, 100=upper)
+    bb_width = rng.uniform(0.3, 6.0)  # % bandwidth
+    price_pos = rng.uniform(0, 100)  # % position within band (0=lower, 100=upper)
 
     if bb_width > 2.5:
         return None  # Bands too wide — no squeeze setup
