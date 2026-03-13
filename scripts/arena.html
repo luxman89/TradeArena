@@ -1626,7 +1626,6 @@ function openPanel(ag) {
     {l:'Risk/Return',v:Math.min((ag.creator.risk_adjusted_return||0)*100/2,100),c:'#2563EB'},
     {l:'Consistency',v:(ag.creator.consistency||0)*100,c:'#F59E0B'},
     {l:'Confidence',v:(ag.creator.confidence_calibration||0)*100,c:'#8B5CF6'},
-    {l:'Reasoning',v:(ag.creator.reasoning_quality||0)*100,c:'#EF4444'},
   ];
   const de = document.getElementById('dims'); de.innerHTML = '';
   dims.forEach((d, i) => {
@@ -1642,7 +1641,8 @@ function openPanel(ag) {
   se.innerHTML = '<div class="sig-empty">Loading…</div>';
   fetch(API+'/creator/'+encodeURIComponent(ag.creator.creator_id||'')+'/signals')
     .then(r=>r.json()).then(data => {
-      const list = (data.signals||data||[]).slice(0,10);
+      const all = data.signals||data||[];
+      const list = all.slice(0,10);
       se.innerHTML = '';
       // Signal timeline dots
       list.forEach(s => {
@@ -1661,7 +1661,8 @@ function openPanel(ag) {
         se.appendChild(el);
       });
       if (!list.length) { se.innerHTML = '<div class="sig-empty">No signals yet</div>'; tl.innerHTML = '<span style="font-size:.5rem;color:var(--muted2)">No data</span>'; }
-    }).catch(() => { se.innerHTML = '<div class="sig-empty">No signals yet</div>'; });
+      else if (all.length > 10) { const more = document.createElement('div'); more.className = 'sig-empty'; more.textContent = `+${all.length - 10} more signals`; se.appendChild(more); }
+    }).catch(e => { console.error('[TradeArena] Failed to load signals:', e); se.innerHTML = '<div class="sig-empty">Failed to load signals</div>'; });
   // Defer .open class by two frames so CSS transition animates properly
   requestAnimationFrame(() => {
     requestAnimationFrame(() => { panel.classList.add('open'); resize(); });
@@ -1720,6 +1721,7 @@ function loadData() {
         if (leaderboard[i]) {
           const oldScore = (ag.creator.composite_score||0)*100;
           ag.creator = leaderboard[i];
+          ag._division = (leaderboard[i].division || 'multi').toLowerCase();
           const newScore = (ag.creator.composite_score||0)*100;
           const diff = newScore - oldScore;
           if (diff > 0.1) { addFloatingText(ag, '+'+diff.toFixed(1), '#10B981'); playSound('scoreUp'); if (diff > 5) triggerScreenShake(4, 200); }

@@ -1,4 +1,4 @@
-"""Tests for the 5-dimension scoring engine."""
+"""Tests for the 4-dimension scoring engine."""
 
 from __future__ import annotations
 
@@ -8,7 +8,6 @@ from tradearena.core.scoring import (
     compute_score,
     score_confidence_calibration,
     score_consistency,
-    score_reasoning_quality,
     score_risk_adjusted_return,
     score_win_rate,
 )
@@ -23,7 +22,6 @@ class TestWeights:
         expected = {
             "win_rate",
             "risk_adjusted_return",
-            "reasoning_quality",
             "consistency",
             "confidence_calibration",
         }
@@ -88,32 +86,6 @@ class TestScoreRiskAdjustedReturn:
         assert 0.0 <= result <= 1.0
 
 
-class TestScoreReasoningQuality:
-    def test_empty_returns_zero(self):
-        assert score_reasoning_quality([]) == 0.0
-
-    def test_long_technical_reasoning_scores_high(self):
-        reasoning = (
-            "Bitcoin RSI shows bullish divergence on the 4-hour chart while MACD "
-            "histogram is expanding. Volume breakout above the 20-period SMA with "
-            "Bollinger band squeeze. Fibonacci retracement at 0.618 acting as support. "
-            "EMA crossover confirms the trend momentum is shifting positively. "
-            "Resistance level at 47000 is the key target with stop below the breakout."
-        )
-        result = score_reasoning_quality([reasoning] * 5)
-        assert result > 0.4
-
-    def test_very_short_reasoning_scores_low(self):
-        result = score_reasoning_quality(
-            ["go up maybe yes yes yes yes yes yes yes yes yes yes yes yes yes yes yes"] * 5
-        )
-        assert result < 0.5
-
-    def test_output_clamped_0_to_1(self):
-        result = score_reasoning_quality(["word " * 200] * 10)
-        assert 0.0 <= result <= 1.0
-
-
 class TestScoreConsistency:
     def test_perfectly_consistent_winner_scores_high(self):
         outcomes = ["WIN"] * 20
@@ -166,7 +138,6 @@ class TestComputeScore:
         result = compute_score(
             outcomes=["WIN", "LOSS", "WIN"],
             confidences=[0.7, 0.6, 0.8],
-            reasoning_texts=["word " * 30] * 3,
         )
         assert isinstance(result, ScoreDimensions)
 
@@ -174,7 +145,6 @@ class TestComputeScore:
         dims = ScoreDimensions(
             win_rate=1.0,
             risk_adjusted_return=1.0,
-            reasoning_quality=1.0,
             consistency=1.0,
             confidence_calibration=1.0,
         )
@@ -191,14 +161,9 @@ class TestComputeScore:
     def test_full_pipeline_produces_valid_scores(self):
         outcomes = ["WIN", "WIN", "LOSS", "WIN", "NEUTRAL", None, "WIN"]
         confidences = [0.75, 0.80, 0.60, 0.70, 0.55, 0.65, 0.85]
-        reasonings = [
-            "RSI bullish divergence on 4h chart with MACD crossover and volume support "
-            "above 20-period EMA. Fibonacci retracement at 0.618 acting as strong support level."
-        ] * 7
-        result = compute_score(outcomes, confidences, reasonings)
+        result = compute_score(outcomes, confidences)
         assert 0.0 <= result.win_rate <= 1.0
         assert 0.0 <= result.risk_adjusted_return <= 1.0
-        assert 0.0 <= result.reasoning_quality <= 1.0
         assert 0.0 <= result.consistency <= 1.0
         assert 0.0 <= result.confidence_calibration <= 1.0
         assert 0.0 <= result.composite <= 1.0
