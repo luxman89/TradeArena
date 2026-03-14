@@ -12,3 +12,4 @@ build/
 *.egg-info/
 .ruff_cache/
 .claude/
+.bot_credentials.json
