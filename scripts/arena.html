@@ -200,6 +200,181 @@ body{display:flex;flex-direction:column}
 #ph-sprite{width:48px;height:72px;image-rendering:pixelated;image-rendering:crisp-edges;flex-shrink:0;border:2px solid var(--border2);border-radius:4px;background:var(--surface2)}
 #ph-info{flex:1;min-width:0}
 #ph-rank-badge{position:absolute;top:10px;right:10px;font-family:'Press Start 2P',monospace;font-size:.45rem;color:var(--gold);background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3);padding:3px 7px;border-radius:3px}
+
+/* ── Auth modal ── */
+#auth-modal .modal{width:380px}
+.auth-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:12px}
+.auth-tab{flex:1;padding:8px;background:none;border:none;color:var(--muted);cursor:pointer;font-family:'Press Start 2P',monospace;font-size:.4rem;border-bottom:2px solid transparent}
+.auth-tab.active{color:var(--green);border-bottom-color:var(--green)}
+.auth-field{display:block;width:100%;margin-bottom:8px;padding:8px;background:var(--bg);border:1px solid var(--border2);border-radius:4px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.7rem;box-sizing:border-box}
+.auth-field::placeholder{color:var(--muted2)}
+.auth-submit{width:100%;padding:8px;margin-top:4px;background:var(--green);border:none;color:#000;font-family:'Press Start 2P',monospace;font-size:.4rem;cursor:pointer;border-radius:4px}
+.auth-submit:hover{opacity:.9}
+.auth-err{color:var(--red);font-size:.55rem;margin-top:6px;min-height:1.2em}
+.avatar-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:8px 0}
+.avatar-cell{width:48px;height:48px;border:2px solid var(--border2);border-radius:4px;cursor:pointer;position:relative;display:flex;align-items:center;justify-content:center;background:var(--bg)}
+.avatar-cell.selected{border-color:var(--green)}
+.avatar-cell.locked{opacity:.35;cursor:not-allowed}
+.avatar-cell.locked::after{content:'🔒';position:absolute;font-size:.6rem}
+.avatar-cell canvas{width:36px;height:48px;image-rendering:pixelated;image-rendering:crisp-edges}
+/* ── Level badge / XP bar ── */
+.level-badge{display:inline-block;background:var(--border2);color:var(--gold);font-family:'Press Start 2P',monospace;font-size:.35rem;padding:2px 5px;border-radius:3px;margin-left:4px;vertical-align:middle}
+.xp-bar-track{width:100%;height:4px;background:var(--border);border-radius:2px;margin:4px 0}
+.xp-bar-fill{height:100%;background:var(--gold);border-radius:2px;transition:width 400ms ease-out}
+/* ── User bar in topbar ── */
+#user-bar{display:flex;align-items:center;gap:6px;cursor:pointer}
+#user-bar-name{font-family:'Press Start 2P',monospace;font-size:.4rem;color:var(--text)}
+#user-bar-level{font-family:'Press Start 2P',monospace;font-size:.35rem;color:var(--gold)}
+
+/* ── Career Progression Modal ── */
+#prog-modal{
+  position:fixed;inset:0;z-index:450;background:rgba(0,0,0,.92);
+  display:none;flex-direction:column;
+}
+#prog-modal.show{display:flex}
+
+.prog-inner{
+  width:100%;height:100%;display:flex;flex-direction:column;overflow:hidden;
+}
+
+.prog-header{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  padding:18px 24px 14px;border-bottom:1px solid var(--border2);
+  background:var(--surface);flex-shrink:0;gap:16px;
+}
+.prog-title{
+  font-family:'Press Start 2P',monospace;font-size:.62rem;
+  color:var(--gold);letter-spacing:.12em;display:block;margin-bottom:6px;
+}
+.prog-subtitle{
+  font-size:.65rem;color:var(--muted);line-height:1.5;
+}
+.prog-close{
+  background:none;border:1px solid var(--border2);color:var(--muted);
+  cursor:pointer;font-family:'Press Start 2P',monospace;font-size:.38rem;
+  padding:5px 10px;border-radius:4px;white-space:nowrap;flex-shrink:0;
+  transition:background .15s,color .15s;
+}
+.prog-close:hover{background:var(--border2);color:var(--text)}
+
+/* Horizontal scrollable track */
+.prog-timeline-wrap{
+  flex:1;overflow-x:auto;overflow-y:hidden;
+  display:flex;align-items:center;
+  padding:32px 48px;
+  position:relative;
+  scrollbar-width:thin;
+  scrollbar-color:var(--border2) transparent;
+}
+.prog-timeline-wrap::-webkit-scrollbar{height:5px}
+.prog-timeline-wrap::-webkit-scrollbar-track{background:transparent}
+.prog-timeline-wrap::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+/* Scroll fade hints */
+.prog-timeline-wrap::before,
+.prog-timeline-wrap::after{
+  content:'';position:sticky;top:0;bottom:0;width:48px;
+  z-index:2;pointer-events:none;flex-shrink:0;align-self:stretch;
+}
+.prog-timeline-wrap::before{
+  left:0;background:linear-gradient(90deg,rgba(0,0,0,.7),transparent);
+}
+.prog-timeline-wrap::after{
+  right:0;background:linear-gradient(270deg,rgba(0,0,0,.7),transparent);
+}
+
+.prog-timeline{
+  display:flex;align-items:stretch;min-width:max-content;gap:0;
+}
+
+/* Connector between cards */
+.prog-connector{
+  width:28px;height:2px;background:var(--border2);
+  align-self:center;flex-shrink:0;position:relative;
+}
+.prog-connector::after{
+  content:'▶';position:absolute;right:-7px;top:50%;
+  transform:translateY(-50%);font-size:.45rem;color:var(--border2);line-height:1;
+}
+
+/* Individual level card */
+.prog-card{
+  width:154px;flex-shrink:0;
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:10px;padding:14px 10px 12px;
+  display:flex;flex-direction:column;align-items:center;gap:7px;
+  position:relative;transition:border-color .2s,box-shadow .2s,transform .15s;
+  cursor:default;
+}
+.prog-card:hover{
+  border-color:var(--border2);
+  transform:translateY(-4px);
+  box-shadow:0 8px 24px rgba(0,0,0,.4);
+}
+.prog-card.milestone{
+  border-color:rgba(139,92,246,.35);
+  background:rgba(139,92,246,.04);
+}
+.prog-card.milestone:hover{
+  border-color:rgba(139,92,246,.6);
+  box-shadow:0 8px 28px rgba(139,92,246,.2);
+}
+
+/* Milestone crown */
+.prog-milestone-crown{
+  position:absolute;top:-14px;left:50%;transform:translateX(-50%);
+  font-size:.9rem;line-height:1;
+  filter:drop-shadow(0 0 6px rgba(139,92,246,.7));
+}
+
+/* Portrait */
+.prog-portrait-wrap{
+  width:128px;height:128px;border-radius:8px;overflow:hidden;
+  border:1px solid var(--border2);background:var(--surface);
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;
+}
+.prog-portrait-canvas{
+  width:128px;height:128px;
+  image-rendering:pixelated;image-rendering:crisp-edges;
+  display:block;
+}
+
+/* Level number */
+.prog-level-num{
+  font-family:'Press Start 2P',monospace;font-size:.5rem;
+  color:var(--muted);letter-spacing:.05em;margin-top:2px;
+}
+.prog-card.milestone .prog-level-num{color:var(--purple)}
+
+/* Character title */
+.prog-card-title{
+  font-family:'Press Start 2P',monospace;font-size:.3rem;
+  color:var(--text);text-align:center;line-height:1.6;
+  word-break:break-word;
+}
+.prog-card.milestone .prog-card-title{color:#C4B5FD}
+
+/* Score threshold badge */
+.prog-threshold{
+  font-family:'JetBrains Mono',monospace;font-size:.58rem;font-weight:700;
+  color:var(--muted);background:rgba(255,255,255,.05);
+  border:1px solid var(--border);padding:2px 8px;border-radius:10px;
+}
+.prog-card.milestone .prog-threshold{
+  color:#C4B5FD;background:rgba(139,92,246,.1);border-color:rgba(139,92,246,.3);
+}
+
+/* Lore description */
+.prog-card-desc{
+  font-size:.55rem;color:var(--muted2);text-align:center;
+  line-height:1.5;
+}
+
+@media(max-height:600px){
+  .prog-portrait-wrap{width:96px;height:96px}
+  .prog-card{width:120px;padding:10px 8px 8px}
+  .prog-timeline-wrap{padding:16px 32px}
+}
 </style>
 </head>
 <body>
@@ -222,6 +397,9 @@ body{display:flex;flex-direction:column}
   </div>
   <button id="history-btn" onclick="showBattleHistory()" style="background:none;border:1px solid var(--border2);color:var(--muted);font-family:'Press Start 2P',monospace;font-size:0.4rem;padding:4px 8px;cursor:pointer;border-radius:4px">⚔ HISTORY</button>
   <a href="/rules" target="_blank" style="background:none;border:1px solid var(--border2);color:var(--muted);font-family:'Press Start 2P',monospace;font-size:0.4rem;padding:4px 8px;cursor:pointer;border-radius:4px;text-decoration:none">📋 RULES</a>
+  <button onclick="showProgression()" style="background:none;border:1px solid rgba(245,158,11,.35);color:var(--gold);font-family:'Press Start 2P',monospace;font-size:0.4rem;padding:4px 8px;cursor:pointer;border-radius:4px">🏆 CAREER</button>
+  <div id="user-bar" style="display:none" onclick="openAuthModal()"><span id="user-bar-name"></span><span id="user-bar-level"></span></div>
+  <button id="login-btn" onclick="openAuthModal()" style="background:none;border:1px solid var(--green);color:var(--green);font-family:'Press Start 2P',monospace;font-size:0.4rem;padding:4px 8px;cursor:pointer;border-radius:4px">LOGIN</button>
   <div class="live"><span class="dot"></span>LIVE</div>
   <button id="mute-btn" onclick="toggleMute()" title="Toggle sound" style="background:none;border:1px solid var(--border2);color:var(--muted);font-family:'Press Start 2P',monospace;font-size:0.5rem;padding:4px 8px;cursor:pointer;border-radius:4px">♪ ON</button>
 </div>
@@ -239,6 +417,7 @@ body{display:flex;flex-direction:column}
         <div id="ph-rank" style="font-size:.65rem;color:var(--muted)">—</div>
         <span id="ph-rank-badge"></span>
         <button id="challenge-btn" onclick="startBattle()" style="margin-top:6px;background:var(--red);border:none;color:#fff;font-family:'Press Start 2P',monospace;font-size:.4rem;padding:5px 10px;cursor:pointer;border-radius:3px;letter-spacing:.05em">⚔ CHALLENGE</button>
+        <button onclick="showProgression()" style="margin-top:4px;background:none;border:1px solid rgba(245,158,11,.3);color:var(--gold);font-family:'Press Start 2P',monospace;font-size:.35rem;padding:4px 10px;cursor:pointer;border-radius:3px;letter-spacing:.05em">🏆 CAREER</button>
       </div>
     </div>
     <div id="pb">
@@ -311,6 +490,57 @@ body{display:flex;flex-direction:column}
   </div>
 </div>
 
+<div id="auth-modal" class="modal-overlay" onclick="if(event.target===this)closeAuthModal()">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="section-title" style="margin:0">ACCOUNT</span>
+      <button class="modal-close" onclick="closeAuthModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="auth-tabs">
+        <button class="auth-tab active" onclick="switchAuthTab('login')">LOGIN</button>
+        <button class="auth-tab" onclick="switchAuthTab('register')">REGISTER</button>
+      </div>
+      <div id="auth-login">
+        <input class="auth-field" id="login-email" type="email" placeholder="Email">
+        <input class="auth-field" id="login-pw" type="password" placeholder="Password">
+        <button class="auth-submit" onclick="ta_login()">LOG IN</button>
+        <div class="auth-err" id="login-err"></div>
+      </div>
+      <div id="auth-register" style="display:none">
+        <input class="auth-field" id="reg-email" type="email" placeholder="Email">
+        <input class="auth-field" id="reg-pw" type="password" placeholder="Password (min 8 chars)">
+        <input class="auth-field" id="reg-name" type="text" placeholder="Display Name (3-50 chars)">
+        <select class="auth-field" id="reg-div">
+          <option value="crypto">Crypto</option>
+          <option value="polymarket">Polymarket</option>
+          <option value="multi">Multi</option>
+        </select>
+        <textarea class="auth-field" id="reg-strat" rows="3" placeholder="Strategy description (20-500 chars)"></textarea>
+        <div style="font-size:.55rem;color:var(--muted);margin:6px 0 4px">Choose your avatar:</div>
+        <div class="avatar-grid" id="avatar-grid"></div>
+        <button class="auth-submit" onclick="ta_register()">CREATE ACCOUNT</button>
+        <div class="auth-err" id="reg-err"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="prog-modal" onclick="if(event.target===this)closeProgression()">
+  <div class="prog-inner">
+    <div class="prog-header">
+      <div>
+        <span class="prog-title">🏆 CAREER PROGRESSION</span>
+        <div class="prog-subtitle">The 16-level trading floor hierarchy — from intern to alpha broker. Scroll to explore →</div>
+      </div>
+      <button class="prog-close" onclick="closeProgression()">✕ CLOSE</button>
+    </div>
+    <div class="prog-timeline-wrap">
+      <div id="prog-timeline" class="prog-timeline"></div>
+    </div>
+  </div>
+</div>
+
 <div id="canvas-tooltip"><div class="tt-name"></div><div class="tt-line tt-rank"></div><div class="tt-line tt-wr"></div><div class="tt-line tt-sig"></div></div>
 
 <script>
@@ -367,6 +597,29 @@ const CHAR_DEFS = [
 ];
 
 // ═════════════════════════════════════════════════
+// CAREER PROGRESSION — 16 levels (composite_score * 100 thresholds)
+// ═════════════════════════════════════════════════
+const LEVEL_DEFS = [
+  { level:1,  title:'The Intern',              threshold:0,  desc:'Running on 3 hours sleep — first one at the desk.' },
+  { level:2,  title:'The Young Analyst',       threshold:5,  desc:'Three espressos in by 7am. Already building conviction.' },
+  { level:3,  title:'The Crypto Bro',          threshold:10, desc:'High-risk energy. Gold chain included.' },
+  { level:4,  title:'The Quant',               threshold:15, desc:'MIT/PhD vibe. Runs models everyone else bets on.' },
+  { level:5,  title:'The Floor Trader',        threshold:20, desc:'Raw chaos of the old pit. Buys before the algo fires.' },
+  { level:6,  title:'The Veteran Broker',      threshold:25, desc:'Old-school floor cred. Black suspenders, steady hands.' },
+  { level:7,  title:'The Risk Manager',        threshold:30, desc:'Stern authority. Downside-aware, protecting the book.' },
+  { level:8,  title:'The Short Seller',        threshold:35, desc:'Bets against the market — then gets the last laugh.' },
+  { level:9,  title:'The Risk Manager',        threshold:40, desc:'Nobody reads the 40-page tail-risk report. Until the crash.' },
+  { level:10, title:'The Compliance Officer',  threshold:45, desc:'Quiet. Methodical. Absolutely watching you.' },
+  { level:11, title:'The Quant',               threshold:50, desc:'The smartest person in the room. Runs the alpha models.' },
+  { level:12, title:'The Regulator',           threshold:55, desc:'Shows up after the party to hand out subpoenas.' },
+  { level:13, title:'The Veteran Trader',      threshold:60, desc:'Decades of cycles. The brilliant contrarian who just wants to be right.' },
+  { level:14, title:'The Tycoon',              threshold:70, desc:'The one who actually runs the room. Fiery. Formidable.' },
+  { level:15, title:'The Senior Partner',      threshold:80, desc:'Distinguished power. The veteran kingmaker who\'s seen every cycle.' },
+  { level:16, title:'The Alpha Broker',        threshold:90, desc:'Sharp, ruthless, immaculate. Top of the food chain.' },
+];
+const MILESTONE_LEVELS = new Set([5, 10, 16]);
+
+// ═════════════════════════════════════════════════
 // DESK POSITIONS — where agents sit
 // ═════════════════════════════════════════════════
 const DESKS = [
@@ -396,6 +649,27 @@ loadImg('floors', FLOOR_URL);
 loadImg('walls', WALLS_URL);
 OBJTILES_URL.forEach((u,i) => loadImg('obj'+i, u));
 CHAR_URLS.forEach((u,i) => loadImg('char'+i, u));
+
+// ── Career progression portraits (Level 1 → 16) ──
+const PORTRAIT_FILES = [
+  'The%20Intern.png',
+  'The%20Young%20Analyst.png',
+  'The%20Crypto%20Bro.png',
+  'The%20Quant%20(2).png',
+  'The%20Floor%20Trader.png',
+  'The%20Veteran%20Broker.png',
+  'The%20Risk%20Manager%20(2).png',
+  'The%20Short%20Seller.png',
+  'The%20Risk%20Manager.png',
+  'The%20Compliance%20Officer.png',
+  'The%20Quant.png',
+  'The%20Regulator.png',
+  'The%20Veteran%20Trader.png',
+  'The%20Tycoon.png',
+  'The%20Senior%20Partner.png',
+  'The%20Alpha%20Broker.png',
+];
+PORTRAIT_FILES.forEach((f, i) => loadImg('lvl' + (i + 1), AB + f));
 
 // ═════════════════════════════════════════════════
 // CANVAS — kept as offscreen dummy for battle/panel sprite drawing
@@ -2133,8 +2407,10 @@ class GameScene extends Phaser.Scene {
   }
 
   _createSprites() {
-    if (this._spritesCreated || agents.length === 0) return;
-    this._spritesCreated = true;
+    // Per-agent check: only create sprites for agents that don't have one yet
+    const unspawned = agents.filter(ag => !ag.phaserSprite);
+    if (unspawned.length === 0) return;
+    this._spritesCreated = true; // kept for legacy guard in update loop
     const FPR = this._FRAMES_PER_ROW; // 13
     const D2R = this._DIR_TO_ROW;
     const S = SCALE;
@@ -2142,7 +2418,7 @@ class GameScene extends Phaser.Scene {
     const DH = CFH * CHR_S;
     const scene = this;
 
-    agents.forEach((ag) => {
+    unspawned.forEach((ag) => {
       const px = ag.px * TS * S;
       const py = ag.py * TS * S;
 
@@ -2259,8 +2535,8 @@ class GameScene extends Phaser.Scene {
     // Clamp delta to prevent huge jumps
     const dt = Math.min(delta, 80);
 
-    // Create sprites once agents are available
-    if (!this._spritesCreated && agents.length > 0) this._createSprites();
+    // Create sprites for any agents that don't have them yet
+    if (agents.length > 0) this._createSprites();
 
     // Update all agents (existing game logic)
     for (const ag of agents) updateAgent(ag, dt);
@@ -2859,7 +3135,11 @@ function closeLbModal() { document.getElementById('lb-modal').classList.remove('
 let focusedIdx = -1;
 document.addEventListener('keydown', e => {
   if (document.querySelector('.modal-overlay.show')) return;
-  if (e.key === 'Escape') { closePanel(); focusedIdx = -1; return; }
+  if (e.key === 'Escape') {
+    if (document.getElementById('auth-modal').classList.contains('show')) { closeAuthModal(); return; }
+    if (document.getElementById('prog-modal').classList.contains('show')) { closeProgression(); return; }
+    closePanel(); focusedIdx = -1; return;
+  }
   if (e.key === 'Enter' && focusedIdx >= 0 && agents[focusedIdx]) {
     openPanel(agents[focusedIdx]); playSound('panelOpen'); return;
   }
@@ -3014,6 +3294,18 @@ function loadData() {
           if (diff > 0.1) { addFloatingText(ag, '+'+diff.toFixed(1), '#10B981'); playSound('scoreUp'); if (diff > 5) triggerScreenShake(4, 200); }
           else if (diff < -0.1) { addFloatingText(ag, diff.toFixed(1), '#EF4444'); playSound('scoreDown'); if (diff < -5) triggerScreenShake(4, 200); }
         }
+      });
+      // Spawn sprites for any new creators not yet on the floor
+      const existingIds = new Set(agents.map(ag => ag.creator.creator_id));
+      const maxAgents = Math.min(8, DESKS.length);
+      leaderboard.forEach((c) => {
+        if (agents.length >= maxAgents) return;
+        if (existingIds.has(c.creator_id)) return;
+        const newAg = makeAgent(c, agents.length);
+        agents.push(newAg);
+        startPath(newAg, newAg.deskX, newAg.deskY);
+        addFloatingText(newAg, 'NEW!', '#06B6D4');
+        console.log('[TradeArena] New agent joined the floor:', c.display_name || c.creator_id);
       });
     }
     // Random signal
@@ -3460,6 +3752,261 @@ function showBattleHistory() {
   });
 }
 function closeBhModal() { document.getElementById('bh-modal').classList.remove('show'); }
+
+// ═════════════════════════════════════════════════
+// CAREER PROGRESSION
+// ═════════════════════════════════════════════════
+let _progRendered = false;
+
+function showProgression() {
+  // Close any conflicting overlays
+  document.getElementById('lb-modal').classList.remove('show');
+  document.getElementById('bh-modal').classList.remove('show');
+  document.getElementById('prog-modal').classList.add('show');
+  // Build timeline once (idempotent)
+  if (!_progRendered) { renderTimeline(); _progRendered = true; }
+}
+
+function closeProgression() {
+  document.getElementById('prog-modal').classList.remove('show');
+}
+
+// ═════════════════════════════════════════════════
+// AUTH — login / register / profile
+// ═════════════════════════════════════════════════
+let currentUser = null;
+let selectedAvatar = 0;
+
+function openAuthModal() {
+  const modal = document.getElementById('auth-modal');
+  const loginDiv = document.getElementById('auth-login');
+  const regDiv = document.getElementById('auth-register');
+  let profileDiv = document.getElementById('auth-profile');
+  if (currentUser) {
+    if (!profileDiv) {
+      profileDiv = document.createElement('div');
+      profileDiv.id = 'auth-profile';
+      loginDiv.parentNode.appendChild(profileDiv);
+    }
+    loginDiv.style.display = 'none';
+    regDiv.style.display = 'none';
+    document.querySelector('.auth-tabs').style.display = 'none';
+    const u = currentUser;
+    const XP_T = [0,20,60,120,200,300,420,560,720,900,1100,1320,1560,1820,2100,2400,2720,3060,3420,3800];
+    const lv = u.level || 1;
+    const ct = XP_T[lv-1]||0, nt = XP_T[lv]||XP_T[19];
+    const pct = nt > ct ? ((u.xp||0)-ct)/(nt-ct)*100 : 100;
+    profileDiv.innerHTML =
+      '<div style="text-align:center;padding:8px 0">' +
+        '<div style="font-family:\'Press Start 2P\',monospace;font-size:.6rem;color:var(--text);margin-bottom:4px">' + (u.display_name||u.creator_id) + '</div>' +
+        '<span class="level-badge" style="font-size:.4rem">Lv.' + lv + '</span>' +
+        '<div class="xp-bar-track" style="margin:8px 0"><div class="xp-bar-fill" style="width:' + pct.toFixed(1) + '%"></div></div>' +
+        '<div style="font-size:.45rem;color:var(--muted2)">' + (lv>=20?'MAX LEVEL':((u.xp||0)-ct)+' / '+(nt-ct)+' XP') + '</div>' +
+        '<div style="font-size:.45rem;color:var(--muted);margin:8px 0">API Key ID: ' + u.creator_id + '</div>' +
+        '<button class="auth-submit" style="background:var(--red);margin-top:12px" onclick="ta_logout();closeAuthModal()">LOG OUT</button>' +
+      '</div>';
+    profileDiv.style.display = '';
+  } else {
+    if (profileDiv) profileDiv.style.display = 'none';
+    document.querySelector('.auth-tabs').style.display = '';
+    switchAuthTab('login');
+  }
+  modal.classList.add('show');
+  buildAvatarGrid();
+  drawAvatarPreviews();
+}
+
+function closeAuthModal() {
+  document.getElementById('auth-modal').classList.remove('show');
+}
+
+function switchAuthTab(tab) {
+  const tabs = document.querySelectorAll('.auth-tab');
+  tabs[0].classList.toggle('active', tab === 'login');
+  tabs[1].classList.toggle('active', tab === 'register');
+  document.getElementById('auth-login').style.display = tab === 'login' ? '' : 'none';
+  document.getElementById('auth-register').style.display = tab === 'register' ? '' : 'none';
+}
+
+function buildAvatarGrid() {
+  const grid = document.getElementById('avatar-grid');
+  if (!grid || grid.children.length) return;
+  const starterSet = [0,1,2,3];
+  for (let i = 0; i < 10; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'avatar-cell' + (i === selectedAvatar ? ' selected' : '');
+    if (!starterSet.includes(i)) cell.classList.add('locked');
+    const cvs = document.createElement('canvas');
+    cvs.width = 64; cvs.height = 64;
+    cell.appendChild(cvs);
+    cell.onclick = () => {
+      if (!starterSet.includes(i)) return;
+      selectedAvatar = i;
+      grid.querySelectorAll('.avatar-cell').forEach((c, j) => {
+        c.classList.toggle('selected', j === i);
+      });
+    };
+    cell._avatarIdx = i;
+    grid.appendChild(cell);
+  }
+}
+
+function drawAvatarPreviews() {
+  const grid = document.getElementById('avatar-grid');
+  if (!grid) return;
+  Array.from(grid.children).forEach(cell => {
+    const i = cell._avatarIdx;
+    if (i === undefined) return;
+    const cvs = cell.querySelector('canvas');
+    if (!cvs) return;
+    const cd = CHAR_DEFS[i]; // [sheetIdx, blockCol, blockRow]
+    const sheet = img['char' + cd[0]];
+    if (!sheet || !sheet.naturalWidth) return;
+    const sx = cd[1] * 3 * CFW + CFW; // middle/idle frame
+    const sy = cd[2] * 4 * CFH + 3 * CFH; // front-facing row
+    const cx = cvs.getContext('2d');
+    cx.imageSmoothingEnabled = false;
+    cx.clearRect(0, 0, 64, 64);
+    cx.drawImage(sheet, sx, sy, CFW, CFH, 0, 0, 64, 64);
+  });
+}
+
+async function ta_login() {
+  const email = document.getElementById('login-email').value.trim();
+  const pw = document.getElementById('login-pw').value;
+  const errEl = document.getElementById('login-err');
+  errEl.textContent = '';
+  if (!email || !pw) { errEl.textContent = 'Email and password required'; return; }
+  try {
+    const res = await fetch(API + '/auth/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({email, password: pw}),
+    });
+    const data = await res.json();
+    if (!res.ok) { errEl.textContent = data.detail || 'Login failed'; return; }
+    localStorage.setItem('ta_token', data.token);
+    localStorage.setItem('ta_creator_id', data.creator_id);
+    currentUser = data;
+    updateUserBar();
+    closeAuthModal();
+    showToast('Welcome back, ' + (data.display_name || data.creator_id));
+  } catch (e) { errEl.textContent = 'Network error'; }
+}
+
+async function ta_register() {
+  const email = document.getElementById('reg-email').value.trim();
+  const pw = document.getElementById('reg-pw').value;
+  const name = document.getElementById('reg-name').value.trim();
+  const div = document.getElementById('reg-div').value;
+  const strat = document.getElementById('reg-strat').value.trim();
+  const errEl = document.getElementById('reg-err');
+  errEl.textContent = '';
+  if (!email || !pw || !name || !strat) { errEl.textContent = 'All fields required'; return; }
+  try {
+    const res = await fetch(API + '/auth/register', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        email, password: pw, display_name: name,
+        division: div, strategy_description: strat,
+        avatar_index: selectedAvatar,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) { errEl.textContent = data.detail || 'Registration failed'; return; }
+    localStorage.setItem('ta_token', data.token);
+    localStorage.setItem('ta_creator_id', data.creator_id);
+    currentUser = data;
+    updateUserBar();
+    closeAuthModal();
+    showToast('Account created! Your API key: ' + data.api_key);
+  } catch (e) { errEl.textContent = 'Network error'; }
+}
+
+function ta_logout() {
+  localStorage.removeItem('ta_token');
+  localStorage.removeItem('ta_creator_id');
+  currentUser = null;
+  updateUserBar();
+  showToast('Logged out');
+}
+
+function updateUserBar() {
+  const bar = document.getElementById('user-bar');
+  const btn = document.getElementById('login-btn');
+  if (currentUser) {
+    bar.style.display = 'flex';
+    btn.style.display = 'none';
+    document.getElementById('user-bar-name').textContent = currentUser.display_name || currentUser.creator_id;
+    document.getElementById('user-bar-level').textContent = 'Lv.' + (currentUser.level || 1);
+  } else {
+    bar.style.display = 'none';
+    btn.style.display = '';
+  }
+}
+
+async function hydrateUser() {
+  const token = localStorage.getItem('ta_token');
+  if (!token) return;
+  try {
+    const res = await fetch(API + '/auth/me', {
+      headers: {'Authorization': 'Bearer ' + token},
+    });
+    if (!res.ok) {
+      if (res.status === 401) { ta_logout(); return; }
+      return;
+    }
+    currentUser = await res.json();
+    updateUserBar();
+  } catch (e) { console.warn('[TradeArena] Auth hydrate failed:', e); }
+}
+
+hydrateUser();
+
+function renderTimeline() {
+  const timeline = document.getElementById('prog-timeline');
+  timeline.innerHTML = '';
+
+  LEVEL_DEFS.forEach((def, idx) => {
+    if (idx > 0) {
+      const conn = document.createElement('div');
+      conn.className = 'prog-connector';
+      timeline.appendChild(conn);
+    }
+
+    const isMilestone = MILESTONE_LEVELS.has(def.level);
+    const thresholdLabel = def.threshold === 0 ? 'START' : def.threshold + '%+';
+    const imgKey = 'lvl' + def.level;
+
+    const card = document.createElement('div');
+    card.className = 'prog-card' + (isMilestone ? ' milestone' : '');
+
+    card.innerHTML = (isMilestone ? '<div class="prog-milestone-crown">🏆</div>' : '') +
+      '<div class="prog-portrait-wrap">' +
+      '<canvas class="prog-portrait-canvas" width="128" height="128" data-imgkey="' + imgKey + '"></canvas>' +
+      '</div>' +
+      '<div class="prog-level-num">LVL ' + def.level + '</div>' +
+      '<div class="prog-card-title">' + def.title + '</div>' +
+      '<div class="prog-threshold">' + thresholdLabel + '</div>' +
+      '<div class="prog-card-desc">' + def.desc + '</div>';
+
+    timeline.appendChild(card);
+  });
+
+  // Draw front-facing idle frame on each portrait canvas
+  // Single-character sheets: front direction = row 0, idle = middle frame (sx=CFW)
+  requestAnimationFrame(() => {
+    document.querySelectorAll('.prog-portrait-canvas').forEach(cvs => {
+      const sheet = img[cvs.dataset.imgkey];
+      if (!sheet || !sheet.naturalWidth) return;
+      const pctx = cvs.getContext('2d');
+      pctx.imageSmoothingEnabled = false;
+      // DIR_TO_ROW=[3,1,2,0]: down (front-facing) = row 3; idle = middle frame (sx=CFW)
+      pctx.drawImage(sheet, CFW, 3 * CFH, CFW, CFH, 0, 0, 128, 128);
+    });
+  });
+}
 
 // ═════════════════════════════════════════════════
 // TITLE SCREEN

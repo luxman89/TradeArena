@@ -5,19 +5,70 @@ from __future__ import annotations
 import hashlib
 import os
 
+import jwt
 from fastapi import Depends, HTTPException, Security, status
-from fastapi.security import APIKeyHeader
+from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from tradearena.db.database import get_db
 
 API_KEY_HEADER = APIKeyHeader(name="X-API-Key", auto_error=False)
+_BEARER = HTTPBearer(auto_error=False)
 
-_SECRET_KEY = os.getenv("TRADEARENA_SECRET_KEY", "dev-insecure-key")
+SECRET_KEY = os.getenv("TRADEARENA_SECRET_KEY", "dev-insecure-key")
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRY_HOURS = 24
+
+# Keep old name as alias for backward compatibility
+_SECRET_KEY = SECRET_KEY
 
 
 def _hash_key(raw_key: str) -> str:
     return hashlib.sha256(raw_key.encode()).hexdigest()
+
+
+def create_jwt(creator_id: str) -> str:
+    """Create a signed JWT for the given creator_id."""
+    from datetime import UTC, datetime, timedelta
+
+    payload = {
+        "sub": creator_id,
+        "iat": datetime.now(UTC),
+        "exp": datetime.now(UTC) + timedelta(hours=JWT_EXPIRY_HOURS),
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm=JWT_ALGORITHM)
+
+
+async def require_jwt_token(
+    credentials: HTTPAuthorizationCredentials | None = Security(_BEARER),
+    db: Session = Depends(get_db),
+) -> str:
+    """Dependency for web-UI endpoints that use JWT Bearer auth.
+
+    Returns the authenticated creator_id.
+    """
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authorization header with Bearer token is required",
+        )
+    try:
+        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        creator_id: str = payload["sub"]
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired")
+    except (jwt.InvalidTokenError, KeyError):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
+    from tradearena.db.database import CreatorORM
+
+    creator = db.query(CreatorORM).filter(CreatorORM.id == creator_id).first()
+    if not creator:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Creator not found",
+        )
+    return creator.id
 
 
 async def require_api_key(

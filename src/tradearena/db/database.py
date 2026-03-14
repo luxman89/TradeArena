@@ -59,6 +59,8 @@ class CreatorORM(Base):
     api_key_hash = Column(String(64), nullable=True)
     email = Column(String(256), nullable=True)
     strategy_description = Column(Text, nullable=True)
+    password_hash = Column(String(128), nullable=True)  # bcrypt; NULL for bots
+    avatar_index = Column(Integer, nullable=True, default=0)  # index into CHAR_DEFS (0-9)
 
     signals = relationship("SignalORM", back_populates="creator", lazy="select")
     score = relationship("CreatorScoreORM", back_populates="creator", uselist=False)
@@ -146,6 +148,8 @@ class CreatorScoreORM(Base):
     confidence_calibration = Column(Float, nullable=False, default=0.0)
     composite_score = Column(Float, nullable=False, default=0.0)
     total_signals = Column(Integer, nullable=False, default=0)
+    xp = Column(Integer, nullable=False, default=0)  # cumulative, never decreases
+    level = Column(Integer, nullable=False, default=1)  # computed from XP thresholds
     updated_at = Column(DateTime, nullable=True)
 
     creator = relationship("CreatorORM", back_populates="score")

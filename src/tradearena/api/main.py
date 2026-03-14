@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from tradearena.api.routes import battles, creators, leaderboard, oracle, signals
+from tradearena.api.routes import auth, battles, creators, leaderboard, oracle, signals
 from tradearena.db.database import (
     BattleORM,
     CreatorScoreORM,
@@ -41,6 +41,7 @@ def _recompute_scores(db, creator_ids):
     """Recompute CreatorScoreORM for a set of creator IDs."""
     from datetime import UTC, datetime
 
+    from tradearena.core.leveling import XP_SIGNAL_SUBMITTED, level_from_xp, xp_for_outcome
     from tradearena.core.scoring import compute_score
 
     now = datetime.now(UTC)
@@ -50,6 +51,12 @@ def _recompute_scores(db, creator_ids):
             [s.outcome for s in sigs],
             [s.confidence for s in sigs],
         )
+        # XP: base per signal + bonus per resolved outcome
+        xp = len(sigs) * XP_SIGNAL_SUBMITTED
+        for s in sigs:
+            xp += xp_for_outcome(s.outcome)
+        level = level_from_xp(xp)
+
         existing = db.query(CreatorScoreORM).filter(CreatorScoreORM.creator_id == cid).first()
         if existing:
             existing.win_rate = dims.win_rate
@@ -58,6 +65,8 @@ def _recompute_scores(db, creator_ids):
             existing.confidence_calibration = dims.confidence_calibration
             existing.composite_score = dims.composite
             existing.total_signals = len(sigs)
+            existing.xp = max(existing.xp, xp)  # never decrease
+            existing.level = level_from_xp(existing.xp)
             existing.updated_at = now
         else:
             db.add(
@@ -69,6 +78,8 @@ def _recompute_scores(db, creator_ids):
                     confidence_calibration=dims.confidence_calibration,
                     composite_score=dims.composite,
                     total_signals=len(sigs),
+                    xp=xp,
+                    level=level,
                     updated_at=now,
                 )
             )
@@ -171,6 +182,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
 app.include_router(signals.router, tags=["signals"])
 app.include_router(leaderboard.router, tags=["leaderboard"])
 app.include_router(creators.router, tags=["creators"])
