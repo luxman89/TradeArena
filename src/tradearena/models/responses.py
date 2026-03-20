@@ -163,6 +163,40 @@ class AvatarUpdateResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Analytics
+# ---------------------------------------------------------------------------
+
+
+class TimeseriesPoint(BaseModel):
+    timestamp: str
+    value: float
+
+
+class CalibrationPoint(BaseModel):
+    predicted_confidence: float
+    actual_win_rate: float
+    sample_count: int
+
+
+class StreaksData(BaseModel):
+    current_win_streak: int
+    current_loss_streak: int
+    max_win_streak: int
+    max_loss_streak: int
+
+
+class AnalyticsResponse(BaseModel):
+    range: str
+    total_signals: int
+    resolved_signals: int
+    equity_curve: list[TimeseriesPoint]
+    drawdown_series: list[TimeseriesPoint]
+    streaks: StreaksData
+    action_distribution: dict[str, int]
+    confidence_calibration_curve: list[CalibrationPoint]
+
+
+# ---------------------------------------------------------------------------
 # Health
 # ---------------------------------------------------------------------------
 

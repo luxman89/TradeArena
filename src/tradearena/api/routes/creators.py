@@ -12,8 +12,10 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
+from tradearena.core.analytics import TIME_RANGES, compute_analytics
 from tradearena.db.database import CreatorORM, SignalORM, get_db
 from tradearena.models.responses import (
+    AnalyticsResponse,
     CreatorProfileResponse,
     CreatorRegisterResponse,
     CreatorSignalsResponse,
@@ -218,3 +220,42 @@ async def get_creator_signals(
             for s in signals
         ],
     }
+
+
+_VALID_RANGES = sorted(TIME_RANGES)
+
+
+@router.get(
+    "/creator/{creator_id}/analytics",
+    response_model=AnalyticsResponse,
+    summary="Get creator performance analytics",
+    responses={
+        404: {"description": "Creator not found"},
+        422: {"description": "Invalid time range"},
+    },
+)
+async def get_creator_analytics(
+    creator_id: str,
+    range: str = Query("all", description="Time range: 7d, 30d, 90d, or all"),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Return performance analytics for a creator: equity curve, drawdowns,
+    streaks, action distribution, and confidence calibration curve."""
+    if range not in TIME_RANGES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"range must be one of {_VALID_RANGES}",
+        )
+    creator = db.query(CreatorORM).filter(CreatorORM.id == creator_id).first()
+    if not creator:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Creator '{creator_id}' not found",
+        )
+    signals = (
+        db.query(SignalORM)
+        .filter(SignalORM.creator_id == creator_id)
+        .order_by(SignalORM.committed_at.asc())
+        .all()
+    )
+    return compute_analytics(signals, range)
