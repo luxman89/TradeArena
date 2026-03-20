@@ -29,6 +29,13 @@ uv run python scripts/server.py
 
 # Seed demo data (3 creators, 20 signals)
 uv run python scripts/seed_demo.py
+
+# Database migrations (Alembic)
+uv run alembic upgrade head          # apply all pending migrations
+uv run alembic revision --autogenerate -m "description"  # generate migration from model changes
+uv run alembic downgrade -1          # roll back one migration
+uv run alembic current               # show current revision
+uv run alembic history               # show migration history
 ```
 
 ## Architecture
