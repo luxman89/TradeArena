@@ -174,11 +174,27 @@ async def lifespan(app: FastAPI):
     task.cancel()
 
 
+_OPENAPI_TAGS = [
+    {"name": "auth", "description": "Registration, login, profile, and avatar management"},
+    {"name": "signals", "description": "Submit and query committed trading signals"},
+    {"name": "leaderboard", "description": "Global and per-division leaderboard rankings"},
+    {"name": "creators", "description": "Creator profiles and signal history"},
+    {"name": "battles", "description": "Head-to-head creator battles"},
+    {"name": "oracle", "description": "Signal outcome resolution and status"},
+    {"name": "meta", "description": "Health checks and service metadata"},
+]
+
 app = FastAPI(
     title="TradeArena",
-    description="Trustless trading signal competition platform",
+    description=(
+        "Trustless trading signal competition platform. "
+        "Traders submit cryptographically committed predictions scored across "
+        "four dimensions: Win Rate, Risk-Adjusted Return, Consistency, and "
+        "Confidence Calibration."
+    ),
     version="0.1.0",
     lifespan=lifespan,
+    openapi_tags=_OPENAPI_TAGS,
 )
 
 app.add_middleware(
@@ -235,6 +251,7 @@ async def websocket_endpoint(ws: WebSocket) -> None:
         manager.disconnect(ws)
 
 
-@app.get("/health", tags=["meta"])
+@app.get("/health", tags=["meta"], summary="Health check")
 async def health() -> dict:
+    """Returns service health status and version."""
     return {"status": "ok", "version": "0.1.0"}

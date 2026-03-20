@@ -100,3 +100,14 @@ class Signal(BaseModel):
     outcome_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class SignalEmitResponse(BaseModel):
+    """Response from POST /signal."""
+
+    signal_id: str
+    committed_at: str
+    commitment_hash: str
+    creator_id: str
+    asset: str
+    action: str

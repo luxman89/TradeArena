@@ -12,12 +12,20 @@ from tradearena.api.ws import manager
 from tradearena.core.commitment import build_committed_signal
 from tradearena.core.scoring import compute_score
 from tradearena.db.database import CreatorORM, CreatorScoreORM, SignalORM, get_db
-from tradearena.models.signal import SignalCreate
+from tradearena.models.signal import SignalCreate, SignalEmitResponse
 
 router = APIRouter()
 
 
-@router.post("/signal", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/signal",
+    status_code=status.HTTP_201_CREATED,
+    response_model=SignalEmitResponse,
+    summary="Emit a trading signal",
+    responses={
+        404: {"description": "Creator not found — register first"},
+    },
+)
 async def emit_signal(
     payload: SignalCreate,
     db: Session = Depends(get_db),

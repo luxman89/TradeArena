@@ -21,6 +21,12 @@ from tradearena.core.leveling import (
     xp_to_next_level,
 )
 from tradearena.db.database import CreatorORM, get_db
+from tradearena.models.responses import (
+    AuthLoginResponse,
+    AuthMeResponse,
+    AuthRegisterResponse,
+    AvatarUpdateResponse,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -116,7 +122,15 @@ class AvatarUpdateRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-@router.post("/register", status_code=201)
+@router.post(
+    "/register",
+    status_code=201,
+    response_model=AuthRegisterResponse,
+    summary="Register with email and password",
+    responses={
+        409: {"description": "Email already registered"},
+    },
+)
 async def register(body: RegisterRequest, db: Session = Depends(get_db)) -> dict:
     """Register a new creator with email + password. Returns JWT + API key."""
     if db.query(CreatorORM).filter(CreatorORM.email == body.email).first():
@@ -163,7 +177,14 @@ async def register(body: RegisterRequest, db: Session = Depends(get_db)) -> dict
     }
 
 
-@router.post("/login")
+@router.post(
+    "/login",
+    response_model=AuthLoginResponse,
+    summary="Login with email and password",
+    responses={
+        401: {"description": "Invalid email or password"},
+    },
+)
 async def login(body: LoginRequest, db: Session = Depends(get_db)) -> dict:
     """Login with email + password. Returns JWT + profile."""
     creator = db.query(CreatorORM).filter(CreatorORM.email == body.email).first()
@@ -196,7 +217,14 @@ async def login(body: LoginRequest, db: Session = Depends(get_db)) -> dict:
     }
 
 
-@router.get("/me")
+@router.get(
+    "/me",
+    response_model=AuthMeResponse,
+    summary="Get current user profile",
+    responses={
+        404: {"description": "Creator not found"},
+    },
+)
 async def get_me(
     creator_id: str = Depends(require_jwt_token),
     db: Session = Depends(get_db),
@@ -232,7 +260,15 @@ async def get_me(
     }
 
 
-@router.put("/avatar")
+@router.put(
+    "/avatar",
+    response_model=AvatarUpdateResponse,
+    summary="Change avatar",
+    responses={
+        403: {"description": "Avatar locked — requires higher level"},
+        404: {"description": "Creator not found"},
+    },
+)
 async def update_avatar(
     body: AvatarUpdateRequest,
     creator_id: str = Depends(require_jwt_token),

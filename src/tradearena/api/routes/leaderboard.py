@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from tradearena.db.database import CreatorORM, CreatorScoreORM, get_db
+from tradearena.models.responses import LeaderboardDivisionResponse, LeaderboardResponse
 
 router = APIRouter()
 
@@ -27,7 +28,11 @@ def _format_entry(creator: CreatorORM) -> dict:
     }
 
 
-@router.get("/leaderboard")
+@router.get(
+    "/leaderboard",
+    response_model=LeaderboardResponse,
+    summary="Get global leaderboard",
+)
 async def get_leaderboard(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
@@ -51,7 +56,14 @@ async def get_leaderboard(
     }
 
 
-@router.get("/leaderboard/{division}")
+@router.get(
+    "/leaderboard/{division}",
+    response_model=LeaderboardDivisionResponse,
+    summary="Get division leaderboard",
+    responses={
+        422: {"description": "Invalid division — must be crypto, polymarket, or multi"},
+    },
+)
 async def get_leaderboard_division(
     division: str,
     limit: int = Query(50, ge=1, le=200),

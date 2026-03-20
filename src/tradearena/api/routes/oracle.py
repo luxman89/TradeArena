@@ -9,18 +9,27 @@ from sqlalchemy.orm import Session
 
 from tradearena.core.oracle import parse_timeframe, resolve_pending_signals
 from tradearena.db.database import SignalORM, get_db
+from tradearena.models.responses import OracleResolveResponse, OracleStatusResponse
 
 router = APIRouter(prefix="/oracle", tags=["oracle"])
 
 
-@router.post("/resolve")
+@router.post(
+    "/resolve",
+    response_model=OracleResolveResponse,
+    summary="Trigger oracle resolution",
+)
 async def trigger_resolve(db: Session = Depends(get_db)) -> dict:
     """Manually trigger oracle resolution of pending signals."""
     stats = await resolve_pending_signals(db)
     return stats
 
 
-@router.get("/status")
+@router.get(
+    "/status",
+    response_model=OracleStatusResponse,
+    summary="Get oracle status",
+)
 async def oracle_status(db: Session = Depends(get_db)) -> dict:
     """Show pending signal count and next eligible resolution times."""
     now = datetime.now(UTC)

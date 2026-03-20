@@ -13,6 +13,11 @@ from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
 from tradearena.db.database import CreatorORM, SignalORM, get_db
+from tradearena.models.responses import (
+    CreatorProfileResponse,
+    CreatorRegisterResponse,
+    CreatorSignalsResponse,
+)
 
 router = APIRouter()
 
@@ -63,7 +68,15 @@ class CreatorRegisterRequest(BaseModel):
         return v.lower()
 
 
-@router.post("/creator/register", status_code=201)
+@router.post(
+    "/creator/register",
+    status_code=201,
+    response_model=CreatorRegisterResponse,
+    summary="Register a new creator (API-key flow)",
+    responses={
+        409: {"description": "Email already registered"},
+    },
+)
 async def register_creator(
     body: CreatorRegisterRequest,
     db: Session = Depends(get_db),
@@ -111,7 +124,14 @@ async def register_creator(
     )
 
 
-@router.get("/creator/{creator_id}")
+@router.get(
+    "/creator/{creator_id}",
+    response_model=CreatorProfileResponse,
+    summary="Get creator profile",
+    responses={
+        404: {"description": "Creator not found"},
+    },
+)
 async def get_creator(
     creator_id: str,
     db: Session = Depends(get_db),
@@ -141,7 +161,14 @@ async def get_creator(
     }
 
 
-@router.get("/creator/{creator_id}/signals")
+@router.get(
+    "/creator/{creator_id}/signals",
+    response_model=CreatorSignalsResponse,
+    summary="Get creator signal history",
+    responses={
+        404: {"description": "Creator not found"},
+    },
+)
 async def get_creator_signals(
     creator_id: str,
     limit: int = Query(20, ge=1, le=100),

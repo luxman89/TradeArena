@@ -47,6 +47,13 @@ class BattleResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class BattleActiveListResponse(BaseModel):
+    """Active battles list (non-paginated)."""
+
+    total: int
+    battles: list[BattleResponse]
+
+
 class BattleListResponse(BaseModel):
     """Paginated list of battles."""
 

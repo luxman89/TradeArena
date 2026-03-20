@@ -12,7 +12,12 @@ from sqlalchemy.orm import Session
 from tradearena.api.ws import manager
 from tradearena.core.battle_resolver import resolve_battle
 from tradearena.db.database import BattleORM, CreatorORM, get_db
-from tradearena.models.battle import BattleCreate
+from tradearena.models.battle import (
+    BattleActiveListResponse,
+    BattleCreate,
+    BattleListResponse,
+    BattleResponse,
+)
 
 router = APIRouter(tags=["battles"])
 
@@ -36,7 +41,17 @@ def _battle_to_response(b: BattleORM) -> dict:
     }
 
 
-@router.post("/battle/create", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/battle/create",
+    status_code=status.HTTP_201_CREATED,
+    response_model=BattleResponse,
+    summary="Create a battle",
+    responses={
+        404: {"description": "One or both creators not found"},
+        409: {"description": "Active battle already exists between these creators"},
+        422: {"description": "Cannot battle against yourself"},
+    },
+)
 async def create_battle(
     payload: BattleCreate,
     db: Session = Depends(get_db),
@@ -93,7 +108,14 @@ async def create_battle(
     return resp
 
 
-@router.get("/battle/{battle_id}")
+@router.get(
+    "/battle/{battle_id}",
+    response_model=BattleResponse,
+    summary="Get battle details",
+    responses={
+        404: {"description": "Battle not found"},
+    },
+)
 async def get_battle(
     battle_id: str,
     db: Session = Depends(get_db),
@@ -108,11 +130,15 @@ async def get_battle(
     return _battle_to_response(battle)
 
 
-@router.get("/battles/active")
+@router.get(
+    "/battles/active",
+    response_model=BattleActiveListResponse,
+    summary="List active battles",
+)
 async def list_active_battles(
     db: Session = Depends(get_db),
 ) -> dict:
-    """List all active battles."""
+    """List all currently active battles."""
     battles = db.query(BattleORM).filter(BattleORM.status == "ACTIVE").all()
     return {
         "total": len(battles),
@@ -120,10 +146,14 @@ async def list_active_battles(
     }
 
 
-@router.get("/battles/history")
+@router.get(
+    "/battles/history",
+    response_model=BattleListResponse,
+    summary="Get battle history",
+)
 async def battle_history(
-    creator_id: str | None = Query(None),
-    battle_status: str | None = Query(None, alias="status"),
+    creator_id: str | None = Query(None, description="Filter by creator ID"),
+    battle_status: str | None = Query(None, alias="status", description="Filter by battle status"),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
@@ -152,12 +182,21 @@ async def battle_history(
     }
 
 
-@router.post("/battle/{battle_id}/resolve")
+@router.post(
+    "/battle/{battle_id}/resolve",
+    response_model=BattleResponse,
+    summary="Force-resolve a battle",
+    responses={
+        404: {"description": "Battle not found"},
+        409: {"description": "Battle already resolved"},
+        422: {"description": "Cannot resolve — insufficient signals"},
+    },
+)
 async def force_resolve_battle(
     battle_id: str,
     db: Session = Depends(get_db),
 ) -> dict:
-    """Force-resolve a battle (admin/dev)."""
+    """Force-resolve a battle. Intended for admin/dev use."""
     battle = db.query(BattleORM).filter(BattleORM.battle_id == battle_id).first()
     if not battle:
         raise HTTPException(
