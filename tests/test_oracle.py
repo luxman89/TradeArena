@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from tradearena.core import cache
 from tradearena.core.oracle import (
     _resolve_by_direction,
     _resolve_with_targets,
@@ -188,6 +189,9 @@ class TestResolveByDirection:
 
 
 class TestResolveSignal:
+    def setup_method(self):
+        cache.clear()
+
     @pytest.mark.asyncio
     async def test_skips_if_not_yet_eligible(self):
         signal = MagicMock()

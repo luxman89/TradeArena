@@ -14,6 +14,7 @@ from datetime import UTC, datetime, timedelta
 import httpx
 from sqlalchemy.orm import Session
 
+from tradearena.core import cache
 from tradearena.db.database import SignalORM
 
 logger = logging.getLogger(__name__)
@@ -68,7 +69,11 @@ async def fetch_klines(
     start_ms: int,
     end_ms: int,
 ) -> list[list]:
-    """Fetch kline/candlestick data from Binance."""
+    """Fetch kline/candlestick data from Binance, with caching."""
+    cached = cache.get(symbol, interval, start_ms, end_ms)
+    if cached is not None:
+        return cached
+
     resp = await client.get(
         f"{BINANCE_BASE}/api/v3/klines",
         params={
@@ -81,7 +86,9 @@ async def fetch_klines(
         timeout=10.0,
     )
     resp.raise_for_status()
-    return resp.json()
+    data = resp.json()
+    cache.put(symbol, interval, start_ms, end_ms, data)
+    return data
 
 
 async def fetch_price_at(
@@ -91,6 +98,14 @@ async def fetch_price_at(
 ) -> float | None:
     """Get the closing price of the 1m candle nearest to at_time."""
     ts_ms = int(at_time.timestamp() * 1000)
+    # Use cache with a synthetic end_ms (start + 1 minute)
+    end_ms = ts_ms + 60_000
+    cached = cache.get(symbol, "1m", ts_ms, end_ms)
+    if cached is not None:
+        if not cached:
+            return None
+        return float(cached[0][4])
+
     resp = await client.get(
         f"{BINANCE_BASE}/api/v3/klines",
         params={
@@ -103,6 +118,7 @@ async def fetch_price_at(
     )
     resp.raise_for_status()
     klines = resp.json()
+    cache.put(symbol, "1m", ts_ms, end_ms, klines)
     if not klines:
         return None
     return float(klines[0][4])  # close price
