@@ -12,7 +12,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from tradearena.api.routes import auth, battles, creators, leaderboard, oracle, signals
+from tradearena.api.routes import (
+    auth,
+    battles,
+    creators,
+    leaderboard,
+    oracle,
+    signals,
+    tournaments,
+)
 from tradearena.api.ws import manager
 from tradearena.db.database import (
     BattleORM,
@@ -180,6 +188,7 @@ _OPENAPI_TAGS = [
     {"name": "leaderboard", "description": "Global and per-division leaderboard rankings"},
     {"name": "creators", "description": "Creator profiles and signal history"},
     {"name": "battles", "description": "Head-to-head creator battles"},
+    {"name": "tournaments", "description": "Bracket-style tournament system"},
     {"name": "oracle", "description": "Signal outcome resolution and status"},
     {"name": "meta", "description": "Health checks and service metadata"},
 ]
@@ -210,6 +219,7 @@ app.include_router(leaderboard.router, tags=["leaderboard"])
 app.include_router(creators.router, tags=["creators"])
 app.include_router(oracle.router)
 app.include_router(battles.router)
+app.include_router(tournaments.router)
 
 # Serve static assets (sprites, tilesets, etc.)
 _ASSETS_DIR = _SCRIPTS_DIR / "assets"

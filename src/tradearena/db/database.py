@@ -155,6 +155,49 @@ class CreatorScoreORM(Base):
     creator = relationship("CreatorORM", back_populates="score")
 
 
+class TournamentORM(Base):
+    __tablename__ = "tournaments"
+    __table_args__ = (
+        CheckConstraint(
+            "format IN ('single_elimination', 'round_robin')",
+            name="ck_tournament_format",
+        ),
+        CheckConstraint(
+            "status IN ('registering', 'in_progress', 'completed')",
+            name="ck_tournament_status",
+        ),
+        CheckConstraint("max_participants >= 2", name="ck_min_participants"),
+    )
+
+    id = Column(String(64), primary_key=True)
+    name = Column(String(128), nullable=False)
+    format = Column(String(32), nullable=False, default="single_elimination")
+    status = Column(String(16), nullable=False, default="registering")
+    max_participants = Column(Integer, nullable=False, default=8)
+    current_round = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, nullable=False)
+
+    entries = relationship("TournamentEntryORM", back_populates="tournament")
+
+
+class TournamentEntryORM(Base):
+    __tablename__ = "tournament_entries"
+    __table_args__ = (
+        Index("ix_tournament_entries_tournament_id", "tournament_id"),
+        Index("ix_tournament_entries_creator_id", "creator_id"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tournament_id = Column(String(64), ForeignKey("tournaments.id"), nullable=False)
+    creator_id = Column(String(64), ForeignKey("creators.id"), nullable=False)
+    seed = Column(Integer, nullable=True)
+    eliminated_at = Column(DateTime, nullable=True)
+    points = Column(Integer, nullable=False, default=0)
+
+    tournament = relationship("TournamentORM", back_populates="entries")
+    creator = relationship("CreatorORM")
+
+
 def create_tables() -> None:
     Base.metadata.create_all(bind=engine)
 

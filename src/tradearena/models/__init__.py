@@ -6,6 +6,13 @@ from .battle import (
     ScoreBreakdown,
 )
 from .signal import Signal, SignalAction, SignalCreate, SignalEmitResponse
+from .tournament import (
+    TournamentCreate,
+    TournamentEntryResponse,
+    TournamentJoinRequest,
+    TournamentListResponse,
+    TournamentResponse,
+)
 
 __all__ = [
     "BattleActiveListResponse",
@@ -17,4 +24,9 @@ __all__ = [
     "SignalAction",
     "SignalCreate",
     "SignalEmitResponse",
+    "TournamentCreate",
+    "TournamentEntryResponse",
+    "TournamentJoinRequest",
+    "TournamentListResponse",
+    "TournamentResponse",
 ]
