@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from tradearena.api.deps import require_api_key
+from tradearena.api.ws import manager
 from tradearena.core.commitment import build_committed_signal
 from tradearena.core.scoring import compute_score
 from tradearena.db.database import CreatorORM, CreatorScoreORM, SignalORM, get_db
@@ -91,7 +92,7 @@ async def emit_signal(
         )
     db.commit()
 
-    return {
+    result = {
         "signal_id": signal_orm.signal_id,
         "committed_at": signal_orm.committed_at.isoformat(),
         "commitment_hash": signal_orm.commitment_hash,
@@ -99,3 +100,5 @@ async def emit_signal(
         "asset": signal_orm.asset,
         "action": signal_orm.action,
     }
+    await manager.broadcast("signal_new", result)
+    return result

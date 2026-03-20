@@ -554,6 +554,38 @@ const ROOM_H = 18;
 const SPD    = 1.8;
 const API    = location.origin;
 
+// ── WebSocket real-time connection with exponential backoff reconnection ──
+let _ws = null;
+let _wsRetryMs = 1000;
+const _wsMaxRetry = 30000;
+function connectWS() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  _ws = new WebSocket(proto + '//' + location.host + '/ws');
+  _ws.onopen = function() {
+    console.log('[WS] connected');
+    _wsRetryMs = 1000;
+  };
+  _ws.onmessage = function(evt) {
+    try {
+      const msg = JSON.parse(evt.data);
+      const ev = msg.event;
+      if (ev === 'signal_new' || ev === 'signals_resolved' ||
+          ev === 'leaderboard_updated' || ev === 'battle_created' ||
+          ev === 'battle_resolved' || ev === 'battles_resolved' ||
+          ev === 'matchmaking_complete' || ev === 'bots_submitted') {
+        loadData();
+      }
+    } catch(e) { console.warn('[WS] parse error', e); }
+  };
+  _ws.onclose = function() {
+    console.log('[WS] closed, reconnecting in', _wsRetryMs, 'ms');
+    setTimeout(connectWS, _wsRetryMs);
+    _wsRetryMs = Math.min(_wsRetryMs * 2, _wsMaxRetry);
+  };
+  _ws.onerror = function() { _ws.close(); };
+}
+connectWS();
+
 const AB = '/assets/';
 const DP = AB+'Asset%20Pack%20(Donarg)/Asset%20Pack%20(Donarg)/';
 const TILESET_URL  = DP+'All%20Tileset%2032x32.png';
@@ -927,7 +959,7 @@ class GameScene extends Phaser.Scene {
 
     // Start data loading
     loadData();
-    setInterval(loadData, 30000);
+    setInterval(loadData, 60000); // Fallback polling; real-time via WebSocket
 
     // Init title screen
     initTitleScreen();

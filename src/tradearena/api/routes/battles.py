@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from tradearena.api.ws import manager
 from tradearena.core.battle_resolver import resolve_battle
 from tradearena.db.database import BattleORM, CreatorORM, get_db
 from tradearena.models.battle import BattleCreate
@@ -87,7 +88,9 @@ async def create_battle(
     db.commit()
     db.refresh(battle)
 
-    return _battle_to_response(battle)
+    resp = _battle_to_response(battle)
+    await manager.broadcast("battle_created", resp)
+    return resp
 
 
 @router.get("/battle/{battle_id}")
@@ -174,4 +177,6 @@ async def force_resolve_battle(
             detail="Cannot resolve — one or both creators have fewer than 2 resolved signals.",
         )
 
-    return _battle_to_response(result)
+    resp = _battle_to_response(result)
+    await manager.broadcast("battle_resolved", resp)
+    return resp

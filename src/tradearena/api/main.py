@@ -7,12 +7,13 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from tradearena.api.routes import auth, battles, creators, leaderboard, oracle, signals
+from tradearena.api.ws import manager
 from tradearena.db.database import (
     BattleORM,
     CreatorScoreORM,
@@ -106,6 +107,7 @@ async def _background_loop():
                 stats = await resolve_pending_signals(db)
                 if stats["resolved"] > 0:
                     logger.info("Oracle resolved %d signals", stats["resolved"])
+                    await manager.broadcast("signals_resolved", stats)
 
                 # 2. Recompute scores for all creators with signals
                 creator_ids = {
@@ -114,6 +116,7 @@ async def _background_loop():
                 }
                 if creator_ids:
                     _recompute_scores(db, creator_ids)
+                    await manager.broadcast("leaderboard_updated")
 
                 # 3. Resolve active battles past their window
                 from datetime import UTC, datetime, timedelta
@@ -131,6 +134,7 @@ async def _background_loop():
                             resolved_count += 1
                 if resolved_count:
                     logger.info("Resolved %d battles", resolved_count)
+                    await manager.broadcast("battles_resolved", {"count": resolved_count})
 
                 # 4. Weekly matchmaking
                 if time.time() - _last_matchmaking >= MATCHMAKING_INTERVAL_SECONDS:
@@ -138,6 +142,7 @@ async def _background_loop():
                     _last_matchmaking = time.time()
                     if new_battles:
                         logger.info("Matchmaking created %d battles", len(new_battles))
+                        await manager.broadcast("matchmaking_complete", {"count": len(new_battles)})
 
                 # 5. Hourly bot signal generation
                 if time.time() - _last_bot_run >= BOT_INTERVAL_SECONDS:
@@ -145,6 +150,7 @@ async def _background_loop():
                     _last_bot_run = time.time()
                     if n:
                         logger.info("Bots submitted %d new signals", n)
+                        await manager.broadcast("bots_submitted", {"count": n})
 
             finally:
                 db.close()
@@ -216,6 +222,17 @@ async def arena_ui() -> FileResponse:
         media_type="text/html",
         headers={"Cache-Control": "no-cache, must-revalidate"},
     )
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(ws: WebSocket) -> None:
+    """Real-time event stream for the trading floor UI."""
+    await manager.connect(ws)
+    try:
+        while True:
+            await ws.receive_text()  # keep alive; ignore client messages
+    except WebSocketDisconnect:
+        manager.disconnect(ws)
 
 
 @app.get("/health", tags=["meta"])
