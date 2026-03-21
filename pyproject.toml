@@ -16,7 +16,11 @@ dependencies = [
     "PyJWT>=2.8.0",
     "alembic>=1.13.0",
     "psycopg2-binary>=2.9.0",
+    "click>=8.1.0",
 ]
+
+[project.scripts]
+tradearena = "tradearena.cli:cli"
 
 [dependency-groups]
 dev = [
