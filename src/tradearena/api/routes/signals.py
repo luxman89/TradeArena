@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from tradearena.api.deps import require_api_key
+from tradearena.api.rate_limit import signal_rate_limiter
 from tradearena.api.ws import manager
 from tradearena.core.commitment import build_committed_signal
 from tradearena.db.database import CreatorORM, CreatorScoreORM, SignalORM, get_db
@@ -23,6 +24,7 @@ router = APIRouter()
     summary="Emit a trading signal",
     responses={
         404: {"description": "Creator not found — register first"},
+        429: {"description": "Signal rate limit exceeded"},
     },
 )
 async def emit_signal(
@@ -35,6 +37,9 @@ async def emit_signal(
     creator_id is derived from the authenticated API key — not accepted from
     the request body. Returns signal_id and committed_at.
     """
+    # Per-creator rate limit: 10 signals/hour (checked before DB work)
+    signal_rate_limiter.check(creator_id)
+
     creator = db.query(CreatorORM).filter(CreatorORM.id == creator_id).first()
     if not creator:
         raise HTTPException(

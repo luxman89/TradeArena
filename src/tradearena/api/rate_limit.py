@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from collections import defaultdict
 
-from fastapi import Request, Response
+from fastapi import HTTPException, Request, Response, status
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
@@ -16,6 +16,10 @@ DEFAULT_WINDOW = 60  # seconds
 # Tighter limits for auth endpoints (brute-force protection)
 AUTH_RATE = 10
 AUTH_WINDOW = 60  # 10 attempts per minute
+
+# Per-creator signal submission limits
+SIGNAL_RATE = 10
+SIGNAL_WINDOW = 3600  # 10 signals per hour
 
 _AUTH_PATHS = {"/auth/register", "/auth/login"}
 _SKIP_PATHS = {"/ws", "/health"}
@@ -90,3 +94,50 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         response.headers["X-RateLimit-Limit"] = str(self.rate)
         response.headers["X-RateLimit-Remaining"] = str(max(0, self.rate - len(hits)))
         return response
+
+
+class SignalRateLimiter:
+    """Per-creator sliding-window rate limiter for signal submissions.
+
+    Keyed by creator_id (resolved after auth), not IP. This prevents a single
+    creator from flooding the append-only signal store.
+    """
+
+    def __init__(
+        self,
+        rate: int = SIGNAL_RATE,
+        window: int = SIGNAL_WINDOW,
+    ):
+        self.rate = rate
+        self.window = window
+        self._hits: dict[str, list[float]] = defaultdict(list)
+
+    def check(self, creator_id: str) -> None:
+        """Raise HTTP 429 if the creator has exceeded the signal submission limit."""
+        now = time.monotonic()
+        hits = self._hits[creator_id]
+        _prune(hits, now - self.window)
+        if len(hits) >= self.rate:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=(
+                    f"Signal rate limit exceeded: {self.rate} signals per "
+                    f"{self.window // 60} minute(s). Try again later."
+                ),
+                headers={"Retry-After": str(self.window)},
+            )
+        hits.append(now)
+
+    @property
+    def remaining(self) -> dict[str, int]:
+        """Return remaining quota per creator (for debugging/monitoring)."""
+        now = time.monotonic()
+        result = {}
+        for cid, hits in self._hits.items():
+            _prune(hits, now - self.window)
+            result[cid] = max(0, self.rate - len(hits))
+        return result
+
+
+# Module-level singleton so all requests share the same window state.
+signal_rate_limiter = SignalRateLimiter()
