@@ -69,6 +69,8 @@ class CreatorORM(Base):
     strategy_description = Column(Text, nullable=True)
     password_hash = Column(String(128), nullable=True)  # bcrypt; NULL for bots
     avatar_index = Column(Integer, nullable=True, default=0)  # index into CHAR_DEFS (0-9)
+    github_id = Column(String(64), nullable=True, unique=True, index=True)
+    github_username = Column(String(128), nullable=True)
 
     signals = relationship("SignalORM", back_populates="creator", lazy="select")
     score = relationship("CreatorScoreORM", back_populates="creator", uselist=False)

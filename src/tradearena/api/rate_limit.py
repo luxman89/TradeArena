@@ -26,7 +26,7 @@ AUTH_WINDOW = 60  # 10 attempts per minute
 SIGNAL_RATE = 10
 SIGNAL_WINDOW = 3600  # 10 signals per hour
 
-_AUTH_PATHS = {"/auth/register", "/auth/login"}
+_AUTH_PATHS = {"/auth/register", "/auth/login", "/auth/github/callback"}
 _SKIP_PATHS = {"/ws", "/health"}
 
 

@@ -136,6 +136,19 @@ class AuthLoginResponse(BaseModel):
     title: str
 
 
+class GitHubCallbackResponse(BaseModel):
+    token: str
+    creator_id: str
+    api_key: str | None = None
+    display_name: str
+    division: str
+    avatar_index: int
+    level: int
+    xp: int
+    title: str | None = None
+    is_new_account: bool
+
+
 class AuthMeScores(BaseModel):
     composite: float
     win_rate: float
