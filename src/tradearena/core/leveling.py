@@ -123,10 +123,12 @@ def glow_for_level(level: int) -> str | None:
 
 def xp_for_outcome(outcome: str | None) -> int:
     """Return XP bonus for a signal outcome."""
-    if outcome == "WIN":
+    from tradearena.models.signal import Outcome
+
+    if outcome == Outcome.WIN:
         return XP_OUTCOME_WIN
-    if outcome == "LOSS":
+    if outcome == Outcome.LOSS:
         return XP_OUTCOME_LOSS
-    if outcome == "NEUTRAL":
+    if outcome == Outcome.NEUTRAL:
         return XP_OUTCOME_NEUTRAL
     return 0

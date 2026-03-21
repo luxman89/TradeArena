@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 from tradearena.db.database import SignalORM
+from tradearena.models.signal import Outcome
 
 # Time range presets (in days). "all" is handled as None.
 TIME_RANGES: dict[str, int | None] = {
@@ -33,9 +34,9 @@ def compute_equity_curve(signals: list[SignalORM]) -> list[dict]:
     curve = []
     cumulative = 0.0
     for s in resolved:
-        if s.outcome == "WIN":
+        if s.outcome == Outcome.WIN:
             cumulative += 1.0
-        elif s.outcome == "LOSS":
+        elif s.outcome == Outcome.LOSS:
             cumulative -= 1.0
         curve.append(
             {
@@ -62,12 +63,12 @@ def compute_drawdown_series(equity_curve: list[dict]) -> list[dict]:
 def compute_streaks(signals: list[SignalORM]) -> dict:
     """Current and max win/loss streaks."""
     resolved = sorted(
-        [s for s in signals if s.outcome in ("WIN", "LOSS")],
+        [s for s in signals if s.outcome in (Outcome.WIN, Outcome.LOSS)],
         key=lambda s: s.committed_at,
     )
     max_win = max_loss = cur_win = cur_loss = 0
     for s in resolved:
-        if s.outcome == "WIN":
+        if s.outcome == Outcome.WIN:
             cur_win += 1
             cur_loss = 0
             max_win = max(max_win, cur_win)
@@ -95,13 +96,13 @@ def compute_confidence_calibration_curve(
     signals: list[SignalORM],
 ) -> list[dict]:
     """Bin resolved signals by confidence decile, compute actual win rate per bin."""
-    resolved = [s for s in signals if s.outcome in ("WIN", "LOSS")]
+    resolved = [s for s in signals if s.outcome in (Outcome.WIN, Outcome.LOSS)]
     if not resolved:
         return []
     bins: dict[int, list[bool]] = {}
     for s in resolved:
         bucket = min(int(s.confidence * 10), 9)  # 0-9
-        bins.setdefault(bucket, []).append(s.outcome == "WIN")
+        bins.setdefault(bucket, []).append(s.outcome == Outcome.WIN)
     curve = []
     for bucket in sorted(bins):
         wins = bins[bucket]

@@ -10,7 +10,6 @@ from sqlalchemy.orm import Session
 from tradearena.api.deps import require_api_key
 from tradearena.api.ws import manager
 from tradearena.core.commitment import build_committed_signal
-from tradearena.core.scoring import compute_score
 from tradearena.db.database import CreatorORM, CreatorScoreORM, SignalORM, get_db
 from tradearena.models.signal import SignalCreate, SignalEmitResponse
 
@@ -67,34 +66,22 @@ async def emit_signal(
     db.commit()
     db.refresh(signal_orm)
 
-    # Recompute creator score immediately so the leaderboard stays current.
-    all_sigs = db.query(SignalORM).filter(SignalORM.creator_id == creator_id).all()
-    dims = compute_score(
-        [s.outcome for s in all_sigs],
-        [s.confidence for s in all_sigs],
-    )
+    # Increment total_signals only — new signals have outcome=None so they
+    # don't affect score dimensions.  The background loop handles full
+    # recomputation when outcomes are resolved, avoiding the O(n) query here
+    # and the race condition between concurrent submissions and the loop.
     now = datetime.now(UTC)
     existing_score = (
         db.query(CreatorScoreORM).filter(CreatorScoreORM.creator_id == creator_id).first()
     )
     if existing_score:
-        existing_score.win_rate = dims.win_rate
-        existing_score.risk_adjusted_return = dims.risk_adjusted_return
-        existing_score.consistency = dims.consistency
-        existing_score.confidence_calibration = dims.confidence_calibration
-        existing_score.composite_score = dims.composite
-        existing_score.total_signals = len(all_sigs)
+        existing_score.total_signals = (existing_score.total_signals or 0) + 1
         existing_score.updated_at = now
     else:
         db.add(
             CreatorScoreORM(
                 creator_id=creator_id,
-                win_rate=dims.win_rate,
-                risk_adjusted_return=dims.risk_adjusted_return,
-                consistency=dims.consistency,
-                confidence_calibration=dims.confidence_calibration,
-                composite_score=dims.composite,
-                total_signals=len(all_sigs),
+                total_signals=1,
                 updated_at=now,
             )
         )

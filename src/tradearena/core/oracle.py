@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from tradearena.core import cache
 from tradearena.db.database import SignalORM
+from tradearena.models.signal import Outcome
 
 logger = logging.getLogger(__name__)
 
@@ -148,15 +149,15 @@ def _resolve_with_targets(
             stop_hit = high >= stop_loss
 
         if target_hit and stop_hit:
-            return "NEUTRAL", close
+            return Outcome.NEUTRAL, close
         if target_hit:
-            return "WIN", target_price
+            return Outcome.WIN, target_price
         if stop_hit:
-            return "LOSS", stop_loss
+            return Outcome.LOSS, stop_loss
 
     # Neither hit during the timeframe
     close = float(klines[-1][4]) if klines else 0.0
-    return "NEUTRAL", close
+    return Outcome.NEUTRAL, close
 
 
 def _resolve_by_direction(
@@ -169,23 +170,23 @@ def _resolve_by_direction(
     Returns (outcome, outcome_price).
     """
     if open_price == 0:
-        return "NEUTRAL", close_price
+        return Outcome.NEUTRAL, close_price
 
     pct_change = (close_price - open_price) / open_price
     is_bullish = action.lower() in BULLISH_ACTIONS
 
     if is_bullish:
         if pct_change >= DIRECTION_THRESHOLD:
-            return "WIN", close_price
+            return Outcome.WIN, close_price
         if pct_change <= -DIRECTION_THRESHOLD:
-            return "LOSS", close_price
+            return Outcome.LOSS, close_price
     else:
         if pct_change <= -DIRECTION_THRESHOLD:
-            return "WIN", close_price
+            return Outcome.WIN, close_price
         if pct_change >= DIRECTION_THRESHOLD:
-            return "LOSS", close_price
+            return Outcome.LOSS, close_price
 
-    return "NEUTRAL", close_price
+    return Outcome.NEUTRAL, close_price
 
 
 async def resolve_signal(

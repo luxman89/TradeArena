@@ -27,6 +27,7 @@ class LeaderboardResponse(BaseModel):
     total: int
     offset: int
     limit: int
+    next_cursor: str | None = None
     entries: list[LeaderboardEntry]
 
 
@@ -151,10 +152,18 @@ class AuthMeResponse(BaseModel):
     xp_progress: int
     xp_needed: int
     xp_to_next: int
-    title: str
+    title: str | None = None
     glow: str | None = None
     unlocked_avatars: list[int]
     scores: AuthMeScores
+
+
+class ProfileUpdateResponse(BaseModel):
+    creator_id: str
+    display_name: str
+    division: str
+    strategy_description: str | None = None
+    message: str
 
 
 class AvatarUpdateResponse(BaseModel):

@@ -15,6 +15,8 @@ import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from tradearena.models.signal import Outcome
+
 WEIGHTS = {
     "win_rate": 0.30,
     "risk_adjusted_return": 0.30,
@@ -57,7 +59,7 @@ def score_win_rate(outcomes: Sequence[str | None]) -> float:
     resolved = [o for o in outcomes if o is not None]
     if not resolved:
         return 0.0
-    wins = sum(1 for o in resolved if o == "WIN")
+    wins = sum(1 for o in resolved if o == Outcome.WIN)
     return _clamp(wins / len(resolved))
 
 
@@ -82,9 +84,9 @@ def score_risk_adjusted_return(
 
     returns = []
     for outcome, conf in paired:
-        if outcome == "WIN":
+        if outcome == Outcome.WIN:
             returns.append(conf)
-        elif outcome == "LOSS":
+        elif outcome == Outcome.LOSS:
             returns.append(-conf)
         else:
             returns.append(0.0)
@@ -121,7 +123,7 @@ def score_consistency(
     window_rates = []
     for i in range(len(resolved) - window + 1):
         chunk = resolved[i : i + window]
-        rate = sum(1 for o in chunk if o == "WIN") / window
+        rate = sum(1 for o in chunk if o == Outcome.WIN) / window
         window_rates.append(rate)
 
     mean_wr = sum(window_rates) / len(window_rates)
@@ -153,9 +155,9 @@ def score_confidence_calibration(
     if not paired:
         return 0.0
 
-    brier = sum((conf - (1.0 if outcome == "WIN" else 0.0)) ** 2 for outcome, conf in paired) / len(
-        paired
-    )
+    brier = sum(
+        (conf - (1.0 if outcome == Outcome.WIN else 0.0)) ** 2 for outcome, conf in paired
+    ) / len(paired)
 
     # Brier score 0 = perfect, 1 = worst. 1 - 2*brier maps [0,0.5] -> [1,0].
     calibration = 1.0 - 2.0 * brier

@@ -26,6 +26,7 @@ from tradearena.models.responses import (
     AuthMeResponse,
     AuthRegisterResponse,
     AvatarUpdateResponse,
+    ProfileUpdateResponse,
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -104,6 +105,33 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: str
     password: str
+
+
+class ProfileUpdateRequest(BaseModel):
+    display_name: str | None = None
+    strategy_description: str | None = None
+    division: str | None = None
+
+    @field_validator("display_name")
+    @classmethod
+    def validate_display_name(cls, v: str | None) -> str | None:
+        if v is not None and not (3 <= len(v) <= 50):
+            raise ValueError("display_name must be 3-50 characters")
+        return v
+
+    @field_validator("strategy_description")
+    @classmethod
+    def validate_strategy_description(cls, v: str | None) -> str | None:
+        if v is not None and not (20 <= len(v) <= 500):
+            raise ValueError("strategy_description must be 20-500 characters")
+        return v
+
+    @field_validator("division")
+    @classmethod
+    def validate_division(cls, v: str | None) -> str | None:
+        if v is not None and v not in _VALID_DIVISIONS:
+            raise ValueError(f"division must be one of: {', '.join(sorted(_VALID_DIVISIONS))}")
+        return v
 
 
 class AvatarUpdateRequest(BaseModel):
@@ -257,6 +285,41 @@ async def get_me(
             "win_rate": round(score.win_rate, 4) if score else 0.0,
             "total_signals": score.total_signals if score else 0,
         },
+    }
+
+
+@router.patch(
+    "/profile",
+    response_model=ProfileUpdateResponse,
+    summary="Update user profile",
+    responses={
+        404: {"description": "Creator not found"},
+    },
+)
+async def update_profile(
+    body: ProfileUpdateRequest,
+    creator_id: str = Depends(require_jwt_token),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Update profile fields: display_name, strategy_description, division."""
+    creator = db.query(CreatorORM).filter(CreatorORM.id == creator_id).first()
+    if not creator:
+        raise HTTPException(status_code=404, detail="Creator not found")
+
+    if body.display_name is not None:
+        creator.display_name = body.display_name
+    if body.strategy_description is not None:
+        creator.strategy_description = body.strategy_description
+    if body.division is not None:
+        creator.division = body.division
+    db.commit()
+
+    return {
+        "creator_id": creator.id,
+        "display_name": creator.display_name,
+        "division": creator.division,
+        "strategy_description": creator.strategy_description,
+        "message": "Profile updated",
     }
 
 

@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import base64
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from tradearena.db.database import CreatorORM, CreatorScoreORM, get_db
@@ -28,6 +31,43 @@ def _format_entry(creator: CreatorORM) -> dict:
     }
 
 
+def _encode_cursor(score: float, creator_id: str) -> str:
+    """Encode (composite_score, creator_id) into a URL-safe cursor string."""
+    raw = f"{score:.10f}|{creator_id}"
+    return base64.urlsafe_b64encode(raw.encode()).decode()
+
+
+def _decode_cursor(cursor: str) -> tuple[float, str] | None:
+    """Decode a cursor string back to (composite_score, creator_id)."""
+    try:
+        raw = base64.urlsafe_b64decode(cursor.encode()).decode()
+        score_str, creator_id = raw.split("|", 1)
+        return float(score_str), creator_id
+    except Exception:
+        return None
+
+
+def _build_cursor_filter(cursor: str | None):
+    """Build a SQLAlchemy filter for cursor-based pagination.
+
+    Since we order by composite_score DESC, the cursor means:
+    "give me rows where score < cursor_score, or score == cursor_score and id > cursor_id"
+    """
+    if cursor is None:
+        return None
+    decoded = _decode_cursor(cursor)
+    if decoded is None:
+        return None
+    cursor_score, cursor_id = decoded
+    return or_(
+        CreatorScoreORM.composite_score < cursor_score,
+        and_(
+            CreatorScoreORM.composite_score == cursor_score,
+            CreatorORM.id > cursor_id,
+        ),
+    )
+
+
 @router.get(
     "/leaderboard",
     response_model=LeaderboardResponse,
@@ -36,22 +76,41 @@ def _format_entry(creator: CreatorORM) -> dict:
 async def get_leaderboard(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    cursor: str | None = Query(None, description="Cursor for keyset pagination"),
     db: Session = Depends(get_db),
 ) -> dict:
-    """Return all creators sorted by composite score descending."""
-    creators = (
+    """Return all creators sorted by composite score descending.
+
+    Supports both offset-based and cursor-based pagination. When `cursor` is
+    provided, `offset` is ignored and keyset pagination is used instead.
+    """
+    query = (
         db.query(CreatorORM)
         .outerjoin(CreatorScoreORM, CreatorORM.id == CreatorScoreORM.creator_id)
-        .order_by(CreatorScoreORM.composite_score.desc().nullslast())
-        .offset(offset)
-        .limit(limit)
-        .all()
+        .order_by(CreatorScoreORM.composite_score.desc().nullslast(), CreatorORM.id)
     )
+
+    cursor_filter = _build_cursor_filter(cursor)
+    if cursor_filter is not None:
+        query = query.filter(cursor_filter)
+        offset = 0  # cursor replaces offset
+    else:
+        query = query.offset(offset)
+
+    creators = query.limit(limit).all()
     total = db.query(CreatorORM).count()
+
+    next_cursor = None
+    if creators:
+        last = creators[-1]
+        last_score = last.score.composite_score if last.score else 0.0
+        next_cursor = _encode_cursor(last_score, last.id)
+
     return {
         "total": total,
         "offset": offset,
         "limit": limit,
+        "next_cursor": next_cursor,
         "entries": [_format_entry(c) for c in creators],
     }
 
@@ -68,6 +127,7 @@ async def get_leaderboard_division(
     division: str,
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    cursor: str | None = Query(None, description="Cursor for keyset pagination"),
     db: Session = Depends(get_db),
 ) -> dict:
     """Return creators in a specific division sorted by composite score."""
@@ -77,20 +137,34 @@ async def get_leaderboard_division(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"division must be one of {sorted(VALID_DIVISIONS)}",
         )
-    creators = (
+    query = (
         db.query(CreatorORM)
         .filter(CreatorORM.division == division)
         .outerjoin(CreatorScoreORM, CreatorORM.id == CreatorScoreORM.creator_id)
-        .order_by(CreatorScoreORM.composite_score.desc().nullslast())
-        .offset(offset)
-        .limit(limit)
-        .all()
+        .order_by(CreatorScoreORM.composite_score.desc().nullslast(), CreatorORM.id)
     )
+
+    cursor_filter = _build_cursor_filter(cursor)
+    if cursor_filter is not None:
+        query = query.filter(cursor_filter)
+        offset = 0
+    else:
+        query = query.offset(offset)
+
+    creators = query.limit(limit).all()
     total = db.query(CreatorORM).filter(CreatorORM.division == division).count()
+
+    next_cursor = None
+    if creators:
+        last = creators[-1]
+        last_score = last.score.composite_score if last.score else 0.0
+        next_cursor = _encode_cursor(last_score, last.id)
+
     return {
         "division": division,
         "total": total,
         "offset": offset,
         "limit": limit,
+        "next_cursor": next_cursor,
         "entries": [_format_entry(c) for c in creators],
     }

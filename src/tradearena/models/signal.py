@@ -27,6 +27,12 @@ class SignalAction(StrEnum):
         return None
 
 
+class Outcome(StrEnum):
+    WIN = "WIN"
+    LOSS = "LOSS"
+    NEUTRAL = "NEUTRAL"
+
+
 class SignalCreate(BaseModel):
     """Input model for creating a new signal."""
 

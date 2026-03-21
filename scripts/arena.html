@@ -369,6 +369,16 @@ body{display:flex;flex-direction:column}
   font-size:.55rem;color:var(--muted2);text-align:center;
   line-height:1.5;
 }
+.prog-card.reached{border-color:rgba(16,185,129,.45);background:rgba(16,185,129,.06)}
+.prog-card.reached:hover{border-color:rgba(16,185,129,.7);box-shadow:0 8px 28px rgba(16,185,129,.15)}
+.prog-card.current{border-color:rgba(245,158,11,.6);background:rgba(245,158,11,.08);box-shadow:0 0 16px rgba(245,158,11,.2)}
+.prog-card.current:hover{border-color:rgba(245,158,11,.8);box-shadow:0 0 24px rgba(245,158,11,.35)}
+.prog-card.current .prog-level-num{color:var(--gold)}
+.prog-card.current .prog-card-title{color:var(--gold)}
+.prog-card.locked{opacity:.45;filter:grayscale(.4)}
+.prog-card.locked:hover{opacity:.6;filter:grayscale(.2)}
+.prog-connector.reached::after{color:var(--green)}
+.prog-connector.current::after{color:var(--gold)}
 
 @media(max-height:600px){
   .prog-portrait-wrap{width:96px;height:96px}
@@ -558,16 +568,19 @@ const API    = location.origin;
 let _ws = null;
 let _wsRetryMs = 1000;
 const _wsMaxRetry = 30000;
+let _wsLastSeq = 0;
 function connectWS() {
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  _ws = new WebSocket(proto + '//' + location.host + '/ws');
+  const seqParam = _wsLastSeq > 0 ? '?last_seq=' + _wsLastSeq : '';
+  _ws = new WebSocket(proto + '//' + location.host + '/ws' + seqParam);
   _ws.onopen = function() {
-    console.log('[WS] connected');
+    console.log('[WS] connected (last_seq=' + _wsLastSeq + ')');
     _wsRetryMs = 1000;
   };
   _ws.onmessage = function(evt) {
     try {
       const msg = JSON.parse(evt.data);
+      if (msg.seq) _wsLastSeq = msg.seq;
       const ev = msg.event;
       if (ev === 'signal_new' || ev === 'signals_resolved' ||
           ev === 'leaderboard_updated' || ev === 'battle_created' ||
@@ -3788,15 +3801,24 @@ function closeBhModal() { document.getElementById('bh-modal').classList.remove('
 // ═════════════════════════════════════════════════
 // CAREER PROGRESSION
 // ═════════════════════════════════════════════════
-let _progRendered = false;
+let _progRenderedLevel = -1;
 
 function showProgression() {
   // Close any conflicting overlays
   document.getElementById('lb-modal').classList.remove('show');
   document.getElementById('bh-modal').classList.remove('show');
   document.getElementById('prog-modal').classList.add('show');
-  // Build timeline once (idempotent)
-  if (!_progRendered) { renderTimeline(); _progRendered = true; }
+  // Re-render if user level changed since last render
+  const userLevel = currentUser ? (currentUser.level || 1) : 0;
+  if (_progRenderedLevel !== userLevel) {
+    renderTimeline();
+    _progRenderedLevel = userLevel;
+    // Scroll to current level card
+    requestAnimationFrame(() => {
+      const cur = document.querySelector('.prog-card.current');
+      if (cur) cur.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'});
+    });
+  }
 }
 
 function closeProgression() {
@@ -3999,11 +4021,14 @@ hydrateUser();
 function renderTimeline() {
   const timeline = document.getElementById('prog-timeline');
   timeline.innerHTML = '';
+  const userLevel = currentUser ? (currentUser.level || 1) : 0;
 
   LEVEL_DEFS.forEach((def, idx) => {
     if (idx > 0) {
       const conn = document.createElement('div');
-      conn.className = 'prog-connector';
+      conn.className = 'prog-connector' +
+        (def.level <= userLevel ? ' reached' : '') +
+        (def.level === userLevel + 1 ? ' current' : '');
       timeline.appendChild(conn);
     }
 
@@ -4012,7 +4037,12 @@ function renderTimeline() {
     const imgKey = 'lvl' + def.level;
 
     const card = document.createElement('div');
-    card.className = 'prog-card' + (isMilestone ? ' milestone' : '');
+    let cls = 'prog-card';
+    if (isMilestone) cls += ' milestone';
+    if (userLevel > 0 && def.level === userLevel) cls += ' current';
+    else if (userLevel > 0 && def.level < userLevel) cls += ' reached';
+    else if (userLevel > 0 && def.level > userLevel) cls += ' locked';
+    card.className = cls;
 
     card.innerHTML = (isMilestone ? '<div class="prog-milestone-crown">🏆</div>' : '') +
       '<div class="prog-portrait-wrap">' +

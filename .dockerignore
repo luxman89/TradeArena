@@ -1,0 +1,44 @@
+# Version control
+.git
+.github
+
+# Python
+__pycache__
+*.py[cod]
+*.egg-info
+dist
+build
+.venv
+venv
+
+# Dev databases
+*.db
+*.db-shm
+*.db-wal
+
+# IDE / tools
+.ruff_cache
+.pytest_cache
+.claude
+.bot_credentials.json
+
+# Environment (secrets)
+.env
+
+# Docs
+*.md
+!README.md
+!scripts/README_solution.md
+
+# Misc dev scripts
+find_anthropic.py
+fix_config*.py
+get_context*.py
+patch_openclaw*.py
+nemoclaw-start.sh
+
+# Agents (Paperclip config)
+agents/
+
+# Lock not needed at build time (uv.lock IS needed)
+# Keep uv.lock for reproducible builds

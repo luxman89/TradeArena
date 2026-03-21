@@ -507,12 +507,20 @@ def seed():
         print(f"Signals: {count} inserted.")
 
         # Compute and store scores
+        from tradearena.core.leveling import XP_SIGNAL_SUBMITTED, level_from_xp, xp_for_outcome
+        
         for creator in db.query(CreatorORM).all():
             signals = db.query(SignalORM).filter(SignalORM.creator_id == creator.id).all()
             outcomes = [s.outcome for s in signals]
             confidences = [s.confidence for s in signals]
 
             dims = compute_score(outcomes, confidences)
+            
+            # Calculate XP
+            xp = len(signals) * XP_SIGNAL_SUBMITTED
+            for s in signals:
+                xp += xp_for_outcome(s.outcome)
+            level = level_from_xp(xp)
 
             existing_score = (
                 db.query(CreatorScoreORM).filter(CreatorScoreORM.creator_id == creator.id).first()
@@ -524,6 +532,8 @@ def seed():
                 existing_score.confidence_calibration = dims.confidence_calibration
                 existing_score.composite_score = dims.composite
                 existing_score.total_signals = len(signals)
+                existing_score.xp = xp
+                existing_score.level = level
                 existing_score.updated_at = now
             else:
                 score_orm = CreatorScoreORM(
@@ -534,6 +544,8 @@ def seed():
                     confidence_calibration=dims.confidence_calibration,
                     composite_score=dims.composite,
                     total_signals=len(signals),
+                    xp=xp,
+                    level=level,
                     updated_at=now,
                 )
                 db.add(score_orm)

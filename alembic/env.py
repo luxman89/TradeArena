@@ -10,7 +10,14 @@ config = context.config
 
 database_url = os.getenv("DATABASE_URL")
 if database_url:
+    # Railway/Fly.io/Heroku use postgres:// but SQLAlchemy requires postgresql://
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
     config.set_main_option("sqlalchemy.url", database_url)
+
+# SQLite needs batch mode for ALTER operations; PostgreSQL does not
+_url = config.get_main_option("sqlalchemy.url") or ""
+_use_batch = _url.startswith("sqlite")
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
@@ -25,7 +32,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        render_as_batch=True,
+        render_as_batch=_use_batch,
     )
 
     with context.begin_transaction():
@@ -43,7 +50,7 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
-            render_as_batch=True,
+            render_as_batch=_use_batch,
         )
 
         with context.begin_transaction():

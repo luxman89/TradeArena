@@ -22,11 +22,19 @@ from sqlalchemy.orm import DeclarativeBase, relationship, sessionmaker
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./tradearena.db")
 
+# Railway/Fly.io/Heroku often provide postgres:// but SQLAlchemy requires postgresql://
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
 connect_args = {}
 if DATABASE_URL.startswith("sqlite"):
     connect_args["check_same_thread"] = False
 
-engine = create_engine(DATABASE_URL, connect_args=connect_args)
+_pool_kwargs: dict = {}
+if not DATABASE_URL.startswith("sqlite"):
+    _pool_kwargs.update(pool_size=5, max_overflow=10, pool_recycle=1800)
+
+engine = create_engine(DATABASE_URL, connect_args=connect_args, **_pool_kwargs)
 
 # Enable WAL mode and foreign keys for SQLite
 if DATABASE_URL.startswith("sqlite"):
@@ -97,7 +105,7 @@ class SignalORM(Base):
     timeframe = Column(String(10), nullable=True)
     commitment_hash = Column(String(64), nullable=False, unique=True)
     committed_at = Column(DateTime, nullable=False)
-    outcome = Column(String(10), nullable=True)
+    outcome = Column(String(10), nullable=True)  # see Outcome enum in models.signal
     outcome_price = Column(Float, nullable=True)
     outcome_at = Column(DateTime, nullable=True)
 
