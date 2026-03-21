@@ -43,6 +43,7 @@ _SCRIPTS_DIR = Path(__file__).resolve().parents[3] / "scripts"
 _ARENA_HTML = _SCRIPTS_DIR / "arena.html"
 _LANDING_HTML = _SCRIPTS_DIR / "landing.html"
 _ADMIN_HTML = _SCRIPTS_DIR / "admin.html"
+_QUICKSTART_HTML = _SCRIPTS_DIR / "quickstart.html"
 
 ORACLE_INTERVAL_SECONDS = 300  # 5 minutes
 MATCHMAKING_INTERVAL_SECONDS = 7 * 24 * 3600  # 1 week
@@ -344,6 +345,16 @@ async def arena_ui() -> FileResponse:
     """Serve the TradeArena arena UI."""
     return FileResponse(
         _ARENA_HTML,
+        media_type="text/html",
+        headers={"Cache-Control": "no-cache, must-revalidate"},
+    )
+
+
+@app.get("/quickstart", include_in_schema=False)
+async def quickstart_page() -> FileResponse:
+    """Serve the interactive quickstart tutorial (post-signup)."""
+    return FileResponse(
+        _QUICKSTART_HTML,
         media_type="text/html",
         headers={"Cache-Control": "no-cache, must-revalidate"},
     )

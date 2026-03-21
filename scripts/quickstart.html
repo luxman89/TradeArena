@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TradeArena — Quickstart</title>
+<meta name="description" content="Submit your first trading signal in under 5 minutes. Interactive quickstart guide for TradeArena.">
+<meta name="robots" content="noindex">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --void: #060a14;
+  --navy: #0a0e1a;
+  --navy-light: #111827;
+  --navy-mid: #1a2236;
+  --slate: #374151;
+  --steel: #6b7280;
+  --silver: #9ca3af;
+  --pearl: #d1d5db;
+  --white: #f9fafb;
+  --gold: #f0b90b;
+  --gold-dim: #c99a08;
+  --gold-glow: rgba(240, 185, 11, 0.15);
+  --blue: #2962ff;
+  --blue-bright: #448aff;
+  --blue-glow: rgba(41, 98, 255, 0.12);
+  --green: #00c853;
+  --green-glow: rgba(0, 200, 83, 0.15);
+  --red: #ff1744;
+  --font-display: 'Instrument Serif', Georgia, serif;
+  --font-body: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+html {
+  scroll-behavior: smooth;
+  background: var(--void);
+  color: var(--pearl);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  overflow-x: hidden;
+  background: var(--void);
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+}
+
+::selection { background: var(--gold); color: var(--void); }
+
+/* ── NAV ── */
+nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  padding: 1.25rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(6, 10, 20, 0.8);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.nav-logo {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--white);
+  text-decoration: none;
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.nav-logo .logo-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--gold);
+  color: var(--void);
+  font-weight: 700;
+  font-size: 0.75rem;
+}
+
+/* ── LAYOUT ── */
+.container {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 7rem 2rem 4rem;
+}
+
+/* ── PROGRESS BAR ── */
+.progress-bar {
+  position: fixed;
+  top: 60px;
+  left: 0;
+  right: 0;
+  z-index: 99;
+  height: 3px;
+  background: var(--navy-mid);
+}
+.progress-fill {
+  height: 100%;
+  background: var(--gold);
+  transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  width: 0%;
+}
+
+/* ── STEP INDICATOR ── */
+.steps-indicator {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 3rem;
+  align-items: center;
+}
+.step-dot {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  border: 2px solid var(--slate);
+  color: var(--steel);
+  transition: all 0.3s;
+  flex-shrink: 0;
+}
+.step-dot.active {
+  border-color: var(--gold);
+  color: var(--gold);
+  box-shadow: 0 0 12px var(--gold-glow);
+}
+.step-dot.done {
+  border-color: var(--green);
+  background: var(--green);
+  color: var(--void);
+}
+.step-connector {
+  flex: 1;
+  height: 2px;
+  background: var(--slate);
+  transition: background 0.3s;
+}
+.step-connector.done {
+  background: var(--green);
+}
+
+/* ── SECTIONS ── */
+.qs-section {
+  display: none;
+  animation: fadeIn 0.4s ease;
+}
+.qs-section.active {
+  display: block;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── HEADINGS ── */
+h1 {
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  font-weight: 400;
+  color: var(--white);
+  line-height: 1.15;
+  margin-bottom: 0.75rem;
+}
+h1 em {
+  font-style: italic;
+  color: var(--gold);
+}
+h2 {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 400;
+  color: var(--white);
+  margin-bottom: 0.5rem;
+}
+.subtitle {
+  color: var(--silver);
+  font-size: 1rem;
+  margin-bottom: 2rem;
+  line-height: 1.5;
+}
+
+/* ── TERMINAL WIDGET ── */
+.terminal {
+  background: var(--navy);
+  border: 1px solid var(--navy-mid);
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 1.5rem 0;
+}
+.terminal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.625rem 1rem;
+  background: var(--navy-light);
+  border-bottom: 1px solid var(--navy-mid);
+}
+.terminal-dots {
+  display: flex;
+  gap: 6px;
+}
+.terminal-dots span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--slate);
+}
+.terminal-dots span:first-child { background: #ff5f57; }
+.terminal-dots span:nth-child(2) { background: #ffbd2e; }
+.terminal-dots span:last-child { background: #28c940; }
+.terminal-title {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--steel);
+}
+.terminal-copy {
+  background: none;
+  border: none;
+  color: var(--silver);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  transition: all 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.terminal-copy:hover {
+  background: var(--navy-mid);
+  color: var(--white);
+}
+.terminal-copy.copied {
+  color: var(--green);
+}
+.terminal-body {
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+}
+.terminal-body pre {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  color: var(--pearl);
+  white-space: pre;
+  margin: 0;
+}
+.terminal-body .comment { color: var(--steel); }
+.terminal-body .string { color: #98c379; }
+.terminal-body .keyword { color: #c678dd; }
+.terminal-body .number { color: #d19a66; }
+.terminal-body .function { color: #61afef; }
+.terminal-body .prompt { color: var(--gold); user-select: none; }
+.terminal-body .api-key-value {
+  color: var(--gold);
+  background: var(--gold-glow);
+  padding: 0.1rem 0.25rem;
+  border-radius: 2px;
+}
+
+/* ── API KEY DISPLAY ── */
+.api-key-box {
+  background: var(--navy);
+  border: 1px solid var(--gold-glow);
+  border-left: 3px solid var(--gold);
+  border-radius: 6px;
+  padding: 1rem 1.25rem;
+  margin: 1.5rem 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.api-key-box .key-label {
+  font-size: 0.75rem;
+  color: var(--steel);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.25rem;
+}
+.api-key-box .key-value {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  color: var(--gold);
+  word-break: break-all;
+}
+.api-key-box .key-copy {
+  background: var(--navy-mid);
+  border: 1px solid var(--slate);
+  color: var(--silver);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 4px;
+  transition: all 0.2s;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.api-key-box .key-copy:hover {
+  background: var(--slate);
+  color: var(--white);
+}
+
+/* ── BUTTONS ── */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--gold);
+  color: var(--void);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  transition: background 0.2s, transform 0.2s;
+  text-decoration: none;
+}
+.btn-primary:hover {
+  background: var(--gold-dim);
+  transform: translateY(-1px);
+}
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: transparent;
+  color: var(--pearl);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: 1px solid var(--slate);
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: all 0.2s;
+  text-decoration: none;
+}
+.btn-secondary:hover {
+  border-color: var(--silver);
+  color: var(--white);
+}
+.btn-row {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+  flex-wrap: wrap;
+}
+
+/* ── STATUS BADGE ── */
+.check-status {
+  margin-top: 1.5rem;
+  padding: 1rem 1.25rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  display: none;
+}
+.check-status.checking {
+  display: block;
+  background: var(--blue-glow);
+  border: 1px solid rgba(41, 98, 255, 0.3);
+  color: var(--blue-bright);
+}
+.check-status.success {
+  display: block;
+  background: var(--green-glow);
+  border: 1px solid rgba(0, 200, 83, 0.3);
+  color: var(--green);
+}
+.check-status.not-yet {
+  display: block;
+  background: rgba(255, 23, 68, 0.08);
+  border: 1px solid rgba(255, 23, 68, 0.2);
+  color: var(--pearl);
+}
+
+/* ── CELEBRATION ── */
+.celebration {
+  display: none;
+  text-align: center;
+  padding: 3rem 2rem;
+  animation: fadeIn 0.5s ease;
+}
+.celebration.active {
+  display: block;
+}
+.celebration-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+/* ── INFO CARD ── */
+.info-card {
+  background: var(--navy);
+  border: 1px solid var(--navy-mid);
+  border-radius: 8px;
+  padding: 1.25rem 1.5rem;
+  margin: 1rem 0;
+}
+.info-card h3 {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+}
+.info-card p {
+  font-size: 0.875rem;
+  color: var(--silver);
+  line-height: 1.6;
+}
+
+/* ── SCORING GRID ── */
+.scoring-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+.score-card {
+  background: var(--navy);
+  border: 1px solid var(--navy-mid);
+  border-radius: 8px;
+  padding: 1.25rem;
+}
+.score-card .score-weight {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.375rem;
+}
+.score-card .score-name {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--white);
+  margin-bottom: 0.375rem;
+}
+.score-card .score-desc {
+  font-size: 0.8125rem;
+  color: var(--silver);
+  line-height: 1.5;
+}
+
+/* ── FLOOR PREVIEW ── */
+.floor-preview {
+  background: var(--navy);
+  border: 1px solid var(--navy-mid);
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 1.5rem 0;
+  position: relative;
+}
+.floor-preview-header {
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--navy-mid);
+}
+.floor-preview-header span {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--steel);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.floor-preview-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.floor-preview-body {
+  padding: 1.5rem;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+.floor-signal {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--navy-light);
+  border: 1px solid var(--navy-mid);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  width: 100%;
+  max-width: 400px;
+  animation: slideIn 0.5s ease;
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.floor-signal .signal-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--gold-glow);
+  border: 2px solid var(--gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--gold);
+  flex-shrink: 0;
+}
+.floor-signal .signal-info {
+  flex: 1;
+  min-width: 0;
+}
+.floor-signal .signal-pair {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--white);
+  font-weight: 500;
+}
+.floor-signal .signal-action {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.floor-signal .signal-action.buy { color: var(--green); }
+.floor-signal .signal-action.sell { color: var(--red); }
+.floor-signal .signal-conf {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--silver);
+}
+.floor-empty {
+  color: var(--steel);
+  font-size: 0.875rem;
+  text-align: center;
+}
+.floor-empty-sub {
+  font-size: 0.75rem;
+  color: var(--slate);
+}
+
+/* ── SPINNER ── */
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  vertical-align: middle;
+  margin-right: 0.375rem;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 600px) {
+  h1 { font-size: 1.75rem; }
+  h2 { font-size: 1.375rem; }
+  .container { padding: 6rem 1rem 3rem; }
+  .scoring-grid { grid-template-columns: 1fr; }
+  .btn-row { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="/" class="nav-logo">
+    <span class="logo-mark">TA</span>
+    TradeArena
+  </a>
+</nav>
+
+<!-- PROGRESS -->
+<div class="progress-bar">
+  <div class="progress-fill" id="progressFill"></div>
+</div>
+
+<div class="container">
+
+  <!-- STEP INDICATORS -->
+  <div class="steps-indicator">
+    <div class="step-dot active" id="dot1">1</div>
+    <div class="step-connector" id="conn1"></div>
+    <div class="step-dot" id="dot2">2</div>
+    <div class="step-connector" id="conn2"></div>
+    <div class="step-dot" id="dot3">3</div>
+    <div class="step-connector" id="conn3"></div>
+    <div class="step-dot" id="dot4">4</div>
+  </div>
+
+  <!-- STEP 1: WELCOME + API KEY -->
+  <section class="qs-section active" id="step1">
+    <h1>Your first signal in <em>5 minutes</em></h1>
+    <p class="subtitle">
+      You're in. Here's your API key — the only credential you need to start
+      submitting cryptographically committed predictions.
+    </p>
+
+    <div class="api-key-box">
+      <div>
+        <div class="key-label">Your API Key</div>
+        <div class="key-value" id="apiKeyDisplay">Loading...</div>
+      </div>
+      <button class="key-copy" onclick="copyApiKey()" id="apiKeyCopyBtn">Copy</button>
+    </div>
+
+    <div class="info-card">
+      <h3>Keep this safe</h3>
+      <p>
+        This is the only time your raw API key is shown. It's SHA-256 hashed on
+        our side — we can't recover it. Copy it now and store it somewhere secure.
+      </p>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-primary" onclick="goToStep(2)">Next: Install the SDK &rarr;</button>
+    </div>
+  </section>
+
+  <!-- STEP 2: INSTALL SDK -->
+  <section class="qs-section" id="step2">
+    <h2>Install the SDK</h2>
+    <p class="subtitle">
+      One command. The TradeArena Python SDK handles local validation,
+      commitment hashing, and API communication.
+    </p>
+
+    <div class="terminal">
+      <div class="terminal-header">
+        <div class="terminal-dots"><span></span><span></span><span></span></div>
+        <span class="terminal-title">terminal</span>
+        <button class="terminal-copy" onclick="copyBlock(this, 'pip install tradearena')">Copy</button>
+      </div>
+      <div class="terminal-body">
+        <pre><span class="prompt">$ </span>pip install tradearena</pre>
+      </div>
+    </div>
+
+    <div class="info-card">
+      <h3>Or use the REST API directly</h3>
+      <p>
+        Don't use Python? The SDK is optional. You can POST to
+        <code style="color: var(--gold); font-family: var(--font-mono); font-size: 0.8125rem;">/signal</code>
+        with any HTTP client. See <a href="/docs" style="color: var(--blue-bright); text-decoration: none;">the API docs</a>.
+      </p>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-secondary" onclick="goToStep(1)">&larr; Back</button>
+      <button class="btn-primary" onclick="goToStep(3)">Next: Submit a signal &rarr;</button>
+    </div>
+  </section>
+
+  <!-- STEP 3: SUBMIT FIRST SIGNAL -->
+  <section class="qs-section" id="step3">
+    <h2>Submit your first signal</h2>
+    <p class="subtitle">
+      Copy this snippet, paste it into your terminal, and run it. Your prediction
+      will be cryptographically committed and appear on the trading floor.
+    </p>
+
+    <div class="terminal" id="sdkTerminal">
+      <div class="terminal-header">
+        <div class="terminal-dots"><span></span><span></span><span></span></div>
+        <span class="terminal-title">python</span>
+        <button class="terminal-copy" onclick="copySdkSnippet(this)">Copy</button>
+      </div>
+      <div class="terminal-body">
+        <pre id="sdkSnippet"></pre>
+      </div>
+    </div>
+
+    <div class="terminal" id="curlTerminal">
+      <div class="terminal-header">
+        <div class="terminal-dots"><span></span><span></span><span></span></div>
+        <span class="terminal-title">curl</span>
+        <button class="terminal-copy" onclick="copyCurlSnippet(this)">Copy</button>
+      </div>
+      <div class="terminal-body">
+        <pre id="curlSnippet"></pre>
+      </div>
+    </div>
+
+    <!-- Floor Preview -->
+    <div class="floor-preview">
+      <div class="floor-preview-header">
+        <span>Trading Floor — Live Preview</span>
+        <div class="floor-preview-dot"></div>
+      </div>
+      <div class="floor-preview-body" id="floorPreview">
+        <div class="floor-empty">Waiting for your first signal...</div>
+        <div class="floor-empty-sub">Run the code above and it will appear here</div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-secondary" onclick="goToStep(2)">&larr; Back</button>
+      <button class="btn-primary" onclick="checkFirstSignal()" id="checkBtn">
+        I submitted it — check now
+      </button>
+    </div>
+
+    <div class="check-status" id="checkStatus"></div>
+  </section>
+
+  <!-- STEP 4: HOW SCORING WORKS -->
+  <section class="qs-section" id="step4">
+
+    <div class="celebration active" id="celebration">
+      <div class="celebration-icon">&#9889;</div>
+      <h2>Signal confirmed</h2>
+      <p class="subtitle" style="margin-bottom: 1rem;">
+        Your prediction is live and cryptographically locked. No edits, no takebacks.
+        Here's how you'll be scored.
+      </p>
+    </div>
+
+    <h2>How scoring works</h2>
+    <p class="subtitle">
+      Every resolved signal feeds into a four-dimension composite score.
+      Your rank on the leaderboard is determined by this single number.
+    </p>
+
+    <div class="scoring-grid">
+      <div class="score-card">
+        <div class="score-weight">30% weight</div>
+        <div class="score-name">Win Rate</div>
+        <div class="score-desc">
+          Percentage of signals resolved as WIN. Straightforward — did you call it right?
+        </div>
+      </div>
+      <div class="score-card">
+        <div class="score-weight">30% weight</div>
+        <div class="score-name">Risk-Adjusted Return</div>
+        <div class="score-desc">
+          Wins weighted by confidence. High confidence wins pay more. High confidence losses hurt more.
+        </div>
+      </div>
+      <div class="score-card">
+        <div class="score-weight">25% weight</div>
+        <div class="score-name">Consistency</div>
+        <div class="score-desc">
+          How stable are your results? Streak-based scoring rewards steady performance over lucky bursts.
+        </div>
+      </div>
+      <div class="score-card">
+        <div class="score-weight">15% weight</div>
+        <div class="score-name">Calibration</div>
+        <div class="score-desc">
+          Does your confidence match your actual accuracy? 70% confidence should win ~70% of the time.
+        </div>
+      </div>
+    </div>
+
+    <div class="info-card">
+      <h3>When do signals resolve?</h3>
+      <p>
+        The oracle checks Binance prices every 5 minutes. Depending on your
+        timeframe, signals resolve in 1-24 hours. You'll see your outcome
+        on the trading floor in real time.
+      </p>
+    </div>
+
+    <div class="btn-row">
+      <a href="/arena" class="btn-primary">Enter the Trading Floor &rarr;</a>
+      <a href="/docs" class="btn-secondary">API Documentation</a>
+    </div>
+  </section>
+
+</div>
+
+<script>
+// ── STATE ──
+var currentStep = 1;
+var apiKey = '';
+var creatorId = '';
+var displayName = '';
+var token = '';
+var firstSignalFound = false;
+
+// ── INIT ──
+(function init() {
+  var params = new URLSearchParams(window.location.search);
+  token = params.get('token') || localStorage.getItem('ta_token') || '';
+  apiKey = params.get('api_key') || localStorage.getItem('ta_api_key') || '';
+  creatorId = params.get('creator_id') || localStorage.getItem('ta_creator_id') || '';
+  displayName = params.get('display_name') || localStorage.getItem('ta_display_name') || '';
+
+  if (token) localStorage.setItem('ta_token', token);
+  if (apiKey) localStorage.setItem('ta_api_key', apiKey);
+  if (creatorId) localStorage.setItem('ta_creator_id', creatorId);
+  if (displayName) localStorage.setItem('ta_display_name', displayName);
+
+  if (params.has('token')) {
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+
+  renderApiKey();
+  renderSnippets();
+})();
+
+function renderApiKey() {
+  var el = document.getElementById('apiKeyDisplay');
+  if (apiKey) {
+    el.textContent = apiKey;
+  } else {
+    el.textContent = 'ta-\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
+    el.style.opacity = '0.5';
+  }
+}
+
+function renderSnippets() {
+  var key = apiKey || 'ta-YOUR_API_KEY_HERE';
+  var baseUrl = window.location.origin;
+
+  document.getElementById('sdkSnippet').innerHTML =
+    '<span class="keyword">from</span> tradearena <span class="keyword">import</span> TradeArenaClient\n\n' +
+    'client = TradeArenaClient(\n' +
+    '    api_key=<span class="string">"<span class="api-key-value">' + escapeHtml(key) + '</span>"</span>,\n' +
+    '    base_url=<span class="string">"' + escapeHtml(baseUrl) + '"</span>,\n' +
+    ')\n\n' +
+    'signal = client.emit({\n' +
+    '    <span class="string">"asset"</span>: <span class="string">"BTC/USDT"</span>,\n' +
+    '    <span class="string">"action"</span>: <span class="string">"buy"</span>,\n' +
+    '    <span class="string">"confidence"</span>: <span class="number">0.75</span>,\n' +
+    '    <span class="string">"reasoning"</span>: <span class="string">"RSI oversold on 4h chart with bullish divergence forming at key support level"</span>,\n' +
+    '    <span class="string">"supporting_data"</span>: {\n' +
+    '        <span class="string">"rsi_4h"</span>: <span class="number">28.5</span>,\n' +
+    '        <span class="string">"support_level"</span>: <span class="number">67200</span>,\n' +
+    '    },\n' +
+    '    <span class="string">"timeframe"</span>: <span class="string">"4h"</span>,\n' +
+    '})\n\n' +
+    '<span class="function">print</span>(<span class="string">f"Signal committed: </span>{signal[<span class="string">\'signal_id\'</span>]}<span class="string">"</span>)';
+
+  document.getElementById('curlSnippet').innerHTML =
+    '<span class="prompt">$ </span>curl -X POST ' + escapeHtml(baseUrl) + '/signal \\\n' +
+    '    -H <span class="string">"Content-Type: application/json"</span> \\\n' +
+    '    -H <span class="string">"X-API-Key: <span class="api-key-value">' + escapeHtml(key) + '</span>"</span> \\\n' +
+    '    -d <span class="string">\'{\n' +
+    '      "asset": "BTC/USDT",\n' +
+    '      "action": "buy",\n' +
+    '      "confidence": 0.75,\n' +
+    '      "reasoning": "RSI oversold on 4h chart with bullish divergence forming at key support level",\n' +
+    '      "supporting_data": {"rsi_4h": 28.5, "support_level": 67200},\n' +
+    '      "timeframe": "4h"\n' +
+    '    }\'</span>';
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ── NAVIGATION ──
+function goToStep(step) {
+  if (step < 1 || step > 4) return;
+  currentStep = step;
+
+  document.querySelectorAll('.qs-section').forEach(function(s) { s.classList.remove('active'); });
+  document.getElementById('step' + step).classList.add('active');
+
+  for (var i = 1; i <= 4; i++) {
+    var dot = document.getElementById('dot' + i);
+    dot.classList.remove('active', 'done');
+    if (i < step) {
+      dot.classList.add('done');
+      dot.innerHTML = '\u2713';
+    } else if (i === step) {
+      dot.classList.add('active');
+      dot.textContent = i;
+    } else {
+      dot.textContent = i;
+    }
+  }
+  for (var j = 1; j <= 3; j++) {
+    var conn = document.getElementById('conn' + j);
+    if (j < step) { conn.classList.add('done'); } else { conn.classList.remove('done'); }
+  }
+
+  document.getElementById('progressFill').style.width = ((step - 1) / 3 * 100) + '%';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── COPY FUNCTIONS ──
+function copyApiKey() {
+  if (!apiKey) return;
+  navigator.clipboard.writeText(apiKey).then(function() {
+    var btn = document.getElementById('apiKeyCopyBtn');
+    btn.textContent = 'Copied!';
+    setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
+  });
+}
+
+function copyBlock(btn, text) {
+  navigator.clipboard.writeText(text).then(function() {
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(function() {
+      btn.textContent = 'Copy';
+      btn.classList.remove('copied');
+    }, 2000);
+  });
+}
+
+function copySdkSnippet(btn) {
+  var key = apiKey || 'ta-YOUR_API_KEY_HERE';
+  var baseUrl = window.location.origin;
+  var text = 'from tradearena import TradeArenaClient\n\nclient = TradeArenaClient(\n    api_key="' + key + '",\n    base_url="' + baseUrl + '",\n)\n\nsignal = client.emit({\n    "asset": "BTC/USDT",\n    "action": "buy",\n    "confidence": 0.75,\n    "reasoning": "RSI oversold on 4h chart with bullish divergence forming at key support level",\n    "supporting_data": {"rsi_4h": 28.5, "support_level": 67200},\n    "timeframe": "4h",\n})\n\nprint(f"Signal committed: {signal[\'signal_id\']}")';
+  copyBlock(btn, text);
+}
+
+function copyCurlSnippet(btn) {
+  var key = apiKey || 'ta-YOUR_API_KEY_HERE';
+  var baseUrl = window.location.origin;
+  var text = 'curl -X POST ' + baseUrl + '/signal \\\n    -H "Content-Type: application/json" \\\n    -H "X-API-Key: ' + key + '" \\\n    -d \'{\n      "asset": "BTC/USDT",\n      "action": "buy",\n      "confidence": 0.75,\n      "reasoning": "RSI oversold on 4h chart with bullish divergence forming at key support level",\n      "supporting_data": {"rsi_4h": 28.5, "support_level": 67200},\n      "timeframe": "4h"\n    }\'';
+  copyBlock(btn, text);
+}
+
+// ── SIGNAL CHECK ──
+function checkFirstSignal() {
+  var statusEl = document.getElementById('checkStatus');
+  var btn = document.getElementById('checkBtn');
+
+  if (!token && !apiKey) {
+    statusEl.className = 'check-status not-yet';
+    statusEl.innerHTML = 'No auth credentials found. Did you register first? <a href="/arena" style="color: var(--gold); text-decoration: underline;">Go to the arena to sign up</a>.';
+    return;
+  }
+
+  statusEl.className = 'check-status checking';
+  statusEl.innerHTML = '<span class="spinner"></span> Checking for your signals...';
+  btn.disabled = true;
+
+  var headers = {};
+  if (token) {
+    headers['Authorization'] = 'Bearer ' + token;
+  }
+
+  fetch('/creator/' + encodeURIComponent(creatorId) + '/signals', { headers: headers })
+    .then(function(resp) {
+      if (!resp.ok) throw new Error('API returned ' + resp.status);
+      return resp.json();
+    })
+    .then(function(data) {
+      var signals = data.signals || data || [];
+      if (signals.length > 0) {
+        firstSignalFound = true;
+        statusEl.className = 'check-status success';
+        statusEl.innerHTML = '<strong>Signal found!</strong> ' +
+          escapeHtml(signals[0].asset) + ' ' + escapeHtml(signals[0].action.toUpperCase()) +
+          ' at ' + (signals[0].confidence * 100).toFixed(0) + '% confidence. Moving to scoring...';
+        showFloorSignal(signals[0]);
+        setTimeout(function() { goToStep(4); }, 2000);
+      } else {
+        statusEl.className = 'check-status not-yet';
+        statusEl.innerHTML = 'No signals found yet. Run the code above and try again. Make sure you\'re using the correct API key.';
+      }
+      btn.disabled = false;
+    })
+    .catch(function() {
+      statusEl.className = 'check-status not-yet';
+      statusEl.innerHTML = 'Could not check signals. Make sure the server is running and try again.';
+      btn.disabled = false;
+    });
+}
+
+function showFloorSignal(signal) {
+  var preview = document.getElementById('floorPreview');
+  var initials = (displayName || creatorId || 'Y').substring(0, 2).toUpperCase();
+  var actionClass = ['buy', 'long', 'yes'].indexOf(signal.action.toLowerCase()) >= 0 ? 'buy' : 'sell';
+
+  preview.innerHTML =
+    '<div class="floor-signal">' +
+      '<div class="signal-avatar">' + escapeHtml(initials) + '</div>' +
+      '<div class="signal-info">' +
+        '<div class="signal-pair">' + escapeHtml(signal.asset) + '</div>' +
+        '<span class="signal-action ' + actionClass + '">' +
+          escapeHtml(signal.action.toUpperCase()) +
+        '</span>' +
+      '</div>' +
+      '<div class="signal-conf">' + (signal.confidence * 100).toFixed(0) + '%</div>' +
+    '</div>';
+}
+
+// ── WEBSOCKET LIVE PREVIEW ──
+(function connectWs() {
+  try {
+    var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    var ws = new WebSocket(proto + '//' + location.host + '/ws');
+    ws.onmessage = function(e) {
+      try {
+        var msg = JSON.parse(e.data);
+        if (msg.type === 'signal_new' && msg.data && msg.data.creator_id === creatorId) {
+          showFloorSignal(msg.data);
+          if (currentStep === 3 && !firstSignalFound) {
+            firstSignalFound = true;
+            var statusEl = document.getElementById('checkStatus');
+            statusEl.className = 'check-status success';
+            statusEl.innerHTML = '<strong>Signal detected!</strong> ' +
+              escapeHtml(msg.data.asset) + ' ' + escapeHtml(msg.data.action.toUpperCase()) +
+              '. Cryptographically committed. Moving to scoring...';
+            setTimeout(function() { goToStep(4); }, 2000);
+          }
+        }
+      } catch (_) {}
+    };
+    ws.onclose = function() {
+      setTimeout(connectWs, 5000);
+    };
+  } catch (_) {}
+})();
+</script>
+
+</body>
+</html>
