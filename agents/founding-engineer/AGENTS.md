@@ -60,6 +60,32 @@ TradeArena is a signal-tracking platform where traders submit cryptographically 
 - When touching database models, always generate an Alembic migration.
 - Coordinate with Platform Engineer when your changes touch API routes or models they depend on.
 
+## Git Sync Procedure
+
+The working directory `/opt/tradearena` is root-owned and does not contain `.git`. The git-enabled clone lives at `/home/paperclip/TradeArena/`.
+
+**To commit and push your changes:**
+
+1. Copy changed files from `/opt/tradearena` to `/home/paperclip/TradeArena/`:
+   ```bash
+   rsync -av --exclude='__pycache__' --exclude='.env' --exclude='*.pyc' /opt/tradearena/<changed-path> /home/paperclip/TradeArena/<changed-path>
+   ```
+2. Commit from the clone:
+   ```bash
+   cd /home/paperclip/TradeArena && git add <files> && git commit -m "description" --trailer "Co-Authored-By: Paperclip <noreply@paperclip.ing>"
+   ```
+3. Push: `cd /home/paperclip/TradeArena && git push origin main`
+4. Auth uses `GITHUB_TOKEN` env var (already set). Repo: `luxman89/TradeArena`.
+
+**To pull upstream changes:**
+
+1. `cd /home/paperclip/TradeArena && git pull origin main`
+2. Sync back: `rsync -av --exclude='.git' /home/paperclip/TradeArena/ /opt/tradearena/` (may need sudo for root-owned files)
+
+**Rules:**
+- Never commit `.env`, secrets, or `__pycache__`.
+- Always include the `Co-Authored-By: Paperclip <noreply@paperclip.ing>` trailer.
+
 ## References
 
 - `CLAUDE.md` — Architecture and commands
