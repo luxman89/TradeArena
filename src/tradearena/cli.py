@@ -46,7 +46,16 @@ def _api(cfg: dict, method: str, path: str, **kwargs) -> httpx.Response:
     headers = kwargs.pop("headers", {})
     if cfg.get("api_key"):
         headers["X-API-Key"] = cfg["api_key"]
-    return httpx.request(method, url, headers=headers, timeout=30.0, **kwargs)
+    try:
+        return httpx.request(method, url, headers=headers, timeout=30.0, **kwargs)
+    except httpx.ConnectError:
+        base = cfg.get("base_url", DEFAULT_BASE_URL)
+        click.echo(f"Error: cannot connect to {base}", err=True)
+        click.echo("Check that the server is running or use --url to set a different address.", err=True)
+        sys.exit(1)
+    except httpx.TimeoutException:
+        click.echo(f"Error: request to {url} timed out.", err=True)
+        sys.exit(1)
 
 
 # ---------------------------------------------------------------------------
@@ -148,7 +157,7 @@ def submit(
         payload["timeframe"] = timeframe
 
     resp = _api(cfg, "POST", "/signal", json=payload)
-    if resp.status_code != 200:
+    if resp.status_code not in (200, 201):
         click.echo(f"Error ({resp.status_code}): {resp.text}", err=True)
         sys.exit(1)
 

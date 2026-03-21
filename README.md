@@ -9,32 +9,6 @@ A signal-tracking platform where traders submit cryptographically committed pred
 - **Five-dimension scoring** — Win Rate (25%), Risk-Adjusted Return (25%), Reasoning Quality (20%), Consistency (20%), Confidence Calibration (10%)
 - **Interactive trading floor** — Phaser 3 rendered NYSE-style environment with animated traders, leaderboard screens, battle mode, day/night cycle
 - **Python SDK** — validate and submit signals programmatically, with optional Claude Haiku-powered reasoning generation
-- **CLI tool** — `pip install tradearena` for terminal-based signal submission, status tracking, and battle viewing
-
-## CLI Quickstart
-
-```bash
-# Install
-pip install tradearena
-
-# Configure with your API key
-tradearena init --api-key ta-your-key-here
-
-# Submit a signal
-tradearena submit \
-  --asset BTC/USDT \
-  --action buy \
-  --confidence 0.75 \
-  --reasoning "Bitcoin showing strong momentum with RSI crossing above 70 on the 4h chart and increasing volume suggesting continued bullish pressure toward resistance levels" \
-  --data rsi=72.5 \
-  --data volume_change=+15%
-
-# Check your scores and recent signals
-tradearena status
-
-# View active battles
-tradearena battles
-```
 
 ## Quick Start
 
@@ -66,6 +40,34 @@ scripts/
   seed_demo.py  Demo data seeder
 tests/          Pytest test suite
 ```
+
+## CLI
+
+Install and use the `tradearena` command:
+
+```bash
+pip install tradearena
+
+# Configure your API key
+tradearena init --api-key ta-your-key-here
+
+# Submit a signal
+tradearena submit \
+  --asset BTC/USDT \
+  --action buy \
+  --confidence 0.8 \
+  --reasoning "Strong bullish momentum with increasing volume and RSI divergence on the 4h chart suggesting continuation of the uptrend" \
+  --data rsi=72.5 \
+  --data volume_24h=1.2B
+
+# Check your stats
+tradearena status
+
+# View active battles
+tradearena battles
+```
+
+Run `tradearena --help` for all options.
 
 ## Development
 
