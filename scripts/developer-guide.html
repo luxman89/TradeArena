@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TradeArena — Developer Guide</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --text: #e8e6e3;
+    --gold: #F59E0B;
+    --cyan: #06B6D4;
+    --green: #10B981;
+    --red: #EF4444;
+    --muted: #6b7280;
+    --card-bg: #111118;
+    --card-border: #1e1e2a;
+    --font-pixel: 'Press Start 2P', monospace;
+    --font-body: 'Courier New', Courier, monospace;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.7;
+    padding: 2rem 1rem;
+  }
+
+  .container { max-width: 900px; margin: 0 auto; }
+
+  h1 {
+    font-family: var(--font-pixel);
+    font-size: 20px;
+    color: var(--gold);
+    margin-bottom: 0.5rem;
+  }
+
+  h2 {
+    font-family: var(--font-pixel);
+    font-size: 13px;
+    color: var(--cyan);
+    margin: 2.5rem 0 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--card-border);
+  }
+
+  h3 {
+    font-size: 15px;
+    color: var(--green);
+    margin: 1.5rem 0 0.5rem;
+    font-weight: bold;
+  }
+
+  p { margin: 0.5rem 0; }
+  a { color: var(--cyan); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 2rem;
+  }
+
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+    padding: 1.2rem;
+    margin: 1rem 0;
+  }
+
+  pre {
+    background: #0d0d14;
+    border: 1px solid var(--card-border);
+    border-radius: 4px;
+    padding: 1rem;
+    overflow-x: auto;
+    font-size: 12px;
+    line-height: 1.5;
+    margin: 0.8rem 0;
+  }
+
+  code {
+    background: #1a1a24;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-size: 12px;
+  }
+
+  pre code { background: none; padding: 0; }
+
+  .comment { color: var(--muted); }
+  .string { color: var(--green); }
+  .key { color: var(--cyan); }
+  .num { color: var(--gold); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 13px;
+  }
+
+  th {
+    background: var(--card-bg);
+    color: var(--gold);
+    font-family: var(--font-pixel);
+    font-size: 10px;
+    text-align: left;
+    padding: 0.7rem 0.8rem;
+    border-bottom: 2px solid var(--card-border);
+  }
+
+  td {
+    padding: 0.5rem 0.8rem;
+    border-bottom: 1px solid var(--card-border);
+  }
+
+  tr:hover td { background: rgba(6, 182, 212, 0.05); }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: bold;
+  }
+
+  .badge-get { background: #065f46; color: #6ee7b7; }
+  .badge-post { background: #7c2d12; color: #fdba74; }
+  .badge-patch { background: #4338ca; color: #a5b4fc; }
+  .badge-put { background: #854d0e; color: #fde047; }
+
+  .step-num {
+    display: inline-block;
+    background: var(--gold);
+    color: var(--bg);
+    font-family: var(--font-pixel);
+    font-size: 10px;
+    width: 24px;
+    height: 24px;
+    line-height: 24px;
+    text-align: center;
+    border-radius: 50%;
+    margin-right: 0.5rem;
+  }
+
+  .toc {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 6px;
+    padding: 1rem 1.5rem;
+    margin: 1.5rem 0;
+  }
+
+  .toc ul { list-style: none; }
+  .toc li { margin: 0.3rem 0; }
+  .toc li::before { content: ""; color: var(--gold); margin-right: 0.5rem; }
+
+  .formula {
+    background: #0d0d14;
+    border-left: 3px solid var(--gold);
+    padding: 0.8rem 1rem;
+    margin: 0.8rem 0;
+    font-size: 13px;
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .nav-links a {
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .nav-links a:hover { color: var(--cyan); }
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="nav-links">
+  <a href="/">Home</a>
+  <a href="/arena">Arena</a>
+  <a href="/leaderboard">Leaderboard</a>
+  <a href="/rules">Rules</a>
+  <a href="/docs">API Reference</a>
+</div>
+
+<h1>Developer Guide</h1>
+<p class="subtitle">Everything you need to build trading bots and agents on TradeArena.</p>
+
+<div class="toc">
+  <ul>
+    <li><a href="#quickstart">Quick Start (3 steps)</a></li>
+    <li><a href="#auth">Authentication</a></li>
+    <li><a href="#endpoints">API Endpoints</a></li>
+    <li><a href="#signals">Submitting Signals</a></li>
+    <li><a href="#scoring">Scoring System</a></li>
+    <li><a href="#sdk">Python SDK</a></li>
+    <li><a href="#patterns">Common Patterns</a></li>
+    <li><a href="#websocket">WebSocket Events</a></li>
+    <li><a href="#errors">Error Codes</a></li>
+    <li><a href="#commitment">Cryptographic Commitment</a></li>
+  </ul>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="quickstart">Quick Start</h2>
+
+<div class="card">
+  <p><span class="step-num">1</span> <strong>Register</strong> &mdash; create an account and get your API key</p>
+  <pre><code>curl -X POST https://tradearena.app/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "you@example.com",
+    "password": "securepass123",
+    "display_name": "AlphaTrader",
+    "division": "crypto",
+    "strategy_description": "Momentum-based strategy using RSI and volume analysis"
+  }'</code></pre>
+  <pre><code><span class="comment">// Response (201 Created)</span>
+{
+  <span class="key">"creator_id"</span>: <span class="string">"alphatrader-a1b2"</span>,
+  <span class="key">"api_key"</span>: <span class="string">"ta-0123456789abcdef..."</span>,   <span class="comment">// Save this!</span>
+  <span class="key">"token"</span>: <span class="string">"eyJhbGciOiJIUzI1NiIs..."</span>,
+  <span class="key">"display_name"</span>: <span class="string">"AlphaTrader"</span>,
+  <span class="key">"division"</span>: <span class="string">"crypto"</span>,
+  <span class="key">"avatar_index"</span>: <span class="num">0</span>,
+  <span class="key">"level"</span>: <span class="num">1</span>,
+  <span class="key">"xp"</span>: <span class="num">0</span>
+}</code></pre>
+</div>
+
+<div class="card">
+  <p><span class="step-num">2</span> <strong>Submit a signal</strong> &mdash; commit a trading prediction</p>
+  <pre><code>curl -X POST https://tradearena.app/signal \
+  -H "X-API-Key: ta-your-api-key-here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "asset": "BTCUSDT",
+    "action": "long",
+    "confidence": 0.75,
+    "reasoning": "BTC showing strong momentum with a clear breakout above the 50-day moving average on high volume. RSI at 62 indicates bullish momentum without being overbought. On-chain metrics show accumulation by large holders.",
+    "supporting_data": {"rsi_14": 62.3, "volume_change_24h": "+45%", "ma_50_crossover": true},
+    "target_price": 72000,
+    "stop_loss": 65000,
+    "timeframe": "1d"
+  }'</code></pre>
+  <pre><code><span class="comment">// Response (201 Created)</span>
+{
+  <span class="key">"signal_id"</span>: <span class="string">"a1b2c3d4e5f6789012345678abcdef01"</span>,
+  <span class="key">"committed_at"</span>: <span class="string">"2026-03-21T14:30:00.000000"</span>,
+  <span class="key">"commitment_hash"</span>: <span class="string">"e3b0c44298fc1c149afbf4c8996fb924..."</span>,
+  <span class="key">"creator_id"</span>: <span class="string">"alphatrader-a1b2"</span>,
+  <span class="key">"asset"</span>: <span class="string">"BTCUSDT"</span>,
+  <span class="key">"action"</span>: <span class="string">"long"</span>
+}</code></pre>
+</div>
+
+<div class="card">
+  <p><span class="step-num">3</span> <strong>Check the leaderboard</strong> &mdash; see how you rank</p>
+  <pre><code>curl https://tradearena.app/leaderboard</code></pre>
+  <pre><code><span class="comment">// Response</span>
+{
+  <span class="key">"total"</span>: <span class="num">142</span>,
+  <span class="key">"offset"</span>: <span class="num">0</span>,
+  <span class="key">"limit"</span>: <span class="num">50</span>,
+  <span class="key">"next_cursor"</span>: <span class="string">"MC4wNTYwMDAwMDAwfGJvYi10cmFkZXItYzNkNA=="</span>,
+  <span class="key">"entries"</span>: [
+    {
+      <span class="key">"creator_id"</span>: <span class="string">"alphatrader-a1b2"</span>,
+      <span class="key">"display_name"</span>: <span class="string">"AlphaTrader"</span>,
+      <span class="key">"division"</span>: <span class="string">"crypto"</span>,
+      <span class="key">"composite_score"</span>: <span class="num">0.7234</span>,
+      <span class="key">"win_rate"</span>: <span class="num">0.68</span>,
+      <span class="key">"risk_adjusted_return"</span>: <span class="num">0.72</span>,
+      <span class="key">"consistency"</span>: <span class="num">0.75</span>,
+      <span class="key">"confidence_calibration"</span>: <span class="num">0.81</span>,
+      <span class="key">"total_signals"</span>: <span class="num">47</span>
+    }
+  ]
+}</code></pre>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="auth">Authentication</h2>
+
+<p>TradeArena uses two authentication methods:</p>
+
+<div class="card">
+  <h3>API Key (for signal submission)</h3>
+  <p>Pass your API key in the <code>X-API-Key</code> header. Keys have the prefix <code>ta-</code> followed by 32 hex characters. They are SHA-256 hashed before storage &mdash; if you lose your key, you must register a new account.</p>
+  <pre><code>curl -X POST /signal \
+  -H "X-API-Key: ta-0123456789abcdef0123456789abcdef"</code></pre>
+</div>
+
+<div class="card">
+  <h3>JWT Bearer Token (for profile endpoints)</h3>
+  <p>Returned on registration and login. Expires after 24 hours. Use for <code>/auth/me</code>, <code>/auth/profile</code>, and <code>/auth/avatar</code>.</p>
+  <pre><code>curl /auth/me \
+  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."</code></pre>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="endpoints">API Endpoints</h2>
+
+<h3>Auth</h3>
+<table>
+  <tr><th>Method</th><th>Path</th><th>Auth</th><th>Description</th></tr>
+  <tr><td><span class="badge badge-post">POST</span></td><td><code>/auth/register</code></td><td>None</td><td>Register with email/password. Returns JWT + API key.</td></tr>
+  <tr><td><span class="badge badge-post">POST</span></td><td><code>/auth/login</code></td><td>None</td><td>Login with email/password. Returns JWT + profile.</td></tr>
+  <tr><td><span class="badge badge-get">GET</span></td><td><code>/auth/me</code></td><td>JWT</td><td>Get current user profile, level, XP, scores.</td></tr>
+  <tr><td><span class="badge badge-patch">PATCH</span></td><td><code>/auth/profile</code></td><td>JWT</td><td>Update display_name, strategy_description, division.</td></tr>
+  <tr><td><span class="badge badge-put">PUT</span></td><td><code>/auth/avatar</code></td><td>JWT</td><td>Change avatar (must be unlocked for your level).</td></tr>
+</table>
+
+<h3>Signals</h3>
+<table>
+  <tr><th>Method</th><th>Path</th><th>Auth</th><th>Description</th></tr>
+  <tr><td><span class="badge badge-post">POST</span></td><td><code>/signal</code></td><td>API Key</td><td>Submit a committed trading signal.</td></tr>
+</table>
+
+<h3>Leaderboard</h3>
+<table>
+  <tr><th>Method</th><th>Path</th><th>Auth</th><th>Description</th></tr>
+  <tr><td><span class="badge badge-get">GET</span></td><td><code>/leaderboard</code></td><td>None</td><td>Global leaderboard sorted by composite score.</td></tr>
+  <tr><td><span class="badge badge-get">GET</span></td><td><code>/leaderboard/{division}</code></td><td>None</td><td>Division leaderboard (crypto, polymarket, multi).</td></tr>
+</table>
+
+<h3>Creators</h3>
+<table>
+  <tr><th>Method</th><th>Path</th><th>Auth</th><th>Description</th></tr>
+  <tr><td><span class="badge badge-post">POST</span></td><td><code>/creator/register</code></td><td>None</td><td>Register (API-key-only flow, no password).</td></tr>
+  <tr><td><span class="badge badge-get">GET</span></td><td><code>/creator/{id}</code></td><td>None</td><td>Get creator profile and scores.</td></tr>
+  <tr><td><span class="badge badge-get">GET</span></td><td><code>/creator/{id}/signals</code></td><td>None</td><td>Paginated signal history (?limit, ?offset).</td></tr>
+  <tr><td><span class="badge badge-get">GET</span></td><td><code>/creator/{id}/analytics</code></td><td>None</td><td>Performance analytics (?range=7d|30d|90d|all).</td></tr>
+</table>
+
+<h3>Battles</h3>
+<table>
+  <tr><th>Method</th><th>Path</th><th>Auth</th><th>Description</th></tr>
+  <tr><td><span class="badge badge-post">POST</span></td><td><code>/battle/create</code></td><td>None</td><td>Create a head-to-head battle.</td></tr>
+  <tr><td><span class="badge badge-get">GET</span></td><td><code>/battle/{id}</code></td><td>None</td><td>Get battle details and scores.</td></tr>
+  <tr><td><span class="badge badge-get">GET</span></td><td><code>/battles/active</code></td><td>None</td><td>List all active battles.</td></tr>
+  <tr><td><span class="badge badge-get">GET</span></td><td><code>/battles/history</code></td><td>None</td><td>Paginated history (?creator_id, ?status).</td></tr>
+  <tr><td><span class="badge badge-post">POST</span></td><td><code>/battle/{id}/resolve</code></td><td>None</td><td>Force-resolve a battle (admin).</td></tr>
+</table>
+
+<h3>Tournaments</h3>
+<table>
+  <tr><th>Method</th><th>Path</th><th>Auth</th><th>Description</th></tr>
+  <tr><td><span class="badge badge-post">POST</span></td><td><code>/tournament</code></td><td>None</td><td>Create a tournament.</td></tr>
+  <tr><td><span class="badge badge-post">POST</span></td><td><code>/tournament/{id}/join</code></td><td>None</td><td>Join a tournament.</td></tr>
+  <tr><td><span class="badge badge-get">GET</span></td><td><code>/tournament/{id}</code></td><td>None</td><td>Get tournament bracket state.</td></tr>
+  <tr><td><span class="badge badge-post">POST</span></td><td><code>/tournament/{id}/advance</code></td><td>None</td><td>Advance to next round.</td></tr>
+</table>
+
+<h3>Oracle</h3>
+<table>
+  <tr><th>Method</th><th>Path</th><th>Auth</th><th>Description</th></tr>
+  <tr><td><span class="badge badge-post">POST</span></td><td><code>/oracle/resolve</code></td><td>None</td><td>Manually trigger signal resolution.</td></tr>
+  <tr><td><span class="badge badge-get">GET</span></td><td><code>/oracle/status</code></td><td>None</td><td>Pending signal count and next eligible times.</td></tr>
+</table>
+
+<h3>Meta</h3>
+<table>
+  <tr><th>Method</th><th>Path</th><th>Auth</th><th>Description</th></tr>
+  <tr><td><span class="badge badge-get">GET</span></td><td><code>/health</code></td><td>None</td><td>Health check. Returns <code>{"status": "ok"}</code>.</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="signals">Submitting Signals</h2>
+
+<div class="card">
+  <h3>Required Fields</h3>
+  <table>
+    <tr><th>Field</th><th>Type</th><th>Rules</th></tr>
+    <tr><td><code>asset</code></td><td>string</td><td>1-20 chars. Trading pair symbol (e.g. BTCUSDT).</td></tr>
+    <tr><td><code>action</code></td><td>string</td><td>One of: <code>buy</code>, <code>sell</code>, <code>long</code>, <code>short</code>, <code>yes</code>, <code>no</code></td></tr>
+    <tr><td><code>confidence</code></td><td>float</td><td>Between 0.01 and 0.99 (exclusive). Rounded to 4 decimals.</td></tr>
+    <tr><td><code>reasoning</code></td><td>string</td><td>Minimum 20 words. Your analysis justifying the trade.</td></tr>
+    <tr><td><code>supporting_data</code></td><td>object</td><td>Minimum 2 keys. Evidence backing your prediction.</td></tr>
+  </table>
+
+  <h3>Optional Fields</h3>
+  <table>
+    <tr><th>Field</th><th>Type</th><th>Rules</th></tr>
+    <tr><td><code>target_price</code></td><td>float</td><td>Must be &gt; 0. For buy/long/yes: must be above stop_loss.</td></tr>
+    <tr><td><code>stop_loss</code></td><td>float</td><td>Must be &gt; 0. For sell/short/no: must be above target_price.</td></tr>
+    <tr><td><code>timeframe</code></td><td>string</td><td>Resolution window: <code>1h</code>, <code>4h</code>, <code>1d</code>, <code>1w</code></td></tr>
+  </table>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="scoring">Scoring System</h2>
+
+<p>Every creator is scored across four dimensions, each normalised to [0, 1]:</p>
+
+<div class="card">
+  <h3>Win Rate (30%)</h3>
+  <div class="formula">wins / resolved_signals</div>
+  <p>Fraction of resolved signals that are WIN. Pending signals are excluded from the denominator.</p>
+</div>
+
+<div class="card">
+  <h3>Risk-Adjusted Return (30%)</h3>
+  <div class="formula">sigmoid(mean_return / std_dev)</div>
+  <p>Sharpe-like ratio. Returns modelled as: WIN &rarr; +confidence, LOSS &rarr; &minus;confidence, NEUTRAL &rarr; 0. The ratio of mean return to standard deviation is normalised via sigmoid to [0, 1]. Requires &ge; 2 resolved signals.</p>
+</div>
+
+<div class="card">
+  <h3>Consistency (25%)</h3>
+  <div class="formula">0.6 &times; (1 &minus; std_dev(rolling_win_rates) / 0.5) + 0.4 &times; mean_win_rate</div>
+  <p>Measures stability of win-rate across 10-signal rolling windows. Consistent performers score higher than those with a single hot streak. Partial credit (up to 0.5) awarded when fewer than 10 resolved signals exist.</p>
+</div>
+
+<div class="card">
+  <h3>Confidence Calibration (15%)</h3>
+  <div class="formula">1 &minus; 2 &times; mean((confidence &minus; outcome)<sup>2</sup>)</div>
+  <p>Brier-score-based calibration. Measures how well your stated confidence predicts actual outcomes. Perfect calibration (stated confidence matches win probability) scores 1.0.</p>
+</div>
+
+<div class="card">
+  <h3>Composite Score</h3>
+  <div class="formula">0.30 &times; win_rate + 0.30 &times; risk_adjusted + 0.25 &times; consistency + 0.15 &times; calibration</div>
+  <p>The composite score determines your leaderboard ranking. All dimensions are weighted to reward traders who are both accurate and well-calibrated.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="sdk">Python SDK</h2>
+
+<div class="card">
+  <h3>Installation</h3>
+  <p>The SDK is included in the <code>sdk/</code> directory. It requires <code>httpx</code> for API calls and optionally <code>anthropic</code> for AI-generated reasoning.</p>
+  <pre><code>pip install httpx  <span class="comment"># Required for emit()</span>
+pip install anthropic  <span class="comment"># Optional, for generate_reasoning()</span></code></pre>
+</div>
+
+<div class="card">
+  <h3>Basic Usage</h3>
+  <pre><code><span class="comment"># Initialize the client</span>
+from sdk.client import TradeArenaClient
+
+client = TradeArenaClient(
+    api_key=<span class="string">"ta-your-api-key"</span>,
+    base_url=<span class="string">"https://tradearena.app"</span>,
+)
+
+<span class="comment"># Step 1: Validate locally (no network call)</span>
+errors = client.validate({
+    <span class="string">"asset"</span>: <span class="string">"BTCUSDT"</span>,
+    <span class="string">"action"</span>: <span class="string">"long"</span>,
+    <span class="string">"confidence"</span>: <span class="num">0.75</span>,
+    <span class="string">"reasoning"</span>: <span class="string">"Strong breakout above resistance with volume confirmation..."</span>,
+    <span class="string">"supporting_data"</span>: {<span class="string">"rsi_14"</span>: <span class="num">62.3</span>, <span class="string">"volume"</span>: <span class="string">"+45%"</span>},
+})
+<span class="comment"># errors == [] means valid</span>
+
+<span class="comment"># Step 2: Submit the signal</span>
+result = client.emit({
+    <span class="string">"asset"</span>: <span class="string">"BTCUSDT"</span>,
+    <span class="string">"action"</span>: <span class="string">"long"</span>,
+    <span class="string">"confidence"</span>: <span class="num">0.75</span>,
+    <span class="string">"reasoning"</span>: <span class="string">"Strong breakout above resistance with volume confirmation..."</span>,
+    <span class="string">"supporting_data"</span>: {<span class="string">"rsi_14"</span>: <span class="num">62.3</span>, <span class="string">"volume"</span>: <span class="string">"+45%"</span>},
+    <span class="string">"target_price"</span>: <span class="num">72000</span>,
+    <span class="string">"stop_loss"</span>: <span class="num">65000</span>,
+    <span class="string">"timeframe"</span>: <span class="string">"1d"</span>,
+})
+print(f<span class="string">"Signal ID: {result['signal_id']}"</span>)
+print(f<span class="string">"Hash: {result['commitment_hash']}"</span>)</code></pre>
+</div>
+
+<div class="card">
+  <h3>AI-Generated Reasoning</h3>
+  <pre><code><span class="comment"># Generate reasoning using Claude Haiku</span>
+<span class="comment"># Requires ANTHROPIC_API_KEY env var</span>
+reasoning = client.generate_reasoning(
+    symbol=<span class="string">"BTCUSDT"</span>,
+    action=<span class="string">"long"</span>,
+    supporting_data={<span class="string">"rsi_14"</span>: <span class="num">62.3</span>, <span class="string">"volume_change"</span>: <span class="string">"+45%"</span>},
+)
+<span class="comment"># Returns a 20+ word reasoning string</span></code></pre>
+</div>
+
+<div class="card">
+  <h3>Confidence Calculator</h3>
+  <pre><code><span class="comment"># Heuristic confidence from three input signals</span>
+confidence = client.calculate_confidence(
+    signal_strength=<span class="num">0.8</span>,    <span class="comment"># How strong is the technical signal?</span>
+    data_quality=<span class="num">0.7</span>,       <span class="comment"># How reliable is the data?</span>
+    market_clarity=<span class="num">0.6</span>,     <span class="comment"># How clear is the market direction?</span>
+)
+<span class="comment"># confidence = 0.4*0.8 + 0.35*0.7 + 0.25*0.6 = 0.715</span></code></pre>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="patterns">Common Patterns</h2>
+
+<div class="card">
+  <h3>Momentum Bot</h3>
+  <p>Submit long signals when RSI crosses above 50 with increasing volume:</p>
+  <pre><code>signal = {
+    <span class="string">"asset"</span>: <span class="string">"ETHUSDT"</span>,
+    <span class="string">"action"</span>: <span class="string">"long"</span>,
+    <span class="string">"confidence"</span>: <span class="num">0.65</span>,
+    <span class="string">"reasoning"</span>: <span class="string">"ETH RSI crossed above 50 with 30% volume increase. MACD histogram turning positive with bullish divergence on the 4h chart. Funding rates neutral suggesting room for upside."</span>,
+    <span class="string">"supporting_data"</span>: {<span class="string">"rsi_14"</span>: <span class="num">55.2</span>, <span class="string">"volume_spike"</span>: true, <span class="string">"macd_histogram"</span>: <span class="num">0.003</span>},
+    <span class="string">"target_price"</span>: <span class="num">4000</span>,
+    <span class="string">"stop_loss"</span>: <span class="num">3600</span>,
+    <span class="string">"timeframe"</span>: <span class="string">"4h"</span>
+}</code></pre>
+</div>
+
+<div class="card">
+  <h3>Mean Reversion</h3>
+  <p>Short when price deviates significantly from moving average:</p>
+  <pre><code>signal = {
+    <span class="string">"asset"</span>: <span class="string">"BTCUSDT"</span>,
+    <span class="string">"action"</span>: <span class="string">"short"</span>,
+    <span class="string">"confidence"</span>: <span class="num">0.60</span>,
+    <span class="string">"reasoning"</span>: <span class="string">"BTC is 15% above the 200-day MA which historically mean-reverts within 1-2 weeks. Bollinger bands extremely wide suggesting overextension. Funding rates elevated at 0.08%."</span>,
+    <span class="string">"supporting_data"</span>: {<span class="string">"deviation_pct"</span>: <span class="num">15.2</span>, <span class="string">"ma_200"</span>: <span class="num">58000</span>, <span class="string">"funding_rate"</span>: <span class="num">0.0008</span>},
+    <span class="string">"target_price"</span>: <span class="num">62000</span>,
+    <span class="string">"stop_loss"</span>: <span class="num">72000</span>,
+    <span class="string">"timeframe"</span>: <span class="string">"1d"</span>
+}</code></pre>
+</div>
+
+<div class="card">
+  <h3>Prediction Market</h3>
+  <p>Use yes/no actions for binary outcome markets (Polymarket division):</p>
+  <pre><code>signal = {
+    <span class="string">"asset"</span>: <span class="string">"ETF-APPROVAL"</span>,
+    <span class="string">"action"</span>: <span class="string">"yes"</span>,
+    <span class="string">"confidence"</span>: <span class="num">0.82</span>,
+    <span class="string">"reasoning"</span>: <span class="string">"SEC has approved similar products. Recent court rulings favour approval. Multiple applicants have amended filings addressing SEC concerns. Bloomberg analysts predict 90% probability."</span>,
+    <span class="string">"supporting_data"</span>: {<span class="string">"bloomberg_odds"</span>: <span class="num">0.9</span>, <span class="string">"filings_amended"</span>: <span class="num">5</span>}
+}</code></pre>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="websocket">WebSocket Events</h2>
+
+<div class="card">
+  <pre><code><span class="comment">// Connect to the real-time event stream</span>
+const ws = new WebSocket(<span class="string">"wss://tradearena.app/ws"</span>);
+
+<span class="comment">// Resume from last known sequence number</span>
+const ws = new WebSocket(<span class="string">"wss://tradearena.app/ws?last_seq=42"</span>);</code></pre>
+
+  <table>
+    <tr><th>Event</th><th>Payload</th><th>When</th></tr>
+    <tr><td><code>signal_new</code></td><td>signal_id, asset, action, creator_id</td><td>A new signal is submitted</td></tr>
+    <tr><td><code>signals_resolved</code></td><td>resolved, skipped, errors</td><td>Oracle resolves pending signals</td></tr>
+    <tr><td><code>leaderboard_updated</code></td><td>&mdash;</td><td>Scores are recomputed</td></tr>
+    <tr><td><code>battle_created</code></td><td>Full battle object</td><td>A new battle starts</td></tr>
+    <tr><td><code>battle_resolved</code></td><td>Full battle object</td><td>A battle concludes</td></tr>
+    <tr><td><code>matchmaking_complete</code></td><td>count</td><td>Weekly auto-matchmaking runs</td></tr>
+    <tr><td><code>bots_submitted</code></td><td>count</td><td>Bot traders submit signals</td></tr>
+  </table>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="errors">Error Codes</h2>
+
+<table>
+  <tr><th>Code</th><th>Meaning</th><th>Common Cause</th></tr>
+  <tr><td><span class="num">401</span></td><td>Unauthorized</td><td>Missing/invalid API key or expired JWT token.</td></tr>
+  <tr><td><span class="num">403</span></td><td>Forbidden</td><td>Avatar locked &mdash; requires higher level.</td></tr>
+  <tr><td><span class="num">404</span></td><td>Not Found</td><td>Creator, battle, or tournament does not exist.</td></tr>
+  <tr><td><span class="num">409</span></td><td>Conflict</td><td>Duplicate email, active battle already exists, already joined tournament.</td></tr>
+  <tr><td><span class="num">422</span></td><td>Validation Error</td><td>Invalid input: confidence out of range, reasoning too short, invalid division, insufficient signals to resolve.</td></tr>
+  <tr><td><span class="num">429</span></td><td>Rate Limited</td><td>Too many requests. Back off and retry.</td></tr>
+</table>
+
+<p>All error responses follow the format:</p>
+<pre><code>{
+  <span class="key">"detail"</span>: <span class="string">"Human-readable error message"</span>
+}</code></pre>
+
+<!-- ============================================================ -->
+<h2 id="commitment">Cryptographic Commitment</h2>
+
+<div class="card">
+  <p>Every signal is cryptographically committed using SHA-256. The commitment hash covers all signal fields plus a server-generated nonce (UUID4), creating a tamper-proof record.</p>
+
+  <h3>How it works</h3>
+  <ol style="margin-left: 1.5rem;">
+    <li>You submit a signal via <code>POST /signal</code></li>
+    <li>The server generates a <code>signal_id</code> (UUID4) and <code>nonce</code> (UUID4)</li>
+    <li>All fields are serialised to canonical JSON (sorted keys, no whitespace)</li>
+    <li>SHA-256 hash is computed over the canonical JSON</li>
+    <li>The signal, hash, and nonce are stored in the append-only database</li>
+  </ol>
+
+  <h3>Verification</h3>
+  <p>Anyone can verify a signal was not tampered with by recomputing the hash from the stored fields. The <code>commitment_hash</code> in the response is the proof.</p>
+
+  <h3>Append-Only Guarantee</h3>
+  <p>Signals cannot be edited or deleted after submission. This ensures all predictions are permanently recorded at the time of commitment, preventing retroactive modification.</p>
+</div>
+
+<!-- ============================================================ -->
+
+<p style="margin-top: 3rem; color: var(--muted); font-size: 12px; text-align: center;">
+  Interactive API reference with try-it-out: <a href="/docs">/docs</a> (Swagger UI) or <a href="/redoc">/redoc</a> (ReDoc)
+</p>
+
+</div>
+</body>
+</html>

@@ -8,11 +8,32 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class TournamentCreate(BaseModel):
-    """Request body for POST /tournament."""
+    """Request body for POST /tournament.
 
-    name: str = Field(..., min_length=3, max_length=128)
-    format: str = Field("single_elimination", pattern="^(single_elimination|round_robin)$")
-    max_participants: int = Field(8, ge=2, le=64)
+    Create a bracket-style tournament. Supports single elimination
+    (losers are eliminated each round) or round robin (everyone plays
+    everyone, points awarded per win).
+    """
+
+    name: str = Field(..., min_length=3, max_length=128, description="Tournament name")
+    format: str = Field(
+        "single_elimination",
+        pattern="^(single_elimination|round_robin)$",
+        description="single_elimination or round_robin",
+    )
+    max_participants: int = Field(8, ge=2, le=64, description="Max creators allowed (2-64)")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "name": "March Madness Trading Cup",
+                    "format": "single_elimination",
+                    "max_participants": 16,
+                }
+            ]
+        },
+    )
 
 
 class TournamentJoinRequest(BaseModel):

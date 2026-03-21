@@ -8,12 +8,28 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class BattleCreate(BaseModel):
-    """Request body for POST /battle/create."""
+    """Request body for POST /battle/create.
 
-    creator1_id: str = Field(..., min_length=1)
-    creator2_id: str = Field(..., min_length=1)
-    window_days: int = Field(7, ge=1, le=30)
-    battle_type: str = "MANUAL"
+    Create a head-to-head battle between two creators. Both creators must
+    exist and cannot already have an active battle between them.
+    """
+
+    creator1_id: str = Field(..., min_length=1, description="First creator's ID")
+    creator2_id: str = Field(..., min_length=1, description="Second creator's ID")
+    window_days: int = Field(7, ge=1, le=30, description="Battle duration in days (1-30)")
+    battle_type: str = Field("MANUAL", description="Battle type: MANUAL or AUTO")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "creator1_id": "alice-quantsworth-a1b2",
+                    "creator2_id": "bob-trader-c3d4",
+                    "window_days": 7,
+                }
+            ]
+        },
+    )
 
 
 class ScoreBreakdown(BaseModel):

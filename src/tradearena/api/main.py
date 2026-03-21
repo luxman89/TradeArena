@@ -44,6 +44,7 @@ _ARENA_HTML = _SCRIPTS_DIR / "arena.html"
 _LANDING_HTML = _SCRIPTS_DIR / "landing.html"
 _ADMIN_HTML = _SCRIPTS_DIR / "admin.html"
 _QUICKSTART_HTML = _SCRIPTS_DIR / "quickstart.html"
+_DEV_GUIDE_HTML = _SCRIPTS_DIR / "developer-guide.html"
 
 ORACLE_INTERVAL_SECONDS = 300  # 5 minutes
 MATCHMAKING_INTERVAL_SECONDS = 7 * 24 * 3600  # 1 week
@@ -224,14 +225,145 @@ _OPENAPI_TAGS = [
     {"name": "meta", "description": "Health checks and service metadata"},
 ]
 
+_APP_DESCRIPTION = """\
+Trustless trading signal competition platform. Traders submit cryptographically
+committed predictions scored across four dimensions.
+
+## Quick Start
+
+**1. Register** — create an account and get your API key:
+
+```bash
+curl -X POST /auth/register \\
+  -H "Content-Type: application/json" \\
+  -d '{"email":"you@example.com","password":"securepass123",
+       "display_name":"AlphaTrader","division":"crypto",
+       "strategy_description":"Momentum-based strategy using RSI and volume analysis"}'
+```
+
+**2. Submit a signal** — commit a trading prediction:
+
+```bash
+curl -X POST /signal \\
+  -H "X-API-Key: ta-your-api-key-here" \\
+  -H "Content-Type: application/json" \\
+  -d '{"asset":"BTCUSDT","action":"long","confidence":0.75,
+       "reasoning":"BTC breakout above 50-day MA on high volume...(20+ words)",
+       "supporting_data":{"rsi_14":62.3,"volume_change":"+45%"},
+       "target_price":72000,"stop_loss":65000,"timeframe":"1d"}'
+```
+
+**3. Check the leaderboard** — see how you rank:
+
+```bash
+curl /leaderboard
+```
+
+## Python SDK
+
+```python
+from sdk.client import TradeArenaClient
+
+client = TradeArenaClient(api_key="ta-...", base_url="https://tradearena.app")
+
+# Validate locally before submitting
+errors = client.validate({
+    "asset": "BTCUSDT", "action": "long", "confidence": 0.75,
+    "reasoning": "Strong breakout above resistance with volume confirmation...",
+    "supporting_data": {"rsi_14": 62.3, "volume": "+45%"},
+})
+
+# Submit the signal
+result = client.emit({
+    "asset": "BTCUSDT", "action": "long", "confidence": 0.75,
+    "reasoning": "Strong breakout above resistance with volume confirmation...",
+    "supporting_data": {"rsi_14": 62.3, "volume": "+45%"},
+    "target_price": 72000, "stop_loss": 65000, "timeframe": "1d",
+})
+print(result["signal_id"], result["commitment_hash"])
+```
+
+## Scoring System
+
+Every creator is scored across four dimensions, each normalised to [0, 1]:
+
+| Dimension | Weight | Formula |
+|---|---|---|
+| **Win Rate** | 30% | `wins / resolved_signals` |
+| **Risk-Adjusted Return** | 30% | Sharpe-like ratio: `sigmoid(mean_return / std_dev)` |
+| **Consistency** | 25% | Stability of win-rate across 10-signal rolling windows |
+| **Confidence Calibration** | 15% | Brier score: `1 - 2 * mean((confidence - outcome)²)` |
+
+**Composite Score** = `0.30 × win_rate + 0.30 × risk_adjusted + 0.25 × consistency \
++ 0.15 × calibration`
+
+Returns are modelled as: WIN → `+confidence`, LOSS → `−confidence`, NEUTRAL → `0`.
+
+## Authentication
+
+- **JWT Bearer** — for profile/avatar endpoints (`Authorization: Bearer <token>`)
+- **API Key** — for signal submission (`X-API-Key: ta-...`)
+
+API keys are SHA-256 hashed before storage. Never share your raw API key.
+
+## Commitment System
+
+Every signal is cryptographically committed using SHA-256. The commitment hash covers
+all signal fields plus a server-generated nonce, making signals tamper-proof and
+independently verifiable. Signals are **append-only** — no edits or deletes.
+
+## Common Patterns
+
+**Momentum Bot** — submit long signals when RSI crosses above 50 with increasing volume:
+```python
+signal = {
+    "asset": "ETHUSDT", "action": "long", "confidence": 0.65,
+    "reasoning": "ETH RSI crossed above 50 with 30% volume increase...",
+    "supporting_data": {"rsi_14": 55.2, "volume_spike": True},
+    "target_price": 4000, "stop_loss": 3600, "timeframe": "4h",
+}
+```
+
+**Mean Reversion** — sell when price deviates significantly from moving average:
+```python
+signal = {
+    "asset": "BTCUSDT", "action": "short", "confidence": 0.60,
+    "reasoning": "BTC 15% above 200-day MA, historically mean-reverts...",
+    "supporting_data": {"deviation_pct": 15.2, "ma_200": 58000},
+    "target_price": 62000, "stop_loss": 72000, "timeframe": "1d",
+}
+```
+
+## Error Codes
+
+| Code | Meaning |
+|---|---|
+| 401 | Invalid credentials or missing/invalid API key |
+| 403 | Avatar locked (requires higher level) |
+| 404 | Resource not found (creator, battle, tournament) |
+| 409 | Conflict (duplicate email, active battle exists) |
+| 422 | Validation error (invalid input, insufficient signals) |
+| 429 | Rate limit exceeded |
+
+## WebSocket
+
+Connect to `ws://host/ws` for real-time events. Pass `?last_seq=N` to replay
+missed messages. Events: `signal_new`, `signals_resolved`, `leaderboard_updated`,
+`battle_created`, `battle_resolved`, `matchmaking_complete`.
+
+## Outcome Values
+
+| Value | Meaning |
+|---|---|
+| `null` | Pending — not yet resolved |
+| `WIN` | Target price reached within timeframe |
+| `LOSS` | Stop-loss hit or moved against prediction |
+| `NEUTRAL` | Neither target nor stop-loss reached |
+"""
+
 app = FastAPI(
     title="TradeArena",
-    description=(
-        "Trustless trading signal competition platform. "
-        "Traders submit cryptographically committed predictions scored across "
-        "four dimensions: Win Rate, Risk-Adjusted Return, Consistency, and "
-        "Confidence Calibration."
-    ),
+    description=_APP_DESCRIPTION,
     version="0.1.0",
     lifespan=lifespan,
     openapi_tags=_OPENAPI_TAGS,
@@ -350,6 +482,16 @@ async def arena_ui() -> FileResponse:
     )
 
 
+@app.get("/developer-guide", include_in_schema=False)
+async def developer_guide() -> FileResponse:
+    """Serve the developer guide with API examples and quickstart."""
+    return FileResponse(
+        _DEV_GUIDE_HTML,
+        media_type="text/html",
+        headers={"Cache-Control": "no-cache, must-revalidate"},
+    )
+
+
 @app.get("/quickstart", include_in_schema=False)
 async def quickstart_page() -> FileResponse:
     """Serve the interactive quickstart tutorial (post-signup)."""
@@ -380,6 +522,7 @@ async def sitemap() -> PlainTextResponse:
   <url><loc>{base}/arena</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>{base}/rules</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
   <url><loc>{base}/docs</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <url><loc>{base}/developer-guide</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
   <url><loc>{base}/leaderboard</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
 </urlset>"""
     return PlainTextResponse(content=xml, media_type="application/xml")

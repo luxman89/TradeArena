@@ -34,16 +34,78 @@ class Outcome(StrEnum):
 
 
 class SignalCreate(BaseModel):
-    """Input model for creating a new signal."""
+    """Input model for creating a new signal.
 
-    asset: str = Field(..., min_length=1, max_length=20, description="e.g. BTC, ETH/USDT")
-    action: SignalAction
-    confidence: float = Field(..., ge=0.01, le=0.99, description="Must be strictly between 0 and 1")
-    reasoning: str = Field(..., min_length=1, description="Minimum 20 words required")
-    supporting_data: dict[str, Any] = Field(..., description="Minimum 2 keys required")
-    target_price: float | None = Field(None, gt=0)
-    stop_loss: float | None = Field(None, gt=0)
-    timeframe: str | None = Field(None, description="e.g. 1h, 4h, 1d")
+    Submit a cryptographically committed trading prediction. The signal is
+    hashed with SHA-256 on the server to create a tamper-proof commitment.
+    Outcomes are resolved automatically by the oracle after the timeframe expires.
+    """
+
+    asset: str = Field(
+        ...,
+        min_length=1,
+        max_length=20,
+        description="Trading pair or asset symbol, e.g. BTCUSDT, ETHUSDT",
+    )
+    action: SignalAction = Field(
+        ...,
+        description="Directional prediction: buy, sell, long, short, yes, no",
+    )
+    confidence: float = Field(
+        ...,
+        ge=0.01,
+        le=0.99,
+        description="Prediction confidence between 0.01 and 0.99 (exclusive)",
+    )
+    reasoning: str = Field(
+        ...,
+        min_length=1,
+        description="Analysis justifying the signal — minimum 20 words",
+    )
+    supporting_data: dict[str, Any] = Field(
+        ...,
+        description="Evidence backing the signal — minimum 2 keys required",
+    )
+    target_price: float | None = Field(
+        None,
+        gt=0,
+        description="Expected price target (must be > 0)",
+    )
+    stop_loss: float | None = Field(
+        None,
+        gt=0,
+        description="Stop-loss price level (must be > 0)",
+    )
+    timeframe: str | None = Field(
+        None,
+        description="Resolution window: 1h, 4h, 1d, or 1w",
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "asset": "BTCUSDT",
+                    "action": "long",
+                    "confidence": 0.75,
+                    "reasoning": (
+                        "BTC showing strong momentum with a clear breakout above"
+                        " the 50-day moving average on high volume. RSI at 62"
+                        " indicates bullish momentum without being overbought."
+                        " On-chain metrics show accumulation by large holders."
+                    ),
+                    "supporting_data": {
+                        "rsi_14": 62.3,
+                        "volume_change_24h": "+45%",
+                        "ma_50_crossover": True,
+                    },
+                    "target_price": 72000.0,
+                    "stop_loss": 65000.0,
+                    "timeframe": "1d",
+                }
+            ]
+        },
+    )
 
     @field_validator("confidence")
     @classmethod
@@ -109,11 +171,31 @@ class Signal(BaseModel):
 
 
 class SignalEmitResponse(BaseModel):
-    """Response from POST /signal."""
+    """Response from POST /signal.
 
-    signal_id: str
-    committed_at: str
-    commitment_hash: str
-    creator_id: str
-    asset: str
-    action: str
+    Contains the signal ID, commitment hash (SHA-256), and timestamp
+    proving the signal was committed at this exact moment.
+    """
+
+    signal_id: str = Field(..., description="UUID4 hex identifier (32 chars)")
+    committed_at: str = Field(..., description="ISO 8601 UTC timestamp")
+    commitment_hash: str = Field(..., description="SHA-256 hex digest (64 chars)")
+    creator_id: str = Field(..., description="Creator who submitted the signal")
+    asset: str = Field(..., description="Asset symbol from the signal")
+    action: str = Field(..., description="Action from the signal")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "signal_id": "a1b2c3d4e5f6789012345678abcdef01",
+                    "committed_at": "2026-03-21T14:30:00.000000",
+                    "commitment_hash": "e3b0c44298fc1c14"
+                    "9afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                    "creator_id": "alice-quantsworth-a1b2",
+                    "asset": "BTCUSDT",
+                    "action": "long",
+                }
+            ]
+        },
+    )
