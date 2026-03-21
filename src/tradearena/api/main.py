@@ -45,6 +45,7 @@ _LANDING_HTML = _SCRIPTS_DIR / "landing.html"
 _ADMIN_HTML = _SCRIPTS_DIR / "admin.html"
 _QUICKSTART_HTML = _SCRIPTS_DIR / "quickstart.html"
 _DEV_GUIDE_HTML = _SCRIPTS_DIR / "developer-guide.html"
+_LEADERBOARD_HTML = _SCRIPTS_DIR / "leaderboard.html"
 
 ORACLE_INTERVAL_SECONDS = 300  # 5 minutes
 MATCHMAKING_INTERVAL_SECONDS = 7 * 24 * 3600  # 1 week
@@ -512,6 +513,16 @@ async def admin_dashboard() -> FileResponse:
     )
 
 
+@app.get("/leaderboard-live", include_in_schema=False)
+async def leaderboard_page() -> FileResponse:
+    """Serve the public leaderboard page (no auth required)."""
+    return FileResponse(
+        _LEADERBOARD_HTML,
+        media_type="text/html",
+        headers={"Cache-Control": "no-cache, must-revalidate"},
+    )
+
+
 @app.get("/sitemap.xml", include_in_schema=False)
 async def sitemap() -> PlainTextResponse:
     """Serve sitemap.xml for search engines."""
@@ -523,7 +534,7 @@ async def sitemap() -> PlainTextResponse:
   <url><loc>{base}/rules</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
   <url><loc>{base}/docs</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
   <url><loc>{base}/developer-guide</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
-  <url><loc>{base}/leaderboard</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
+  <url><loc>{base}/leaderboard-live</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
 </urlset>"""
     return PlainTextResponse(content=xml, media_type="application/xml")
 
