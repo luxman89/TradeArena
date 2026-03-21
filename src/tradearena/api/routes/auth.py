@@ -17,6 +17,7 @@ from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
 from tradearena.api.deps import create_jwt, require_jwt_token
+from tradearena.core.email import generate_unsubscribe_token
 from tradearena.core.leveling import (
     glow_for_level,
     title_for_level,
@@ -189,6 +190,7 @@ async def register(body: RegisterRequest, db: Session = Depends(get_db)) -> dict
     api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()
 
     now = datetime.now(UTC)
+    unsub_token = generate_unsubscribe_token()
     creator = CreatorORM(
         id=creator_id,
         display_name=body.display_name,
@@ -198,6 +200,7 @@ async def register(body: RegisterRequest, db: Session = Depends(get_db)) -> dict
         api_key_hash=api_key_hash,
         password_hash=_bcrypt.hashpw(body.password.encode(), _bcrypt.gensalt()).decode(),
         avatar_index=body.avatar_index,
+        unsubscribe_token=unsub_token,
         created_at=now,
     )
     db.add(creator)

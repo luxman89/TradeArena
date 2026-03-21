@@ -20,6 +20,7 @@ from tradearena.api.routes import (
     auth,
     battles,
     creators,
+    email,
     export,
     leaderboard,
     oracle,
@@ -29,7 +30,9 @@ from tradearena.api.routes import (
 from tradearena.api.ws import PING_INTERVAL_SECONDS, manager
 from tradearena.db.database import (
     BattleORM,
+    CreatorORM,
     CreatorScoreORM,
+    EmailEventORM,
     SessionLocal,
     SignalORM,
     create_tables,
@@ -47,6 +50,7 @@ _QUICKSTART_HTML = _SCRIPTS_DIR / "quickstart.html"
 _DEV_GUIDE_HTML = _SCRIPTS_DIR / "developer-guide.html"
 _LEADERBOARD_HTML = _SCRIPTS_DIR / "leaderboard.html"
 
+DRIP_EMAIL_INTERVAL_SECONDS = 600  # 10 minutes
 ORACLE_INTERVAL_SECONDS = 300  # 5 minutes
 MATCHMAKING_INTERVAL_SECONDS = 7 * 24 * 3600  # 1 week
 BOT_INTERVAL_SECONDS = 3600  # 1 hour
@@ -54,6 +58,7 @@ BOT_INTERVAL_SECONDS = 3600  # 1 hour
 # Track last run times (in-memory, resets on restart)
 _last_matchmaking: float = 0.0
 _last_bot_run: float = 0.0
+_last_drip_run: float = 0.0
 
 
 def _recompute_scores(db, creator_ids):
@@ -105,6 +110,60 @@ def _recompute_scores(db, creator_ids):
     db.commit()
 
 
+async def _process_drip_emails(db) -> None:
+    """Send due onboarding drip emails to all eligible creators."""
+    import secrets
+    from datetime import UTC, datetime
+
+    from tradearena.core.email import (
+        get_due_emails,
+        render_email,
+        send_email,
+    )
+
+    now = datetime.now(UTC)
+    creators = (
+        db.query(CreatorORM)
+        .filter(
+            CreatorORM.email.isnot(None),
+            CreatorORM.email_opted_out.is_(False),
+            CreatorORM.unsubscribe_token.isnot(None),
+        )
+        .all()
+    )
+
+    for creator in creators:
+        sent_steps = {
+            ev.step
+            for ev in db.query(EmailEventORM)
+            .filter(
+                EmailEventORM.creator_id == creator.id,
+                EmailEventORM.status == "sent",
+            )
+            .all()
+        }
+        due = get_due_emails(creator.created_at, sent_steps, now)
+        for step in due:
+            event_id = secrets.token_hex(16)
+            subject, plain, html = render_email(
+                step, creator.display_name, creator.unsubscribe_token, event_id
+            )
+            success = await send_email(
+                creator.email, subject, plain, html, creator.unsubscribe_token
+            )
+            ev = EmailEventORM(
+                id=event_id,
+                creator_id=creator.id,
+                step=step.value,
+                status="sent" if success else "failed",
+                sent_at=now,
+            )
+            db.add(ev)
+            db.commit()
+            if success:
+                logger.info("Drip email [%s] sent to %s", step.value, creator.id)
+
+
 async def _background_loop():
     """Background loop: oracle resolution, score recompute, battle resolution, matchmaking, bots."""
     import time
@@ -115,7 +174,7 @@ async def _background_loop():
     from tradearena.core.metrics import collector
     from tradearena.core.oracle import resolve_pending_signals
 
-    global _last_matchmaking, _last_bot_run  # noqa: PLW0603
+    global _last_matchmaking, _last_bot_run, _last_drip_run  # noqa: PLW0603
 
     while True:
         await asyncio.sleep(ORACLE_INTERVAL_SECONDS)
@@ -179,6 +238,11 @@ async def _background_loop():
                     if n:
                         logger.info("Bots submitted %d new signals", n)
                         await manager.broadcast("bots_submitted", {"count": n})
+
+                # 6. Drip email processing
+                if time.time() - _last_drip_run >= DRIP_EMAIL_INTERVAL_SECONDS:
+                    _last_drip_run = time.time()
+                    await _process_drip_emails(db)
 
             finally:
                 db.close()
@@ -442,6 +506,7 @@ app.include_router(creators.router, tags=["creators"])
 app.include_router(oracle.router)
 app.include_router(battles.router)
 app.include_router(tournaments.router)
+app.include_router(email.router)
 app.include_router(export.router)
 
 # Serve static assets (sprites, tilesets, etc.)

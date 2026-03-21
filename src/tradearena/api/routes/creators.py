@@ -13,6 +13,7 @@ from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
 from tradearena.core.analytics import TIME_RANGES, compute_analytics
+from tradearena.core.email import generate_unsubscribe_token
 from tradearena.db.database import CreatorORM, SignalORM, get_db
 from tradearena.models.responses import (
     AnalyticsResponse,
@@ -102,6 +103,7 @@ async def register_creator(
     api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()
 
     now = datetime.now(UTC)
+    unsub_token = generate_unsubscribe_token()
     creator = CreatorORM(
         id=creator_id,
         display_name=body.display_name,
@@ -109,6 +111,7 @@ async def register_creator(
         email=body.email,
         strategy_description=body.strategy_description,
         api_key_hash=api_key_hash,
+        unsubscribe_token=unsub_token,
         created_at=now,
     )
     db.add(creator)

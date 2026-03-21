@@ -6,6 +6,7 @@ import os
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     CheckConstraint,
     Column,
     DateTime,
@@ -71,9 +72,12 @@ class CreatorORM(Base):
     avatar_index = Column(Integer, nullable=True, default=0)  # index into CHAR_DEFS (0-9)
     github_id = Column(String(64), nullable=True, unique=True, index=True)
     github_username = Column(String(128), nullable=True)
+    unsubscribe_token = Column(String(64), nullable=True, unique=True, index=True)
+    email_opted_out = Column(Boolean, nullable=False, default=False)
 
     signals = relationship("SignalORM", back_populates="creator", lazy="select")
     score = relationship("CreatorScoreORM", back_populates="creator", uselist=False)
+    email_events = relationship("EmailEventORM", back_populates="creator", lazy="select")
 
 
 class SignalORM(Base):
@@ -206,6 +210,34 @@ class TournamentEntryORM(Base):
 
     tournament = relationship("TournamentORM", back_populates="entries")
     creator = relationship("CreatorORM")
+
+
+class EmailEventORM(Base):
+    """Tracks onboarding drip emails sent to creators."""
+
+    __tablename__ = "email_events"
+    __table_args__ = (
+        CheckConstraint(
+            "step IN ('welcome', 'first_score', 'battle_invite', 'weekly_recap')",
+            name="ck_email_step",
+        ),
+        CheckConstraint(
+            "status IN ('sent', 'failed')",
+            name="ck_email_status",
+        ),
+        Index("ix_email_events_creator_id", "creator_id"),
+        Index("ix_email_events_step", "step"),
+    )
+
+    id = Column(String(64), primary_key=True)
+    creator_id = Column(String(64), ForeignKey("creators.id"), nullable=False)
+    step = Column(String(32), nullable=False)
+    status = Column(String(16), nullable=False, default="sent")
+    sent_at = Column(DateTime, nullable=False)
+    opened_at = Column(DateTime, nullable=True)
+    clicked_at = Column(DateTime, nullable=True)
+
+    creator = relationship("CreatorORM", back_populates="email_events")
 
 
 def create_tables() -> None:
