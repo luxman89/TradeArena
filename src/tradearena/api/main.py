@@ -24,7 +24,7 @@ from tradearena.api.routes import (
     signals,
     tournaments,
 )
-from tradearena.api.ws import manager
+from tradearena.api.ws import PING_INTERVAL_SECONDS, manager
 from tradearena.db.database import (
     BattleORM,
     CreatorScoreORM,
@@ -170,6 +170,16 @@ async def _background_loop():
             logger.exception("Background loop error")
 
 
+async def _ws_ping_loop():
+    """Periodically ping all WebSocket clients and clean up stale connections."""
+    while True:
+        await asyncio.sleep(PING_INTERVAL_SECONDS)
+        try:
+            await manager.ping_all()
+        except Exception:
+            logger.exception("WS ping loop error")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Create DB tables on startup, register bots, launch background loop."""
@@ -182,8 +192,10 @@ async def lifespan(app: FastAPI):
     finally:
         db.close()
     task = asyncio.create_task(_background_loop())
+    ping_task = asyncio.create_task(_ws_ping_loop())
     yield
     task.cancel()
+    ping_task.cancel()
 
 
 _OPENAPI_TAGS = [
@@ -341,6 +353,8 @@ async def websocket_endpoint(ws: WebSocket) -> None:
     """Real-time event stream for the trading floor UI.
 
     Clients can pass ?last_seq=N to replay missed messages on reconnect.
+    Any message from the client (including "pong") counts as activity
+    for stale-connection detection.
     """
     last_seq = 0
     try:
@@ -350,7 +364,8 @@ async def websocket_endpoint(ws: WebSocket) -> None:
     await manager.connect(ws, last_seq=last_seq)
     try:
         while True:
-            await ws.receive_text()  # keep alive; ignore client messages
+            await ws.receive_text()
+            manager.record_pong(ws)
     except WebSocketDisconnect:
         manager.disconnect(ws)
 

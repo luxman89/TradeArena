@@ -582,6 +582,10 @@ function connectWS() {
       const msg = JSON.parse(evt.data);
       if (msg.seq) _wsLastSeq = msg.seq;
       const ev = msg.event;
+      if (ev === 'ping') {
+        _ws.send('pong');
+        return;
+      }
       if (ev === 'signal_new' || ev === 'signals_resolved' ||
           ev === 'leaderboard_updated' || ev === 'battle_created' ||
           ev === 'battle_resolved' || ev === 'battles_resolved' ||

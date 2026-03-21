@@ -152,9 +152,9 @@ class TestProfileUpdate:
 
 class TestWebSocketQueue:
     def test_broadcast_includes_seq(self, client):
-        from tradearena.api.ws import manager
-
         import asyncio
+
+        from tradearena.api.ws import manager
 
         loop = asyncio.new_event_loop()
         loop.run_until_complete(manager.broadcast("test_event", {"key": "val"}))
@@ -162,9 +162,9 @@ class TestWebSocketQueue:
         assert manager.current_seq > 0
 
     def test_queue_bounded(self):
-        from tradearena.api.ws import ConnectionManager
-
         import asyncio
+
+        from tradearena.api.ws import ConnectionManager
 
         mgr = ConnectionManager()
         loop = asyncio.new_event_loop()
@@ -175,3 +175,104 @@ class TestWebSocketQueue:
         assert len(mgr._queue) == 50
         # Oldest should be evt_10 (0-9 evicted)
         assert mgr._queue[0]["event"] == "evt_10"
+
+
+class TestWebSocketHeartbeat:
+    def test_record_pong_updates_last_pong(self):
+        import time
+
+        from tradearena.api.ws import ConnectionManager
+
+        mgr = ConnectionManager()
+        # Simulate a fake websocket object
+        fake_ws = object()
+        mgr._connections.append(fake_ws)
+        mgr._last_pong[fake_ws] = time.monotonic() - 100
+        old_val = mgr._last_pong[fake_ws]
+        mgr.record_pong(fake_ws)
+        assert mgr._last_pong[fake_ws] > old_val
+
+    def test_record_pong_ignores_unknown_ws(self):
+        from tradearena.api.ws import ConnectionManager
+
+        mgr = ConnectionManager()
+        fake_ws = object()
+        # Should not raise
+        mgr.record_pong(fake_ws)
+        assert fake_ws not in mgr._last_pong
+
+    def test_disconnect_cleans_up_last_pong(self):
+        import time
+
+        from tradearena.api.ws import ConnectionManager
+
+        mgr = ConnectionManager()
+        fake_ws = object()
+        mgr._connections.append(fake_ws)
+        mgr._last_pong[fake_ws] = time.monotonic()
+        mgr.disconnect(fake_ws)
+        assert fake_ws not in mgr._connections
+        assert fake_ws not in mgr._last_pong
+
+    def test_ping_all_removes_stale_connections(self):
+        import asyncio
+        import time
+
+        from tradearena.api.ws import PONG_TIMEOUT_SECONDS, ConnectionManager
+
+        mgr = ConnectionManager()
+        fake_ws = object()
+        mgr._connections.append(fake_ws)
+        # Set last_pong far in the past to trigger stale cleanup
+        mgr._last_pong[fake_ws] = time.monotonic() - PONG_TIMEOUT_SECONDS - 10
+
+        loop = asyncio.new_event_loop()
+        loop.run_until_complete(mgr.ping_all())
+        loop.close()
+
+        assert fake_ws not in mgr._connections
+        assert fake_ws not in mgr._last_pong
+
+    def test_ping_all_keeps_fresh_connections(self):
+        import asyncio
+        import json
+        import time
+        from unittest.mock import AsyncMock
+
+        from tradearena.api.ws import ConnectionManager
+
+        mgr = ConnectionManager()
+        mock_ws = AsyncMock()
+        mgr._connections.append(mock_ws)
+        mgr._last_pong[mock_ws] = time.monotonic()
+
+        loop = asyncio.new_event_loop()
+        loop.run_until_complete(mgr.ping_all())
+        loop.close()
+
+        assert mock_ws in mgr._connections
+        # Verify ping was sent
+        mock_ws.send_text.assert_called_once()
+        sent = json.loads(mock_ws.send_text.call_args[0][0])
+        assert sent["event"] == "ping"
+        assert "ts" in sent
+
+    def test_connect_initializes_last_pong(self):
+        import asyncio
+        import time
+        from unittest.mock import AsyncMock
+
+        from tradearena.api.ws import ConnectionManager
+
+        mgr = ConnectionManager()
+        mock_ws = AsyncMock()
+        mock_ws.query_params = {}
+
+        loop = asyncio.new_event_loop()
+        before = time.monotonic()
+        loop.run_until_complete(mgr.connect(mock_ws))
+        after = time.monotonic()
+        loop.close()
+
+        assert mock_ws in mgr._last_pong
+        assert before <= mgr._last_pong[mock_ws] <= after
