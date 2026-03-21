@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TradeArena — Prove Your Trading Edge</title>
+<meta name="description" content="Trustless trading signal competition. Submit cryptographically committed predictions, scored across four dimensions. No hiding, no faking — just pure signal.">
+<meta name="keywords" content="trading signals, crypto trading, trading competition, signal tracking, trading arena">
+<meta name="author" content="TradeArena">
+<meta name="robots" content="index, follow">
+
+<!-- Open Graph -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="TradeArena — Prove Your Trading Edge">
+<meta property="og:description" content="Trustless trading signal competition. Cryptographically committed predictions scored across four dimensions.">
+<meta property="og:url" content="https://tradearena.app">
+<meta property="og:site_name" content="TradeArena">
+<meta property="og:image" content="https://tradearena.app/assets/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="TradeArena — Prove Your Trading Edge">
+<meta name="twitter:description" content="Trustless trading signal competition. Cryptographically committed predictions scored across four dimensions.">
+<meta name="twitter:image" content="https://tradearena.app/assets/og-image.png">
+
+<link rel="canonical" href="https://tradearena.app">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --void: #060a14;
+  --navy: #0a0e1a;
+  --navy-light: #111827;
+  --navy-mid: #1a2236;
+  --slate: #374151;
+  --steel: #6b7280;
+  --silver: #9ca3af;
+  --pearl: #d1d5db;
+  --white: #f9fafb;
+  --gold: #f0b90b;
+  --gold-dim: #c99a08;
+  --gold-glow: rgba(240, 185, 11, 0.15);
+  --blue: #2962ff;
+  --blue-bright: #448aff;
+  --blue-glow: rgba(41, 98, 255, 0.12);
+  --green: #00c853;
+  --red: #ff1744;
+  --font-display: 'Instrument Serif', Georgia, serif;
+  --font-body: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+html {
+  scroll-behavior: smooth;
+  background: var(--void);
+  color: var(--pearl);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  overflow-x: hidden;
+  background: var(--void);
+}
+
+/* ── NOISE TEXTURE OVERLAY ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ── SELECTION ── */
+::selection { background: var(--gold); color: var(--void); }
+
+/* ── SCROLL ANIMATIONS ── */
+.reveal {
+  opacity: 0;
+  transform: translateY(32px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.reveal-delay-1 { transition-delay: 0.1s; }
+.reveal-delay-2 { transition-delay: 0.2s; }
+.reveal-delay-3 { transition-delay: 0.3s; }
+.reveal-delay-4 { transition-delay: 0.4s; }
+
+/* ── NAV ── */
+nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  padding: 1.25rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(6, 10, 20, 0.8);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  transition: background 0.3s;
+}
+.nav-logo {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--white);
+  text-decoration: none;
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.nav-logo .logo-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--gold);
+  color: var(--void);
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0;
+}
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  list-style: none;
+}
+.nav-links a {
+  color: var(--silver);
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 400;
+  transition: color 0.2s;
+  letter-spacing: 0.01em;
+}
+.nav-links a:hover { color: var(--white); }
+.nav-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1.25rem;
+  background: var(--gold);
+  color: var(--void);
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-decoration: none;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  transition: background 0.2s, transform 0.2s;
+}
+.nav-cta:hover {
+  background: var(--gold-dim);
+  transform: translateY(-1px);
+}
+
+/* ── HERO ── */
+.hero {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8rem 2rem 6rem;
+  text-align: center;
+  overflow: hidden;
+}
+.hero-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(41, 98, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(41, 98, 255, 0.06) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 20%, transparent 70%);
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 20%, transparent 70%);
+}
+.hero-glow {
+  position: absolute;
+  width: 800px;
+  height: 800px;
+  top: -200px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: radial-gradient(circle, rgba(41, 98, 255, 0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero-glow-gold {
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  bottom: -100px;
+  right: -200px;
+  background: radial-gradient(circle, rgba(240, 185, 11, 0.05) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 1rem;
+  margin-bottom: 2rem;
+  border: 1px solid rgba(240, 185, 11, 0.25);
+  background: rgba(240, 185, 11, 0.06);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--gold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.hero-badge .pulse {
+  width: 6px;
+  height: 6px;
+  background: var(--gold);
+  border-radius: 50%;
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(240, 185, 11, 0.4); }
+  50% { opacity: 0.8; box-shadow: 0 0 0 6px rgba(240, 185, 11, 0); }
+}
+.hero h1 {
+  font-family: var(--font-display);
+  font-size: clamp(3.5rem, 8vw, 7rem);
+  font-weight: 400;
+  line-height: 1.05;
+  color: var(--white);
+  letter-spacing: -0.03em;
+  max-width: 900px;
+  margin-bottom: 1.5rem;
+  position: relative;
+}
+.hero h1 em {
+  font-style: italic;
+  color: var(--gold);
+}
+.hero-sub {
+  font-size: 1.125rem;
+  color: var(--silver);
+  max-width: 560px;
+  line-height: 1.7;
+  margin-bottom: 2.5rem;
+  font-weight: 300;
+}
+.hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.875rem 2rem;
+  background: var(--gold);
+  color: var(--void);
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-decoration: none;
+  letter-spacing: 0.01em;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+.btn-primary::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.2) 50%, transparent 60%);
+  transform: translateX(-100%);
+  transition: transform 0.6s;
+}
+.btn-primary:hover::after { transform: translateX(100%); }
+.btn-primary:hover {
+  background: #fcc21b;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(240, 185, 11, 0.25);
+}
+.btn-primary svg { width: 16px; height: 16px; }
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1.75rem;
+  background: transparent;
+  color: var(--pearl);
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  font-weight: 400;
+  text-decoration: none;
+  border: 1px solid var(--slate);
+  transition: all 0.25s;
+}
+.btn-secondary:hover {
+  border-color: var(--silver);
+  color: var(--white);
+  background: rgba(255,255,255,0.03);
+}
+
+/* ── HASH TICKER ── */
+.hash-ticker {
+  margin-top: 4rem;
+  padding: 0.75rem 1.5rem;
+  background: rgba(17, 24, 39, 0.6);
+  border: 1px solid rgba(255,255,255,0.06);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--steel);
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 600px;
+  overflow: hidden;
+}
+.hash-ticker .label {
+  color: var(--blue-bright);
+  text-transform: uppercase;
+  font-size: 0.625rem;
+  white-space: nowrap;
+}
+.hash-ticker .hash {
+  color: var(--silver);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── SECTIONS ── */
+section {
+  position: relative;
+  padding: 7rem 2rem;
+}
+.container {
+  max-width: 1120px;
+  margin: 0 auto;
+}
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--blue-bright);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 1rem;
+}
+.section-title {
+  font-family: var(--font-display);
+  font-size: clamp(2.25rem, 4vw, 3.5rem);
+  font-weight: 400;
+  color: var(--white);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  margin-bottom: 1.25rem;
+}
+.section-desc {
+  font-size: 1.0625rem;
+  color: var(--silver);
+  max-width: 560px;
+  line-height: 1.7;
+  font-weight: 300;
+}
+
+/* ── HOW IT WORKS ── */
+.how-it-works {
+  background: var(--void);
+  border-top: 1px solid rgba(255,255,255,0.04);
+}
+.steps-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  margin-top: 4rem;
+  background: rgba(255,255,255,0.04);
+}
+.step {
+  background: var(--void);
+  padding: 2.5rem 2rem;
+  position: relative;
+  transition: background 0.3s;
+}
+.step:hover {
+  background: rgba(17, 24, 39, 0.5);
+}
+.step-number {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--gold);
+  letter-spacing: 0.08em;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.step-number::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(240, 185, 11, 0.2);
+}
+.step-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.25rem;
+  background: var(--blue-glow);
+  border: 1px solid rgba(41, 98, 255, 0.15);
+}
+.step-icon svg {
+  width: 24px;
+  height: 24px;
+  color: var(--blue-bright);
+}
+.step h3 {
+  font-family: var(--font-body);
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--white);
+  margin-bottom: 0.625rem;
+  letter-spacing: -0.01em;
+}
+.step p {
+  font-size: 0.875rem;
+  color: var(--steel);
+  line-height: 1.65;
+}
+
+/* ── SCORING ── */
+.scoring {
+  background: var(--navy);
+  border-top: 1px solid rgba(255,255,255,0.04);
+}
+.scoring-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4rem;
+  align-items: center;
+  margin-top: 3rem;
+}
+.scoring-visual {
+  position: relative;
+  aspect-ratio: 1;
+  max-width: 460px;
+}
+.score-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ring-outer {
+  inset: 0;
+  border-color: rgba(41, 98, 255, 0.2);
+  animation: ring-rotate 30s linear infinite;
+}
+.ring-mid {
+  inset: 15%;
+  border-color: rgba(240, 185, 11, 0.2);
+  animation: ring-rotate 20s linear infinite reverse;
+}
+.ring-inner {
+  inset: 30%;
+  border-color: rgba(0, 200, 83, 0.15);
+  animation: ring-rotate 15s linear infinite;
+}
+.ring-core {
+  inset: 42%;
+  border-color: rgba(255, 255, 255, 0.06);
+  background: rgba(41, 98, 255, 0.05);
+}
+@keyframes ring-rotate {
+  to { transform: rotate(360deg); }
+}
+.ring-core .score-value {
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  color: var(--white);
+}
+.ring-core .score-label {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  color: var(--steel);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-top: 0.25rem;
+}
+/* dimension dots on rings */
+.dim-dot {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  top: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.dimensions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+.dim-card {
+  padding: 1.5rem;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.05);
+  transition: all 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+.dim-card:hover {
+  border-color: rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04);
+}
+.dim-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+.dim-name {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--white);
+}
+.dim-weight {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+.dim-bar {
+  height: 3px;
+  background: rgba(255,255,255,0.06);
+  margin-top: 0.75rem;
+  position: relative;
+  overflow: hidden;
+}
+.dim-bar-fill {
+  height: 100%;
+  transition: width 1.5s cubic-bezier(0.16, 1, 0.3, 1);
+  width: 0;
+}
+.dim-bar-fill.animated { /* set by JS */ }
+.dim-desc {
+  font-size: 0.8125rem;
+  color: var(--steel);
+  line-height: 1.6;
+}
+.dim-wr .dim-weight { color: var(--blue-bright); }
+.dim-wr .dim-bar-fill { background: var(--blue-bright); }
+.dim-rar .dim-weight { color: var(--gold); }
+.dim-rar .dim-bar-fill { background: var(--gold); }
+.dim-con .dim-weight { color: var(--green); }
+.dim-con .dim-bar-fill { background: var(--green); }
+.dim-cal .dim-weight { color: #e040fb; }
+.dim-cal .dim-bar-fill { background: #e040fb; }
+
+/* ── TRUST ── */
+.trust {
+  background: var(--void);
+  border-top: 1px solid rgba(255,255,255,0.04);
+}
+.trust-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  margin-top: 4rem;
+  background: rgba(255,255,255,0.04);
+}
+.trust-item {
+  background: var(--void);
+  padding: 3rem 2rem;
+  text-align: center;
+}
+.trust-icon {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gold);
+}
+.trust-icon svg { width: 28px; height: 28px; }
+.trust-item h3 {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--white);
+  margin-bottom: 0.5rem;
+}
+.trust-item p {
+  font-size: 0.8125rem;
+  color: var(--steel);
+  line-height: 1.6;
+  max-width: 280px;
+  margin: 0 auto;
+}
+
+/* ── STATS ── */
+.stats {
+  background: var(--navy);
+  border-top: 1px solid rgba(255,255,255,0.04);
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2rem;
+  text-align: center;
+}
+.stat-item {
+  padding: 2rem 0;
+}
+.stat-value {
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 5vw, 3.5rem);
+  color: var(--white);
+  line-height: 1;
+  margin-bottom: 0.5rem;
+}
+.stat-value .accent { color: var(--gold); }
+.stat-label {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: var(--steel);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ── CTA ── */
+.cta {
+  background: var(--void);
+  text-align: center;
+  padding: 8rem 2rem;
+  position: relative;
+}
+.cta-glow {
+  position: absolute;
+  width: 600px;
+  height: 400px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(ellipse, rgba(240, 185, 11, 0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+.cta h2 {
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  color: var(--white);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  margin-bottom: 1rem;
+}
+.cta h2 em {
+  font-style: italic;
+  color: var(--gold);
+}
+.cta p {
+  font-size: 1.0625rem;
+  color: var(--silver);
+  max-width: 480px;
+  margin: 0 auto 2.5rem;
+  font-weight: 300;
+  line-height: 1.7;
+}
+.cta-note {
+  margin-top: 1rem;
+  font-size: 0.8125rem;
+  color: var(--steel);
+}
+
+/* ── FOOTER ── */
+footer {
+  background: var(--void);
+  border-top: 1px solid rgba(255,255,255,0.04);
+  padding: 3rem 2rem;
+}
+.footer-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.footer-left {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--steel);
+}
+.footer-links {
+  display: flex;
+  gap: 1.5rem;
+  list-style: none;
+}
+.footer-links a {
+  font-size: 0.8125rem;
+  color: var(--steel);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.footer-links a:hover { color: var(--silver); }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  .steps-grid { grid-template-columns: repeat(2, 1fr); }
+  .scoring-layout { grid-template-columns: 1fr; gap: 3rem; }
+  .scoring-visual { max-width: 320px; margin: 0 auto; }
+  .trust-grid { grid-template-columns: 1fr; }
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .steps-grid { grid-template-columns: 1fr; }
+  .stats-row { grid-template-columns: 1fr; }
+  nav { padding: 1rem 1.25rem; }
+  .nav-links { display: none; }
+  section { padding: 5rem 1.25rem; }
+  .hero { padding: 7rem 1.25rem 5rem; }
+  .hash-ticker { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── NAV ── -->
+<nav>
+  <a href="/" class="nav-logo">
+    <span class="logo-mark">TA</span>
+    TradeArena
+  </a>
+  <ul class="nav-links">
+    <li><a href="#how-it-works">How It Works</a></li>
+    <li><a href="#scoring">Scoring</a></li>
+    <li><a href="#trust">Why Trust Us</a></li>
+    <li><a href="/arena">Arena</a></li>
+  </ul>
+  <a href="/register" class="nav-cta">Get Started</a>
+</nav>
+
+<!-- ── HERO ── -->
+<section class="hero">
+  <div class="hero-grid"></div>
+  <div class="hero-glow"></div>
+  <div class="hero-glow-gold"></div>
+
+  <div class="hero-badge reveal">
+    <span class="pulse"></span>
+    Now in open beta
+  </div>
+
+  <h1 class="reveal reveal-delay-1">Prove Your<br>Trading <em>Edge</em></h1>
+
+  <p class="hero-sub reveal reveal-delay-2">
+    Submit cryptographically committed predictions.<br>
+    Scored transparently across four dimensions.<br>
+    No hiding. No faking. Just pure signal.
+  </p>
+
+  <div class="hero-actions reveal reveal-delay-3">
+    <a href="/register" class="btn-primary">
+      Start Trading
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8h10m-4-4 4 4-4 4"/></svg>
+    </a>
+    <a href="#how-it-works" class="btn-secondary">How It Works</a>
+  </div>
+
+  <div class="hash-ticker reveal reveal-delay-4">
+    <span class="label">Latest commit</span>
+    <span class="hash" id="ticker-hash">a4f8c2e1…d7b3091f — BTC/USDT LONG @ 0.82 confidence</span>
+  </div>
+</section>
+
+<!-- ── HOW IT WORKS ── -->
+<section class="how-it-works" id="how-it-works">
+  <div class="container">
+    <span class="section-label reveal">Process</span>
+    <h2 class="section-title reveal reveal-delay-1">Four steps to<br>immutable proof</h2>
+    <p class="section-desc reveal reveal-delay-2">Every signal follows the same tamper-proof pipeline. No edits. No deletions. Your record speaks for itself.</p>
+  </div>
+
+  <div class="container">
+    <div class="steps-grid">
+      <div class="step reveal">
+        <div class="step-number">01</div>
+        <div class="step-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 20V4m0 0-6 6m6-6 6 6"/></svg>
+        </div>
+        <h3>Submit Signal</h3>
+        <p>Call your trade — asset, direction, confidence level, and your thesis. The SDK validates locally before it ever hits the wire.</p>
+      </div>
+
+      <div class="step reveal reveal-delay-1">
+        <div class="step-number">02</div>
+        <div class="step-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 15v2m-6 4h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2zm10-10V7a4 4 0 0 0-8 0v4h8z"/></svg>
+        </div>
+        <h3>Cryptographic Lock</h3>
+        <p>SHA-256 commitment hash seals your prediction with a nonce and timestamp. Append-only storage — once committed, it's permanent.</p>
+      </div>
+
+      <div class="step reveal reveal-delay-2">
+        <div class="step-number">03</div>
+        <div class="step-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        </div>
+        <h3>Oracle Resolution</h3>
+        <p>When the time window expires, the oracle checks real market data (Binance klines) and stamps the outcome: WIN, LOSS, or NEUTRAL.</p>
+      </div>
+
+      <div class="step reveal reveal-delay-3">
+        <div class="step-number">04</div>
+        <div class="step-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 19v-6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2zm0 0V9a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v10m-6 0a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2m0 0V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z"/></svg>
+        </div>
+        <h3>Composite Score</h3>
+        <p>Four weighted dimensions collapse into a single number. Your rank on the leaderboard reflects real, auditable performance.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── SCORING ── -->
+<section class="scoring" id="scoring">
+  <div class="container">
+    <div class="scoring-layout">
+      <div>
+        <span class="section-label reveal">Scoring engine</span>
+        <h2 class="section-title reveal reveal-delay-1">One number.<br>Four <em>dimensions.</em></h2>
+        <p class="section-desc reveal reveal-delay-2">No single metric tells the whole story. Our composite score balances accuracy, risk management, consistency, and calibration into one transparent rating.</p>
+
+        <div class="dimensions-list" style="margin-top: 2.5rem;">
+          <div class="dim-card dim-wr reveal">
+            <div class="dim-header">
+              <span class="dim-name">Win Rate</span>
+              <span class="dim-weight">30%</span>
+            </div>
+            <p class="dim-desc">Percentage of signals that resolve as WIN. The foundation.</p>
+            <div class="dim-bar"><div class="dim-bar-fill" data-width="30"></div></div>
+          </div>
+
+          <div class="dim-card dim-rar reveal reveal-delay-1">
+            <div class="dim-header">
+              <span class="dim-name">Risk-Adjusted Return</span>
+              <span class="dim-weight">30%</span>
+            </div>
+            <p class="dim-desc">Returns weighted by confidence. High conviction + right = big points.</p>
+            <div class="dim-bar"><div class="dim-bar-fill" data-width="30"></div></div>
+          </div>
+
+          <div class="dim-card dim-con reveal reveal-delay-2">
+            <div class="dim-header">
+              <span class="dim-name">Consistency</span>
+              <span class="dim-weight">25%</span>
+            </div>
+            <p class="dim-desc">Streak stability and drawdown control. Lucky runs get filtered out.</p>
+            <div class="dim-bar"><div class="dim-bar-fill" data-width="25"></div></div>
+          </div>
+
+          <div class="dim-card dim-cal reveal reveal-delay-3">
+            <div class="dim-header">
+              <span class="dim-name">Confidence Calibration</span>
+              <span class="dim-weight">15%</span>
+            </div>
+            <p class="dim-desc">Do your confidence levels match your actual hit rates? Honesty pays.</p>
+            <div class="dim-bar"><div class="dim-bar-fill" data-width="15"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="scoring-visual reveal">
+        <div class="score-ring ring-outer">
+          <div class="dim-dot" style="background: var(--blue-bright);"></div>
+        </div>
+        <div class="score-ring ring-mid">
+          <div class="dim-dot" style="background: var(--gold);"></div>
+        </div>
+        <div class="score-ring ring-inner">
+          <div class="dim-dot" style="background: var(--green);"></div>
+        </div>
+        <div class="score-ring ring-core">
+          <div style="text-align:center;">
+            <div class="score-value">0.73</div>
+            <div class="score-label">Composite</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── TRUST ── -->
+<section class="trust" id="trust">
+  <div class="container">
+    <div style="text-align: center; max-width: 600px; margin: 0 auto;">
+      <span class="section-label reveal">Trust architecture</span>
+      <h2 class="section-title reveal reveal-delay-1">Built to be<br><em>unfakeable</em></h2>
+      <p class="section-desc reveal reveal-delay-2" style="margin: 0 auto;">Every design decision optimizes for one thing: you can't game it.</p>
+    </div>
+  </div>
+  <div class="container">
+    <div class="trust-grid">
+      <div class="trust-item reveal">
+        <div class="trust-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 15v2m-6 4h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2zm10-10V7a4 4 0 0 0-8 0v4h8z"/></svg>
+        </div>
+        <h3>Append-Only Signals</h3>
+        <p>No edits. No deletions. Every signal is permanent from the moment it's committed. Your worst calls are just as visible as your best.</p>
+      </div>
+
+      <div class="trust-item reveal reveal-delay-1">
+        <div class="trust-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0 1 12 2.944a11.955 11.955 0 0 1-8.618 3.04A12.02 12.02 0 0 0 3 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+        </div>
+        <h3>SHA-256 Commitments</h3>
+        <p>Each prediction is hashed with a unique nonce before the outcome is known. Cryptographic proof you called it before it happened.</p>
+      </div>
+
+      <div class="trust-item reveal reveal-delay-2">
+        <div class="trust-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        </div>
+        <h3>Automated Oracle</h3>
+        <p>No human judges. Market data resolves every signal automatically. Binance kline data, checked at expiry, final and deterministic.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── STATS ── -->
+<section class="stats">
+  <div class="container">
+    <div class="stats-row">
+      <div class="stat-item reveal">
+        <div class="stat-value" data-target="12847">0</div>
+        <div class="stat-label">Signals Committed</div>
+      </div>
+      <div class="stat-item reveal reveal-delay-1">
+        <div class="stat-value" data-target="342">0</div>
+        <div class="stat-label">Active Traders</div>
+      </div>
+      <div class="stat-item reveal reveal-delay-2">
+        <div class="stat-value">100<span class="accent">%</span></div>
+        <div class="stat-label">Transparent</div>
+      </div>
+      <div class="stat-item reveal reveal-delay-3">
+        <div class="stat-value">$<span class="accent">0</span></div>
+        <div class="stat-label">Cost to compete</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA ── -->
+<section class="cta">
+  <div class="cta-glow"></div>
+  <div class="container" style="position:relative;">
+    <h2 class="reveal">Stop talking.<br>Start <em>proving.</em></h2>
+    <p class="reveal reveal-delay-1">Create your profile, connect the SDK, and let your track record do the talking. Every feature is free.</p>
+    <div class="reveal reveal-delay-2">
+      <a href="/register" class="btn-primary" style="font-size:1rem; padding: 1rem 2.5rem;">
+        Create Your Profile
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8h10m-4-4 4 4-4 4"/></svg>
+      </a>
+      <p class="cta-note">No credit card. No premium tiers. Just compete.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-left">&copy; 2026 TradeArena. All signals are final.</div>
+    <ul class="footer-links">
+      <li><a href="/rules">Rules</a></li>
+      <li><a href="/docs">API Docs</a></li>
+      <li><a href="/arena">Arena</a></li>
+    </ul>
+  </div>
+</footer>
+
+<script>
+// ── Scroll Reveal ──
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+      // Animate dimension bars
+      const bar = e.target.querySelector('.dim-bar-fill');
+      if (bar) {
+        const w = bar.getAttribute('data-width');
+        setTimeout(() => { bar.style.width = (w * 3.33) + '%'; }, 200);
+      }
+    }
+  });
+}, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+// ── Counter Animation ──
+const counterObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting && e.target.dataset.target) {
+      const target = parseInt(e.target.dataset.target);
+      const duration = 2000;
+      const start = performance.now();
+      const tick = (now) => {
+        const progress = Math.min((now - start) / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        e.target.textContent = Math.floor(eased * target).toLocaleString();
+        if (progress < 1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+      counterObserver.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.5 });
+
+document.querySelectorAll('.stat-value[data-target]').forEach(el => counterObserver.observe(el));
+
+// ── Hash Ticker Animation ──
+const hashes = [
+  'a4f8c2e1…d7b3091f — BTC/USDT LONG @ 0.82',
+  'e2d19b7a…c4f60823 — ETH/USDT SHORT @ 0.71',
+  '7b3f0e5d…a918dc42 — SOL/USDT LONG @ 0.65',
+  'f1a8d4c6…3e7b2f90 — BTC/USDT SHORT @ 0.88',
+  'c5e7a2b8…d0f14369 — DOGE/USDT LONG @ 0.54',
+];
+let hashIdx = 0;
+const tickerEl = document.getElementById('ticker-hash');
+if (tickerEl) {
+  setInterval(() => {
+    hashIdx = (hashIdx + 1) % hashes.length;
+    tickerEl.style.opacity = '0';
+    setTimeout(() => {
+      tickerEl.textContent = hashes[hashIdx];
+      tickerEl.style.opacity = '1';
+    }, 300);
+  }, 4000);
+  tickerEl.style.transition = 'opacity 0.3s';
+}
+
+// ── Smooth scroll for anchor links ──
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    const target = document.querySelector(a.getAttribute('href'));
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+});
+</script>
+</body>
+</html>

@@ -10,7 +10,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -39,6 +39,7 @@ logger = logging.getLogger(__name__)
 # src/tradearena/api/main.py -> project root is 3 levels up -> scripts/arena.html
 _SCRIPTS_DIR = Path(__file__).resolve().parents[3] / "scripts"
 _ARENA_HTML = _SCRIPTS_DIR / "arena.html"
+_LANDING_HTML = _SCRIPTS_DIR / "landing.html"
 
 ORACLE_INTERVAL_SECONDS = 300  # 5 minutes
 MATCHMAKING_INTERVAL_SECONDS = 7 * 24 * 3600  # 1 week
@@ -288,6 +289,16 @@ async def rules_page() -> FileResponse:
 
 
 @app.get("/", include_in_schema=False)
+async def landing_page() -> FileResponse:
+    """Serve the TradeArena landing page."""
+    return FileResponse(
+        _LANDING_HTML,
+        media_type="text/html",
+        headers={"Cache-Control": "no-cache, must-revalidate"},
+    )
+
+
+@app.get("/arena", include_in_schema=False)
 async def arena_ui() -> FileResponse:
     """Serve the TradeArena arena UI."""
     return FileResponse(
@@ -295,6 +306,21 @@ async def arena_ui() -> FileResponse:
         media_type="text/html",
         headers={"Cache-Control": "no-cache, must-revalidate"},
     )
+
+
+@app.get("/sitemap.xml", include_in_schema=False)
+async def sitemap() -> PlainTextResponse:
+    """Serve sitemap.xml for search engines."""
+    base = os.getenv("BASE_URL", "https://tradearena.app")
+    xml = f"""<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>{base}/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>{base}/arena</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <url><loc>{base}/rules</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
+  <url><loc>{base}/docs</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <url><loc>{base}/leaderboard</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
+</urlset>"""
+    return PlainTextResponse(content=xml, media_type="application/xml")
 
 
 @app.websocket("/ws")
