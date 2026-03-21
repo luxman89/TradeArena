@@ -20,6 +20,7 @@ from tradearena.api.routes import (
     auth,
     battles,
     creators,
+    export,
     leaderboard,
     oracle,
     signals,
@@ -307,6 +308,7 @@ app.include_router(creators.router, tags=["creators"])
 app.include_router(oracle.router)
 app.include_router(battles.router)
 app.include_router(tournaments.router)
+app.include_router(export.router)
 
 # Serve static assets (sprites, tilesets, etc.)
 _ASSETS_DIR = _SCRIPTS_DIR / "assets"
