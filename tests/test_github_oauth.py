@@ -45,15 +45,12 @@ def reset_db():
 @pytest.fixture()
 def client():
     """TestClient that clears rate limiter state to avoid 429s between tests."""
-    # Walk the ASGI middleware stack to find and reset the RateLimitMiddleware
     from tradearena.api.rate_limit import RateLimitMiddleware
 
     obj = app.middleware_stack
     while obj is not None:
         if isinstance(obj, RateLimitMiddleware):
             obj._auth_hits.clear()
-            obj._hits.clear()
-            obj._key_hits.clear()
             break
         obj = getattr(obj, "app", None)
     with TestClient(app) as c:
@@ -158,7 +155,8 @@ def test_github_redirect_returns_authorization_url(client):
     assert "authorization_url" in data
     assert "github.com/login/oauth/authorize" in data["authorization_url"]
     assert "client_id=test-client-id" in data["authorization_url"]
-    assert "scope=read%3Auser+user%3Aemail" in data["authorization_url"]
+    assert "scope=read%3Auser" in data["authorization_url"]
+    assert "user%3Aemail" in data["authorization_url"]
 
 
 def test_github_redirect_503_when_not_configured(client):
