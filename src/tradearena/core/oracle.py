@@ -1,7 +1,10 @@
-"""Price oracle — resolves signal outcomes using Binance public API.
+"""Price oracle — resolves signal outcomes using multi-exchange price data.
 
 Fetches historical kline data to determine whether signals hit their
 target_price, stop_loss, or moved in the predicted direction.
+
+Uses a fallback chain: Binance -> OKX -> Kraken. Handles delistings,
+trading halts, and data gaps by trying the next exchange automatically.
 """
 
 from __future__ import annotations
@@ -15,12 +18,16 @@ import httpx
 from sqlalchemy.orm import Session
 
 from tradearena.core import cache
+from tradearena.core.exchanges import (
+    SymbolNotFound,
+    fetch_klines_with_fallback,
+    fetch_price_with_fallback,
+)
 from tradearena.db.database import SignalORM
 from tradearena.models.signal import Outcome
 
 logger = logging.getLogger(__name__)
 
-BINANCE_BASE = "https://api.binance.com"
 DIRECTION_THRESHOLD = 0.005  # 0.5% minimum move for no-target signals
 BULLISH_ACTIONS = {"buy", "long", "yes"}
 BEARISH_ACTIONS = {"sell", "short", "no"}
@@ -44,7 +51,7 @@ def parse_timeframe(tf: str | None) -> timedelta:
 
 
 def asset_to_symbol(asset: str) -> str:
-    """Convert asset string to Binance symbol. 'BTC/USDT' -> 'BTCUSDT', 'BTC' -> 'BTCUSDT'."""
+    """Convert asset string to exchange symbol. 'BTC/USDT' -> 'BTCUSDT', 'BTC' -> 'BTCUSDT'."""
     symbol = asset.upper().replace("/", "").replace("-", "")
     if not symbol.endswith("USDT") and not symbol.endswith("BUSD"):
         symbol += "USDT"
@@ -52,7 +59,7 @@ def asset_to_symbol(asset: str) -> str:
 
 
 def _pick_interval(delta: timedelta) -> str:
-    """Choose a Binance kline interval that gives a reasonable number of candles."""
+    """Choose a kline interval that gives a reasonable number of candles."""
     hours = delta.total_seconds() / 3600
     if hours <= 4:
         return "5m"
@@ -70,25 +77,16 @@ async def fetch_klines(
     start_ms: int,
     end_ms: int,
 ) -> list[list]:
-    """Fetch kline/candlestick data from Binance, with caching."""
+    """Fetch kline/candlestick data with caching and multi-exchange fallback."""
     cached = cache.get(symbol, interval, start_ms, end_ms)
     if cached is not None:
         return cached
 
-    resp = await client.get(
-        f"{BINANCE_BASE}/api/v3/klines",
-        params={
-            "symbol": symbol,
-            "interval": interval,
-            "startTime": start_ms,
-            "endTime": end_ms,
-            "limit": 1000,
-        },
-        timeout=10.0,
+    data = await fetch_klines_with_fallback(
+        client, symbol, interval, start_ms, end_ms
     )
-    resp.raise_for_status()
-    data = resp.json()
-    cache.put(symbol, interval, start_ms, end_ms, data)
+    if data:
+        cache.put(symbol, interval, start_ms, end_ms, data)
     return data
 
 
@@ -107,22 +105,14 @@ async def fetch_price_at(
             return None
         return float(cached[0][4])
 
-    resp = await client.get(
-        f"{BINANCE_BASE}/api/v3/klines",
-        params={
-            "symbol": symbol,
-            "interval": "1m",
-            "startTime": ts_ms,
-            "limit": 1,
-        },
-        timeout=10.0,
-    )
-    resp.raise_for_status()
-    klines = resp.json()
-    cache.put(symbol, "1m", ts_ms, end_ms, klines)
-    if not klines:
-        return None
-    return float(klines[0][4])  # close price
+    price = await fetch_price_with_fallback(client, symbol, ts_ms)
+    # Cache the result (store as single-element kline list for cache compat)
+    if price is not None:
+        kline = [ts_ms, "0", "0", "0", str(price), "0", end_ms, "0", 0, "0", "0", "0"]
+        cache.put(symbol, "1m", ts_ms, end_ms, [kline])
+    else:
+        cache.put(symbol, "1m", ts_ms, end_ms, [])
+    return price
 
 
 def _resolve_with_targets(
@@ -193,7 +183,7 @@ async def resolve_signal(
     signal: SignalORM,
     client: httpx.AsyncClient,
 ) -> tuple[str, float, datetime] | None:
-    """Resolve a single signal's outcome using Binance price data.
+    """Resolve a single signal's outcome using multi-exchange price data.
 
     Returns (outcome, outcome_price, outcome_at) or None if not yet eligible.
     """
@@ -229,11 +219,11 @@ async def resolve_signal(
 async def resolve_pending_signals(db: Session) -> dict[str, int]:
     """Resolve all pending signals whose timeframe has elapsed.
 
-    Returns counts: {resolved, errors, skipped}.
+    Returns counts: {resolved, errors, skipped, delisted}.
     """
     pending = db.query(SignalORM).filter(SignalORM.outcome.is_(None)).all()
 
-    stats = {"resolved": 0, "errors": 0, "skipped": 0}
+    stats = {"resolved": 0, "errors": 0, "skipped": 0, "delisted": 0}
     if not pending:
         return stats
 
@@ -251,8 +241,18 @@ async def resolve_pending_signals(db: Session) -> dict[str, int]:
                 signal.outcome_at = outcome_at
                 stats["resolved"] += 1
 
-                # Courtesy throttle between Binance requests
+                # Courtesy throttle between exchange requests
                 await asyncio.sleep(0.05)
+
+            except SymbolNotFound:
+                logger.warning(
+                    "Signal %s asset %s delisted from all exchanges",
+                    signal.signal_id, signal.asset,
+                )
+                signal.outcome = Outcome.NEUTRAL
+                signal.outcome_price = 0.0
+                signal.outcome_at = datetime.now(UTC)
+                stats["delisted"] += 1
 
             except Exception:
                 logger.exception("Failed to resolve signal %s", signal.signal_id)
