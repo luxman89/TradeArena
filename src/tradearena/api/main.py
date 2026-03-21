@@ -211,18 +211,31 @@ app = FastAPI(
 )
 
 # ---------------------------------------------------------------------------
-# CORS — restrict origins in production, allow all in dev
-# Set CORS_ORIGINS="https://tradearena.app,https://www.tradearena.app" in prod
+# CORS — restrict to explicit origins. Wildcard (*) only for local dev.
+# Default: production domains. Set CORS_ORIGINS="*" only for local development.
 # ---------------------------------------------------------------------------
-_cors_env = os.getenv("CORS_ORIGINS", "")
-_cors_origins = [o.strip() for o in _cors_env.split(",") if o.strip()] if _cors_env else ["*"]
+_PRODUCTION_ORIGINS = [
+    "https://tradearena.app",
+    "https://www.tradearena.app",
+]
+
+_cors_env = os.getenv("CORS_ORIGINS", "").strip()
+if _cors_env == "*":
+    _cors_origins = ["*"]
+    _cors_credentials = False  # credentials not allowed with wildcard
+elif _cors_env:
+    _cors_origins = [o.strip() for o in _cors_env.split(",") if o.strip()]
+    _cors_credentials = True
+else:
+    _cors_origins = _PRODUCTION_ORIGINS
+    _cors_credentials = True
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-API-Key"],
-    allow_credentials=True,
+    allow_credentials=_cors_credentials,
 )
 
 # ---------------------------------------------------------------------------
