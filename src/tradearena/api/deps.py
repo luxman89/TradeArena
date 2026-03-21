@@ -15,12 +15,24 @@ from tradearena.db.database import get_db
 API_KEY_HEADER = APIKeyHeader(name="X-API-Key", auto_error=False)
 _BEARER = HTTPBearer(auto_error=False)
 
-SECRET_KEY = os.getenv("TRADEARENA_SECRET_KEY", "dev-insecure-key")
+_DEFAULT_SECRET = "dev-insecure-key"
+SECRET_KEY = os.getenv("TRADEARENA_SECRET_KEY", _DEFAULT_SECRET)
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_HOURS = 24
 
-# Keep old name as alias for backward compatibility
-_SECRET_KEY = SECRET_KEY
+if SECRET_KEY == _DEFAULT_SECRET or SECRET_KEY == "change-me-in-production":
+    import logging as _logging
+
+    _logger = _logging.getLogger(__name__)
+    if os.getenv("ENFORCE_HTTPS", "").strip() == "1":
+        raise RuntimeError(
+            "TRADEARENA_SECRET_KEY is set to an insecure default. "
+            "Set a strong random value before running in production."
+        )
+    _logger.warning(
+        "TRADEARENA_SECRET_KEY is using the default insecure value — "
+        "do NOT use this in production. Set a strong random key."
+    )
 
 
 def _hash_key(raw_key: str) -> str:

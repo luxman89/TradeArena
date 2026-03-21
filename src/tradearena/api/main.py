@@ -4,14 +4,17 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 
+from tradearena.api.rate_limit import RateLimitMiddleware
 from tradearena.api.routes import (
     auth,
     battles,
@@ -206,12 +209,56 @@ app = FastAPI(
     openapi_tags=_OPENAPI_TAGS,
 )
 
+# ---------------------------------------------------------------------------
+# CORS — restrict origins in production, allow all in dev
+# Set CORS_ORIGINS="https://tradearena.app,https://www.tradearena.app" in prod
+# ---------------------------------------------------------------------------
+_cors_env = os.getenv("CORS_ORIGINS", "")
+_cors_origins = [o.strip() for o in _cors_env.split(",") if o.strip()] if _cors_env else ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_cors_origins,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-API-Key"],
+    allow_credentials=True,
 )
+
+# ---------------------------------------------------------------------------
+# HTTPS redirect — enabled when ENFORCE_HTTPS=1 (e.g. behind Fly/Railway proxy)
+# ---------------------------------------------------------------------------
+if os.getenv("ENFORCE_HTTPS", "").strip() == "1":
+
+    class _HTTPSRedirectMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request: Request, call_next):
+            proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+            if proto == "http":
+                url = request.url.replace(scheme="https")
+                return RedirectResponse(url, status_code=301)
+            return await call_next(request)
+
+    app.add_middleware(_HTTPSRedirectMiddleware)
+
+
+# ---------------------------------------------------------------------------
+# Security headers (OWASP)
+# ---------------------------------------------------------------------------
+class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        if os.getenv("ENFORCE_HTTPS", "").strip() == "1":
+            response.headers["Strict-Transport-Security"] = (
+                "max-age=63072000; includeSubDomains; preload"
+            )
+        return response
+
+
+app.add_middleware(_SecurityHeadersMiddleware)
+app.add_middleware(RateLimitMiddleware)
 
 app.include_router(auth.router)
 app.include_router(signals.router, tags=["signals"])
@@ -252,8 +299,16 @@ async def arena_ui() -> FileResponse:
 
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket) -> None:
-    """Real-time event stream for the trading floor UI."""
-    await manager.connect(ws)
+    """Real-time event stream for the trading floor UI.
+
+    Clients can pass ?last_seq=N to replay missed messages on reconnect.
+    """
+    last_seq = 0
+    try:
+        last_seq = int(ws.query_params.get("last_seq", "0"))
+    except (TypeError, ValueError):
+        pass
+    await manager.connect(ws, last_seq=last_seq)
     try:
         while True:
             await ws.receive_text()  # keep alive; ignore client messages
