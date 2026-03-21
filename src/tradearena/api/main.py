@@ -16,6 +16,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from tradearena.api.rate_limit import RateLimitMiddleware
 from tradearena.api.routes import (
+    admin,
     auth,
     battles,
     creators,
@@ -40,6 +41,7 @@ logger = logging.getLogger(__name__)
 _SCRIPTS_DIR = Path(__file__).resolve().parents[3] / "scripts"
 _ARENA_HTML = _SCRIPTS_DIR / "arena.html"
 _LANDING_HTML = _SCRIPTS_DIR / "landing.html"
+_ADMIN_HTML = _SCRIPTS_DIR / "admin.html"
 
 ORACLE_INTERVAL_SECONDS = 300  # 5 minutes
 MATCHMAKING_INTERVAL_SECONDS = 7 * 24 * 3600  # 1 week
@@ -106,17 +108,27 @@ async def _background_loop():
     from tradearena.core.battle_resolver import resolve_battle
     from tradearena.core.bots import run_bot_signals
     from tradearena.core.matchmaker import run_matchmaking
+    from tradearena.core.metrics import collector
     from tradearena.core.oracle import resolve_pending_signals
 
     global _last_matchmaking, _last_bot_run  # noqa: PLW0603
 
     while True:
         await asyncio.sleep(ORACLE_INTERVAL_SECONDS)
+        collector.record_loop_iteration()
         try:
             db = SessionLocal()
             try:
                 # 1. Resolve pending signals (oracle)
+                t0 = time.monotonic()
                 stats = await resolve_pending_signals(db)
+                duration_ms = (time.monotonic() - t0) * 1000
+                collector.record_resolver_run(
+                    resolved=stats["resolved"],
+                    errors=stats["errors"],
+                    skipped=stats["skipped"],
+                    duration_ms=duration_ms,
+                )
                 if stats["resolved"] > 0:
                     logger.info("Oracle resolved %d signals", stats["resolved"])
                     await manager.broadcast("signals_resolved", stats)
@@ -166,7 +178,8 @@ async def _background_loop():
 
             finally:
                 db.close()
-        except Exception:
+        except Exception as exc:
+            collector.record_error("background_loop", str(exc))
             logger.exception("Background loop error")
 
 
@@ -286,6 +299,7 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
 app.add_middleware(_SecurityHeadersMiddleware)
 app.add_middleware(RateLimitMiddleware)
 
+app.include_router(admin.router)
 app.include_router(auth.router)
 app.include_router(signals.router, tags=["signals"])
 app.include_router(leaderboard.router, tags=["leaderboard"])
@@ -328,6 +342,16 @@ async def arena_ui() -> FileResponse:
     """Serve the TradeArena arena UI."""
     return FileResponse(
         _ARENA_HTML,
+        media_type="text/html",
+        headers={"Cache-Control": "no-cache, must-revalidate"},
+    )
+
+
+@app.get("/admin/dashboard", include_in_schema=False)
+async def admin_dashboard() -> FileResponse:
+    """Serve the admin monitoring dashboard."""
+    return FileResponse(
+        _ADMIN_HTML,
         media_type="text/html",
         headers={"Cache-Control": "no-cache, must-revalidate"},
     )

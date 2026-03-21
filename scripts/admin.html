@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TradeArena — Admin Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#09090F;--surface:#111118;--surface2:#17171F;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);
+  --blue:#2563EB;--green:#10B981;--gold:#F59E0B;--red:#EF4444;--purple:#8B5CF6;
+  --cyan:#06B6D4;
+  --text:#F1F1F6;--muted:#6B7280;--muted2:#4B5563;
+}
+html,body{min-height:100vh;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:14px}
+
+header{
+  background:var(--surface);border-bottom:1px solid var(--border);
+  padding:12px 24px;display:flex;align-items:center;justify-content:space-between;
+}
+header h1{font-size:1rem;font-weight:700;letter-spacing:0.02em}
+header h1 span{color:var(--blue)}
+#refresh-info{font-size:0.75rem;color:var(--muted);font-family:'JetBrains Mono',monospace}
+
+.grid{display:grid;gap:16px;padding:20px 24px;max-width:1400px;margin:0 auto}
+.top-cards{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+.main-grid{grid-template-columns:1fr 1fr}
+.full{grid-column:1/-1}
+
+.card{
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:16px 20px;
+}
+.card h2{font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px;font-weight:600}
+.big-num{font-size:2rem;font-weight:700;font-family:'JetBrains Mono',monospace;line-height:1.1}
+.sub{font-size:0.75rem;color:var(--muted);margin-top:4px}
+
+.stat-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:0.82rem}
+.stat-row:last-child{border-bottom:none}
+.stat-label{color:var(--muted)}
+.stat-value{font-family:'JetBrains Mono',monospace;font-weight:600}
+
+.bar-chart{display:flex;align-items:flex-end;gap:4px;height:80px;margin-top:8px}
+.bar{flex:1;min-width:8px;border-radius:3px 3px 0 0;position:relative;transition:height 0.3s}
+.bar:hover::after{
+  content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
+  background:#222;color:var(--text);padding:4px 8px;border-radius:4px;font-size:0.65rem;white-space:nowrap;
+  font-family:'JetBrains Mono',monospace;z-index:10;
+}
+
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:0.7rem;font-weight:600;font-family:'JetBrains Mono',monospace}
+.tag-green{background:rgba(16,185,129,0.15);color:var(--green)}
+.tag-red{background:rgba(239,68,68,0.15);color:var(--red)}
+.tag-gold{background:rgba(245,158,11,0.15);color:var(--gold)}
+.tag-blue{background:rgba(37,99,235,0.15);color:var(--blue)}
+.tag-muted{background:rgba(107,114,128,0.15);color:var(--muted)}
+
+.error-list{max-height:300px;overflow-y:auto}
+.error-item{padding:8px 0;border-bottom:1px solid var(--border);font-size:0.78rem}
+.error-item:last-child{border-bottom:none}
+.error-time{color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:0.7rem}
+.error-comp{color:var(--red);font-weight:600;margin:0 6px}
+.error-msg{color:var(--text);word-break:break-word}
+
+.empty{color:var(--muted2);font-style:italic;font-size:0.82rem;padding:20px 0;text-align:center}
+
+@media(max-width:768px){
+  .main-grid{grid-template-columns:1fr}
+  .top-cards{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span>TradeArena</span> Admin Monitor</h1>
+  <div id="refresh-info">Loading...</div>
+</header>
+
+<!-- Top summary cards -->
+<div class="grid top-cards" id="summary-cards"></div>
+
+<!-- Main content -->
+<div class="grid main-grid" id="main-content">
+  <!-- Signal Volume -->
+  <div class="card">
+    <h2>Signal Volume</h2>
+    <div id="signal-stats"></div>
+  </div>
+
+  <!-- Resolver Performance -->
+  <div class="card">
+    <h2>Resolver Performance</h2>
+    <div id="resolver-stats"></div>
+  </div>
+
+  <!-- Resolver Latency Chart -->
+  <div class="card">
+    <h2>Resolver Latency (Recent Runs)</h2>
+    <div class="bar-chart" id="latency-chart"></div>
+    <div class="sub" id="latency-summary"></div>
+  </div>
+
+  <!-- Signal Resolution Chart -->
+  <div class="card">
+    <h2>Signals Resolved Per Run</h2>
+    <div class="bar-chart" id="volume-chart"></div>
+    <div class="sub" id="volume-summary"></div>
+  </div>
+
+  <!-- Asset Distribution -->
+  <div class="card">
+    <h2>Top Assets</h2>
+    <div id="asset-dist"></div>
+  </div>
+
+  <!-- System Info -->
+  <div class="card">
+    <h2>System</h2>
+    <div id="system-info"></div>
+  </div>
+
+  <!-- Error Log -->
+  <div class="card full">
+    <h2>Recent Errors</h2>
+    <div class="error-list" id="error-log"></div>
+  </div>
+</div>
+
+<script>
+const TOKEN = new URLSearchParams(location.search).get('token') || '';
+const API = `/admin/metrics?token=${encodeURIComponent(TOKEN)}`;
+let refreshTimer;
+
+async function fetchMetrics() {
+  try {
+    const r = await fetch(API);
+    if (!r.ok) {
+      document.getElementById('refresh-info').textContent = `Error ${r.status}`;
+      return;
+    }
+    const d = await r.json();
+    render(d);
+  } catch (e) {
+    document.getElementById('refresh-info').textContent = 'Fetch failed';
+  }
+}
+
+function fmtTime(ts) {
+  if (!ts) return '—';
+  return new Date(ts * 1000).toLocaleTimeString();
+}
+
+function fmtDuration(sec) {
+  if (sec < 60) return `${sec}s`;
+  if (sec < 3600) return `${Math.floor(sec/60)}m ${sec%60}s`;
+  const h = Math.floor(sec/3600);
+  const m = Math.floor((sec%3600)/60);
+  return `${h}h ${m}m`;
+}
+
+function render(d) {
+  const now = new Date(d.timestamp);
+  document.getElementById('refresh-info').textContent =
+    `Updated ${now.toLocaleTimeString()} · Auto-refresh 30s`;
+
+  // Summary cards
+  const sys = d.system;
+  const sig = d.signals;
+  document.getElementById('summary-cards').innerHTML = `
+    <div class="card">
+      <h2>Total Signals</h2>
+      <div class="big-num">${sig.total}</div>
+      <div class="sub">${sig.last_24h} last 24h · ${sig.last_1h} last 1h</div>
+    </div>
+    <div class="card">
+      <h2>Pending</h2>
+      <div class="big-num" style="color:var(--gold)">${sig.pending}</div>
+      <div class="sub">Awaiting resolution</div>
+    </div>
+    <div class="card">
+      <h2>Uptime</h2>
+      <div class="big-num" style="color:var(--green)">${fmtDuration(sys.uptime_seconds)}</div>
+      <div class="sub">${sys.loop_iterations} background cycles</div>
+    </div>
+    <div class="card">
+      <h2>Errors (1h)</h2>
+      <div class="big-num" style="color:${sys.errors_last_hour > 0 ? 'var(--red)' : 'var(--green)'}">${sys.errors_last_hour}</div>
+      <div class="sub">${sys.total_errors} total</div>
+    </div>
+    <div class="card">
+      <h2>WebSocket</h2>
+      <div class="big-num" style="color:var(--cyan)">${d.websocket.connections}</div>
+      <div class="sub">Live connections</div>
+    </div>
+    <div class="card">
+      <h2>Creators</h2>
+      <div class="big-num">${d.creators.total}</div>
+      <div class="sub">${d.creators.active_24h} active 24h</div>
+    </div>
+  `;
+
+  // Signal stats
+  const oc = sig.outcomes || {};
+  document.getElementById('signal-stats').innerHTML = `
+    <div class="stat-row"><span class="stat-label">Resolved</span><span class="stat-value">${sig.resolved}</span></div>
+    <div class="stat-row"><span class="stat-label">WIN</span><span class="stat-value tag tag-green">${oc.WIN || 0}</span></div>
+    <div class="stat-row"><span class="stat-label">LOSS</span><span class="stat-value tag tag-red">${oc.LOSS || 0}</span></div>
+    <div class="stat-row"><span class="stat-label">NEUTRAL</span><span class="stat-value tag tag-muted">${oc.NEUTRAL || 0}</span></div>
+    <div class="stat-row"><span class="stat-label">Resolved 24h</span><span class="stat-value">${sig.resolved_24h}</span></div>
+    <div class="stat-row"><span class="stat-label">Battles Active</span><span class="stat-value tag tag-blue">${d.battles.active}</span></div>
+    <div class="stat-row"><span class="stat-label">Battles Resolved</span><span class="stat-value">${d.battles.resolved}</span></div>
+  `;
+
+  // Resolver stats
+  const rs = d.resolver;
+  document.getElementById('resolver-stats').innerHTML = rs.total_runs === 0 ?
+    '<div class="empty">No resolver runs recorded yet</div>' :
+    `
+    <div class="stat-row"><span class="stat-label">Total Runs</span><span class="stat-value">${rs.total_runs}</span></div>
+    <div class="stat-row"><span class="stat-label">Signals Resolved</span><span class="stat-value">${rs.total_resolved}</span></div>
+    <div class="stat-row"><span class="stat-label">Resolver Errors</span><span class="stat-value" style="color:${rs.total_errors > 0 ? 'var(--red)' : 'inherit'}">${rs.total_errors}</span></div>
+    <div class="stat-row"><span class="stat-label">Signals Skipped</span><span class="stat-value">${rs.total_skipped}</span></div>
+    <div class="stat-row"><span class="stat-label">Avg Latency</span><span class="stat-value">${rs.avg_duration_ms}ms</span></div>
+    <div class="stat-row"><span class="stat-label">Max Latency</span><span class="stat-value">${rs.max_duration_ms}ms</span></div>
+    <div class="stat-row"><span class="stat-label">Last Run</span><span class="stat-value">${fmtTime(rs.last_run_at)}</span></div>
+  `;
+
+  // Latency chart
+  const runs = rs.recent_runs || [];
+  renderBarChart('latency-chart', runs, r => r.duration_ms, 'var(--blue)',
+    r => `${r.duration_ms}ms @ ${fmtTime(r.timestamp)}`);
+  document.getElementById('latency-summary').textContent = runs.length ?
+    `${runs.length} runs shown · avg ${rs.avg_duration_ms}ms` : 'No data';
+
+  // Volume chart
+  renderBarChart('volume-chart', runs, r => r.resolved + r.errors, 'var(--green)',
+    r => `${r.resolved} resolved, ${r.errors} errors @ ${fmtTime(r.timestamp)}`);
+  document.getElementById('volume-summary').textContent = runs.length ?
+    `${runs.length} runs shown · ${rs.total_resolved} total resolved` : 'No data';
+
+  // Asset distribution
+  const assets = sig.asset_distribution || [];
+  if (assets.length === 0) {
+    document.getElementById('asset-dist').innerHTML = '<div class="empty">No signals yet</div>';
+  } else {
+    document.getElementById('asset-dist').innerHTML = assets.map(a =>
+      `<div class="stat-row"><span class="stat-label">${a.asset}</span><span class="stat-value">${a.count}</span></div>`
+    ).join('');
+  }
+
+  // System info
+  document.getElementById('system-info').innerHTML = `
+    <div class="stat-row"><span class="stat-label">Uptime</span><span class="stat-value">${fmtDuration(sys.uptime_seconds)}</span></div>
+    <div class="stat-row"><span class="stat-label">Background Loops</span><span class="stat-value">${sys.loop_iterations}</span></div>
+    <div class="stat-row"><span class="stat-label">Last Resolver</span><span class="stat-value">${sys.last_resolver_run ? fmtTime(sys.last_resolver_run.timestamp) : '—'}</span></div>
+    <div class="stat-row"><span class="stat-label">WebSocket Clients</span><span class="stat-value">${d.websocket.connections}</span></div>
+  `;
+
+  // Error log
+  const errors = d.errors || [];
+  if (errors.length === 0) {
+    document.getElementById('error-log').innerHTML = '<div class="empty">No errors recorded</div>';
+  } else {
+    document.getElementById('error-log').innerHTML = errors.map(e =>
+      `<div class="error-item">
+        <span class="error-time">${fmtTime(e.timestamp)}</span>
+        <span class="error-comp">[${e.component}]</span>
+        <span class="error-msg">${escHtml(e.message)}</span>
+      </div>`
+    ).join('');
+  }
+}
+
+function renderBarChart(containerId, data, valueFn, color, tipFn) {
+  const el = document.getElementById(containerId);
+  if (!data.length) { el.innerHTML = ''; return; }
+  const max = Math.max(...data.map(valueFn), 1);
+  el.innerHTML = data.map(d => {
+    const h = Math.max(4, (valueFn(d) / max) * 100);
+    return `<div class="bar" style="height:${h}%;background:${color}" data-tip="${escAttr(tipFn(d))}"></div>`;
+  }).join('');
+}
+
+function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function escAttr(s) { return s.replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+
+// Auto-refresh every 30 seconds
+fetchMetrics();
+refreshTimer = setInterval(fetchMetrics, 30000);
+</script>
+</body>
+</html>
