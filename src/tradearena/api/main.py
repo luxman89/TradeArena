@@ -495,7 +495,60 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
+# ---------------------------------------------------------------------------
+# 5xx error rate tracking — logs and alerts on server error spikes
+# ---------------------------------------------------------------------------
+class _ErrorTrackingMiddleware(BaseHTTPMiddleware):
+    """Track 5xx error rates and log alerts when they spike."""
+
+    _window_seconds = 300  # 5-minute rolling window
+    _alert_threshold = 10  # alert after 10 5xx errors in the window
+
+    def __init__(self, app):
+        super().__init__(app)
+        self._errors: list[float] = []
+        self._alerted = False
+
+    def _prune(self, now: float) -> None:
+        cutoff = now - self._window_seconds
+        self._errors = [t for t in self._errors if t > cutoff]
+
+    async def dispatch(self, request: Request, call_next):
+        import time
+
+        response = await call_next(request)
+        if response.status_code >= 500:
+            now = time.time()
+            self._errors.append(now)
+            self._prune(now)
+            count = len(self._errors)
+            logger.error(
+                "5xx response: %s %s -> %d (count in window: %d)",
+                request.method,
+                request.url.path,
+                response.status_code,
+                count,
+            )
+            from tradearena.core.metrics import collector
+
+            collector.record_error(
+                "http_5xx",
+                f"{request.method} {request.url.path} -> {response.status_code}",
+            )
+            if count >= self._alert_threshold and not self._alerted:
+                logger.critical(
+                    "ALERT: 5xx error rate spike — %d server errors in last %d seconds",
+                    count,
+                    self._window_seconds,
+                )
+                self._alerted = True
+            elif count < self._alert_threshold:
+                self._alerted = False
+        return response
+
+
 app.add_middleware(_SecurityHeadersMiddleware)
+app.add_middleware(_ErrorTrackingMiddleware)
 app.add_middleware(RateLimitMiddleware)
 
 app.include_router(admin.router)
@@ -628,5 +681,41 @@ async def websocket_endpoint(ws: WebSocket) -> None:
 
 @app.get("/health", tags=["meta"], summary="Health check")
 async def health() -> dict:
-    """Returns service health status and version."""
-    return {"status": "ok", "version": "0.1.0"}
+    """Returns service health status, version, and DB connectivity."""
+    from importlib.metadata import version as pkg_version
+
+    from sqlalchemy import text
+
+    # Read version from installed package metadata (falls back to hardcoded)
+    try:
+        app_version = pkg_version("tradearena")
+    except Exception:
+        app_version = "0.1.0"
+
+    # Verify database connectivity
+    db_ok = False
+    try:
+        db = SessionLocal()
+        try:
+            db.execute(text("SELECT 1"))
+            db_ok = True
+        finally:
+            db.close()
+    except Exception:
+        logger.exception("Health check: DB connection failed")
+
+    status_val = "ok" if db_ok else "degraded"
+    response = {
+        "status": status_val,
+        "version": app_version,
+        "checks": {
+            "database": "connected" if db_ok else "unreachable",
+        },
+    }
+
+    if not db_ok:
+        from fastapi.responses import JSONResponse as _JSONResponse
+
+        return _JSONResponse(content=response, status_code=503)
+
+    return response

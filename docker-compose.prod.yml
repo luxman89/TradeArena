@@ -17,6 +17,12 @@ services:
       DATABASE_URL: postgresql://tradearena:${POSTGRES_PASSWORD}@postgres:5432/tradearena
       ENFORCE_HTTPS: ${ENFORCE_HTTPS:-0}
       CORS_ORIGINS: ${CORS_ORIGINS:-https://tradearena.app,https://www.tradearena.app}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
     depends_on:
       postgres:
         condition: service_healthy
