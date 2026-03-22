@@ -10,14 +10,18 @@ from sqlalchemy.orm import Session
 
 from tradearena.db.database import (
     BattleORM,
+    BotRatingORM,
     CreatorORM,
+    CreatorScoreORM,
     TournamentEntryORM,
+    TournamentMatchORM,
     TournamentORM,
     get_db,
 )
 from tradearena.models.tournament import (
     TournamentCreate,
     TournamentJoinRequest,
+    TournamentListResponse,
     TournamentResponse,
 )
 
@@ -32,6 +36,8 @@ def _tournament_response(t: TournamentORM) -> dict:
         "status": t.status,
         "max_participants": t.max_participants,
         "current_round": t.current_round,
+        "start_time": t.start_time,
+        "created_by": t.created_by,
         "created_at": t.created_at,
         "entries": [
             {
@@ -41,6 +47,15 @@ def _tournament_response(t: TournamentORM) -> dict:
                 "points": e.points,
             }
             for e in t.entries
+        ],
+        "matches": [
+            {
+                "round": m.round,
+                "match_order": m.match_order,
+                "battle_id": m.battle_id,
+                "winner_bot_id": m.winner_bot_id,
+            }
+            for m in t.matches
         ],
     }
 
@@ -56,6 +71,11 @@ async def create_tournament(
     db: Session = Depends(get_db),
 ) -> dict:
     """Create a new tournament. Starts in 'registering' status."""
+    if payload.created_by:
+        creator = db.query(CreatorORM).filter(CreatorORM.id == payload.created_by).first()
+        if not creator:
+            raise HTTPException(status_code=404, detail="Creator not found")
+
     tournament = TournamentORM(
         id=uuid.uuid4().hex,
         name=payload.name,
@@ -63,6 +83,8 @@ async def create_tournament(
         status="registering",
         max_participants=payload.max_participants,
         current_round=0,
+        start_time=payload.start_time,
+        created_by=payload.created_by,
         created_at=datetime.now(UTC),
     )
     db.add(tournament)
@@ -124,6 +146,7 @@ async def join_tournament(
             detail="Tournament is full",
         )
 
+    # Temporary seed = registration order; re-seeded by ELO on tournament start
     seed = current_count + 1
     entry = TournamentEntryORM(
         tournament_id=tournament_id,
@@ -148,11 +171,31 @@ async def get_tournament(
     tournament_id: str,
     db: Session = Depends(get_db),
 ) -> dict:
-    """Return full tournament state including all entries."""
+    """Return full tournament state including all entries and matches."""
     tournament = db.query(TournamentORM).filter(TournamentORM.id == tournament_id).first()
     if not tournament:
         raise HTTPException(status_code=404, detail="Tournament not found")
     return _tournament_response(tournament)
+
+
+@router.get(
+    "/tournaments",
+    response_model=TournamentListResponse,
+    summary="List tournaments",
+)
+async def list_tournaments(
+    tournament_status: str | None = None,
+    db: Session = Depends(get_db),
+) -> dict:
+    """List all tournaments, optionally filtered by status."""
+    query = db.query(TournamentORM).order_by(TournamentORM.created_at.desc())
+    if tournament_status:
+        query = query.filter(TournamentORM.status == tournament_status)
+    tournaments = query.all()
+    return {
+        "total": len(tournaments),
+        "tournaments": [_tournament_response(t) for t in tournaments],
+    }
 
 
 @router.post(
@@ -174,6 +217,8 @@ async def advance_tournament(
     For single_elimination: pairs active participants by seed, creates battles,
     resolves them using existing scores, and eliminates losers.
     For round_robin: creates all pairings for the current round.
+
+    On first advance (from registering), participants are re-seeded by ELO.
     """
     tournament = db.query(TournamentORM).filter(TournamentORM.id == tournament_id).first()
     if not tournament:
@@ -185,7 +230,7 @@ async def advance_tournament(
             detail="Tournament already completed",
         )
 
-    # If still registering, start the tournament
+    # If still registering, start the tournament and seed by ELO
     if tournament.status == "registering":
         entries = (
             db.query(TournamentEntryORM)
@@ -197,6 +242,7 @@ async def advance_tournament(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="Need at least 2 participants to start",
             )
+        _seed_by_elo(entries, db)
         tournament.status = "in_progress"
 
     if tournament.format == "single_elimination":
@@ -207,6 +253,19 @@ async def advance_tournament(
     db.commit()
     db.refresh(tournament)
     return _tournament_response(tournament)
+
+
+def _seed_by_elo(entries: list[TournamentEntryORM], db: Session) -> None:
+    """Re-seed tournament entries by ELO rating (highest ELO gets seed 1)."""
+    elo_map: dict[str, float] = {}
+    for entry in entries:
+        rating = db.query(BotRatingORM).filter(BotRatingORM.bot_id == entry.creator_id).first()
+        elo_map[entry.creator_id] = rating.elo if rating else 1200.0
+
+    # Sort by ELO descending (highest rated = seed 1)
+    sorted_entries = sorted(entries, key=lambda e: elo_map[e.creator_id], reverse=True)
+    for i, entry in enumerate(sorted_entries):
+        entry.seed = i + 1
 
 
 def _advance_single_elimination(tournament: TournamentORM, db: Session) -> None:
@@ -234,8 +293,8 @@ def _advance_single_elimination(tournament: TournamentORM, db: Session) -> None:
     for i in range(n // 2):
         pairs.append((active[i], active[n - 1 - i]))
 
-    # If odd number, last entry gets a bye (no elimination)
-    for e1, e2 in pairs:
+    # If odd number, last middle entry gets a bye (no elimination)
+    for match_order, (e1, e2) in enumerate(pairs, start=1):
         winner_id = _resolve_matchup(e1.creator_id, e2.creator_id, db)
         loser_entry = e2 if winner_id == e1.creator_id else e1
 
@@ -252,6 +311,17 @@ def _advance_single_elimination(tournament: TournamentORM, db: Session) -> None:
             battle_type="AUTO",
         )
         db.add(battle)
+
+        # Track match in tournament_matches
+        match = TournamentMatchORM(
+            tournament_id=tournament.id,
+            round=tournament.current_round,
+            match_order=match_order,
+            battle_id=battle.battle_id,
+            winner_bot_id=winner_id,
+        )
+        db.add(match)
+
         loser_entry.eliminated_at = now
 
     # Check if only one remains
@@ -282,7 +352,7 @@ def _advance_round_robin(tournament: TournamentORM, db: Session) -> None:
 
     # Simple round-robin: pair by rotating schedule
     n = len(active)
-    for i in range(n // 2):
+    for match_order, i in enumerate(range(n // 2), start=1):
         e1 = active[i]
         e2 = active[n - 1 - i]
         winner_id = _resolve_matchup(e1.creator_id, e2.creator_id, db)
@@ -300,6 +370,15 @@ def _advance_round_robin(tournament: TournamentORM, db: Session) -> None:
         )
         db.add(battle)
 
+        match = TournamentMatchORM(
+            tournament_id=tournament.id,
+            round=tournament.current_round,
+            match_order=match_order,
+            battle_id=battle.battle_id,
+            winner_bot_id=winner_id,
+        )
+        db.add(match)
+
         # Award point to winner
         winner_entry = e1 if winner_id == e1.creator_id else e2
         winner_entry.points += 1
@@ -310,8 +389,6 @@ def _advance_round_robin(tournament: TournamentORM, db: Session) -> None:
 
 def _resolve_matchup(creator1_id: str, creator2_id: str, db: Session) -> str:
     """Resolve a matchup using existing creator scores. Returns winner_id."""
-    from tradearena.db.database import CreatorScoreORM
-
     s1 = db.query(CreatorScoreORM).filter(CreatorScoreORM.creator_id == creator1_id).first()
     s2 = db.query(CreatorScoreORM).filter(CreatorScoreORM.creator_id == creator2_id).first()
 

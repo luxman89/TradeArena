@@ -189,9 +189,13 @@ class TournamentORM(Base):
     status = Column(String(16), nullable=False, default="registering")
     max_participants = Column(Integer, nullable=False, default=8)
     current_round = Column(Integer, nullable=False, default=0)
+    start_time = Column(DateTime, nullable=True)
+    created_by = Column(String(64), ForeignKey("creators.id"), nullable=True)
     created_at = Column(DateTime, nullable=False)
 
     entries = relationship("TournamentEntryORM", back_populates="tournament")
+    matches = relationship("TournamentMatchORM", back_populates="tournament")
+    owner = relationship("CreatorORM")
 
 
 class TournamentEntryORM(Base):
@@ -209,6 +213,75 @@ class TournamentEntryORM(Base):
     points = Column(Integer, nullable=False, default=0)
 
     tournament = relationship("TournamentORM", back_populates="entries")
+    creator = relationship("CreatorORM")
+
+
+class TournamentMatchORM(Base):
+    """Tracks individual matches within a tournament round."""
+
+    __tablename__ = "tournament_matches"
+    __table_args__ = (
+        Index("ix_tournament_matches_tournament_id", "tournament_id"),
+        Index("ix_tournament_matches_battle_id", "battle_id"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tournament_id = Column(String(64), ForeignKey("tournaments.id"), nullable=False)
+    round = Column(Integer, nullable=False)
+    match_order = Column(Integer, nullable=False)
+    battle_id = Column(String(64), ForeignKey("battles.battle_id"), nullable=True)
+    winner_bot_id = Column(String(64), ForeignKey("creators.id"), nullable=True)
+
+    tournament = relationship("TournamentORM", back_populates="matches")
+    battle = relationship("BattleORM")
+    winner = relationship("CreatorORM")
+
+
+class BotRatingORM(Base):
+    """ELO rating for each bot/creator. One row per creator."""
+
+    __tablename__ = "bot_ratings"
+
+    bot_id = Column(String(64), ForeignKey("creators.id"), primary_key=True)
+    elo = Column(Float, nullable=False, default=1200.0)
+    matches_played = Column(Integer, nullable=False, default=0)
+    wins = Column(Integer, nullable=False, default=0)
+    losses = Column(Integer, nullable=False, default=0)
+    draws = Column(Integer, nullable=False, default=0)
+    updated_at = Column(DateTime, nullable=True)
+
+    creator = relationship("CreatorORM", backref="bot_rating")
+
+
+class RatingHistoryORM(Base):
+    """Historical ELO snapshots after each match for charting."""
+
+    __tablename__ = "rating_history"
+    __table_args__ = (
+        Index("ix_rating_history_bot_id", "bot_id"),
+        Index("ix_rating_history_timestamp", "timestamp"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    bot_id = Column(String(64), ForeignKey("creators.id"), nullable=False)
+    elo = Column(Float, nullable=False)
+    match_id = Column(String(64), ForeignKey("battles.battle_id"), nullable=False)
+    timestamp = Column(DateTime, nullable=False)
+
+    creator = relationship("CreatorORM")
+    battle = relationship("BattleORM")
+
+
+class MatchmakingQueueORM(Base):
+    """Bots/creators currently queued for matchmaking."""
+
+    __tablename__ = "matchmaking_queue"
+    __table_args__ = (Index("ix_matchmaking_queue_bot_id", "bot_id", unique=True),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    bot_id = Column(String(64), ForeignKey("creators.id"), nullable=False, unique=True)
+    queued_at = Column(DateTime, nullable=False)
+
     creator = relationship("CreatorORM")
 
 

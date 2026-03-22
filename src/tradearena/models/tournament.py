@@ -22,6 +22,8 @@ class TournamentCreate(BaseModel):
         description="single_elimination or round_robin",
     )
     max_participants: int = Field(8, ge=2, le=64, description="Max creators allowed (2-64)")
+    start_time: datetime | None = Field(None, description="Scheduled start time (optional)")
+    created_by: str | None = Field(None, description="Creator ID of the tournament organizer")
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -30,6 +32,7 @@ class TournamentCreate(BaseModel):
                     "name": "March Madness Trading Cup",
                     "format": "single_elimination",
                     "max_participants": 16,
+                    "start_time": "2026-04-01T18:00:00Z",
                 }
             ]
         },
@@ -53,6 +56,17 @@ class TournamentEntryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class TournamentMatchResponse(BaseModel):
+    """A single match within a tournament round."""
+
+    round: int
+    match_order: int
+    battle_id: str | None = None
+    winner_bot_id: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class TournamentResponse(BaseModel):
     """Full tournament state."""
 
@@ -62,8 +76,11 @@ class TournamentResponse(BaseModel):
     status: str
     max_participants: int
     current_round: int
+    start_time: datetime | None = None
+    created_by: str | None = None
     created_at: datetime
     entries: list[TournamentEntryResponse]
+    matches: list[TournamentMatchResponse] = []
 
     model_config = ConfigDict(from_attributes=True)
 
