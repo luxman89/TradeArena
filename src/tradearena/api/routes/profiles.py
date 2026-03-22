@@ -260,7 +260,7 @@ def _generate_og_image(
 
     # Footer
     draw.line([(60, H - 70), (W - 60, H - 70)], fill=(60, 60, 80), width=1)
-    draw.text((60, H - 55), "tradearena.app", fill=(100, 100, 130), font=font_sm)
+    draw.text((60, H - 55), "tradearena.duckdns.org", fill=(100, 100, 130), font=font_sm)
 
     buf = io.BytesIO()
     img.save(buf, format="PNG", optimize=True)

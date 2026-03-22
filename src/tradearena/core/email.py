@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY", "")
 SENDGRID_FROM_EMAIL = os.getenv("SENDGRID_FROM_EMAIL", "noreply@tradearena.app")
 SENDGRID_FROM_NAME = os.getenv("SENDGRID_FROM_NAME", "TradeArena")
-BASE_URL = os.getenv("BASE_URL", "https://tradearena.app")
+BASE_URL = os.getenv("BASE_URL", "https://tradearena.duckdns.org")
 
 SENDGRID_API_URL = "https://api.sendgrid.com/v3/mail/send"
 

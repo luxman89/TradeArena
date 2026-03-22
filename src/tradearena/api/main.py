@@ -387,7 +387,7 @@ curl /leaderboard
 ```python
 from sdk.client import TradeArenaClient
 
-client = TradeArenaClient(api_key="ta-...", base_url="https://tradearena.app")
+client = TradeArenaClient(api_key="ta-...", base_url="https://tradearena.duckdns.org")
 
 # Validate locally before submitting
 errors = client.validate({
@@ -497,8 +497,8 @@ app = FastAPI(
 # Default: production domains. Set CORS_ORIGINS="*" only for local development.
 # ---------------------------------------------------------------------------
 _PRODUCTION_ORIGINS = [
-    "https://tradearena.app",
-    "https://www.tradearena.app",
+    "https://tradearena.duckdns.org",
+    "https://www.tradearena.duckdns.org",
 ]
 
 _cors_env = os.getenv("CORS_ORIGINS", "").strip()
@@ -719,7 +719,7 @@ async def profile_page(username: str) -> HTMLResponse:
     html = _PROFILE_HTML.read_text()
 
     # Try to inject OG tags for the specific user
-    base_url = os.getenv("BASE_URL", "https://tradearena.app")
+    base_url = os.getenv("BASE_URL", "https://tradearena.duckdns.org")
     try:
         db = SessionLocal()
         try:
@@ -778,7 +778,7 @@ async def profile_page(username: str) -> HTMLResponse:
 @app.get("/sitemap.xml", include_in_schema=False)
 async def sitemap() -> PlainTextResponse:
     """Serve sitemap.xml for search engines."""
-    base = os.getenv("BASE_URL", "https://tradearena.app")
+    base = os.getenv("BASE_URL", "https://tradearena.duckdns.org")
     xml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>{base}/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>

@@ -219,7 +219,7 @@
 
 <div class="card">
   <p><span class="step-num">1</span> <strong>Register</strong> &mdash; create an account and get your API key</p>
-  <pre><code>curl -X POST https://tradearena.app/auth/register \
+  <pre><code>curl -X POST https://tradearena.duckdns.org/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "email": "you@example.com",
@@ -243,7 +243,7 @@
 
 <div class="card">
   <p><span class="step-num">2</span> <strong>Submit a signal</strong> &mdash; commit a trading prediction</p>
-  <pre><code>curl -X POST https://tradearena.app/signal \
+  <pre><code>curl -X POST https://tradearena.duckdns.org/signal \
   -H "X-API-Key: ta-your-api-key-here" \
   -H "Content-Type: application/json" \
   -d '{
@@ -269,7 +269,7 @@
 
 <div class="card">
   <p><span class="step-num">3</span> <strong>Check the leaderboard</strong> &mdash; see how you rank</p>
-  <pre><code>curl https://tradearena.app/leaderboard</code></pre>
+  <pre><code>curl https://tradearena.duckdns.org/leaderboard</code></pre>
   <pre><code><span class="comment">// Response</span>
 {
   <span class="key">"total"</span>: <span class="num">142</span>,
@@ -453,7 +453,7 @@ from sdk.client import TradeArenaClient
 
 client = TradeArenaClient(
     api_key=<span class="string">"ta-your-api-key"</span>,
-    base_url=<span class="string">"https://tradearena.app"</span>,
+    base_url=<span class="string">"https://tradearena.duckdns.org"</span>,
 )
 
 <span class="comment"># Step 1: Validate locally (no network call)</span>
@@ -554,10 +554,10 @@ confidence = client.calculate_confidence(
 
 <div class="card">
   <pre><code><span class="comment">// Connect to the real-time event stream</span>
-const ws = new WebSocket(<span class="string">"wss://tradearena.app/ws"</span>);
+const ws = new WebSocket(<span class="string">"wss://tradearena.duckdns.org/ws"</span>);
 
 <span class="comment">// Resume from last known sequence number</span>
-const ws = new WebSocket(<span class="string">"wss://tradearena.app/ws?last_seq=42"</span>);</code></pre>
+const ws = new WebSocket(<span class="string">"wss://tradearena.duckdns.org/ws?last_seq=42"</span>);</code></pre>
 
   <table>
     <tr><th>Event</th><th>Payload</th><th>When</th></tr>

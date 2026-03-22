@@ -250,11 +250,11 @@ class TestClickTracking:
         db_session.commit()
 
         resp = client.get(
-            "/email/click/track-click-001?url=https://tradearena.app/arena",
+            "/email/click/track-click-001?url=https://tradearena.duckdns.org/arena",
             follow_redirects=False,
         )
         assert resp.status_code == 302
-        assert resp.headers["location"] == "https://tradearena.app/arena"
+        assert resp.headers["location"] == "https://tradearena.duckdns.org/arena"
 
         db_session.expire_all()
         updated = (

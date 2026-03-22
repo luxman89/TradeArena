@@ -44,21 +44,21 @@ GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID", "")
 GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")
 GITHUB_REDIRECT_URI = os.getenv(
     "GITHUB_REDIRECT_URI",
-    os.getenv("BASE_URL", "https://tradearena.app") + "/auth/github/callback",
+    os.getenv("BASE_URL", "https://tradearena.duckdns.org") + "/auth/github/callback",
 )
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 GOOGLE_REDIRECT_URI = os.getenv(
     "GOOGLE_REDIRECT_URI",
-    os.getenv("BASE_URL", "https://tradearena.app") + "/auth/google/callback",
+    os.getenv("BASE_URL", "https://tradearena.duckdns.org") + "/auth/google/callback",
 )
 
 TWITTER_CLIENT_ID = os.getenv("TWITTER_CLIENT_ID", "")
 TWITTER_CLIENT_SECRET = os.getenv("TWITTER_CLIENT_SECRET", "")
 TWITTER_REDIRECT_URI = os.getenv(
     "TWITTER_REDIRECT_URI",
-    os.getenv("BASE_URL", "https://tradearena.app") + "/auth/twitter/callback",
+    os.getenv("BASE_URL", "https://tradearena.duckdns.org") + "/auth/twitter/callback",
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
