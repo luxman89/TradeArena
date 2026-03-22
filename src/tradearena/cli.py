@@ -577,6 +577,81 @@ def tournament_bracket(tournament_id: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# templates (group)
+# ---------------------------------------------------------------------------
+
+TEMPLATES = {
+    "momentum": {
+        "file": "momentum_bot.py",
+        "description": "EMA crossover — trend-following with fast/slow moving averages",
+    },
+    "mean-reversion": {
+        "file": "mean_reversion_bot.py",
+        "description": "Bollinger Bands — buys oversold, sells overbought conditions",
+    },
+    "sentiment": {
+        "file": "sentiment_bot.py",
+        "description": "Contrarian — uses Fear & Greed Index against crowd sentiment",
+    },
+}
+
+
+def _get_templates_dir() -> Path:
+    """Locate the bundled templates directory."""
+    # Check relative to this file (installed package)
+    pkg_dir = Path(__file__).resolve().parent.parent.parent / "examples"
+    if pkg_dir.is_dir():
+        return pkg_dir
+    # Fallback: check current working directory
+    cwd_dir = Path.cwd() / "examples"
+    if cwd_dir.is_dir():
+        return cwd_dir
+    return pkg_dir  # return expected path even if missing
+
+
+@cli.group()
+def templates() -> None:
+    """Browse and scaffold starter bot templates."""
+
+
+@templates.command("list")
+def templates_list() -> None:
+    """Show available bot templates."""
+    click.echo("Available templates:\n")
+    for name, info in TEMPLATES.items():
+        click.echo(f"  {name:<18} {info['description']}")
+    click.echo("\nScaffold one into your project:")
+    click.echo("  tradearena templates init <name>")
+
+
+@templates.command("init")
+@click.argument("name", type=click.Choice(list(TEMPLATES.keys()), case_sensitive=False))
+@click.option("--output", "-o", default=None, help="Output path (default: <template>.py in cwd).")
+def templates_init(name: str, output: str | None) -> None:
+    """Copy a bot template into the current directory."""
+    template = TEMPLATES[name.lower()]
+    src = _get_templates_dir() / template["file"]
+
+    if not src.exists():
+        click.echo(f"Error: template file not found at {src}", err=True)
+        click.echo("Templates may not be installed. Check your tradearena installation.", err=True)
+        sys.exit(1)
+
+    dst = Path(output) if output else Path.cwd() / template["file"]
+    if dst.exists():
+        if not click.confirm(f"{dst.name} already exists. Overwrite?"):
+            click.echo("Aborted.")
+            return
+
+    dst.write_text(src.read_text())
+    click.echo(f"Created {dst}")
+    click.echo("\nNext steps:")
+    click.echo("  1. export TRADEARENA_API_KEY='ta-your-key-here'")
+    click.echo(f"  2. Edit {dst.name} to customize parameters")
+    click.echo(f"  3. python {dst.name}")
+
+
+# ---------------------------------------------------------------------------
 # rating
 # ---------------------------------------------------------------------------
 
