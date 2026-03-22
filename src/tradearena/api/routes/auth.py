@@ -1,7 +1,8 @@
-"""Auth endpoints: register with password, login, profile, avatar change, GitHub OAuth."""
+"""Auth endpoints: register, login, profile, avatar, GitHub/Google/Twitter OAuth."""
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import logging
 import os
@@ -32,7 +33,9 @@ from tradearena.models.responses import (
     AuthRegisterResponse,
     AvatarUpdateResponse,
     GitHubCallbackResponse,
+    GoogleCallbackResponse,
     ProfileUpdateResponse,
+    TwitterCallbackResponse,
 )
 
 _logger = logging.getLogger(__name__)
@@ -42,6 +45,20 @@ GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")
 GITHUB_REDIRECT_URI = os.getenv(
     "GITHUB_REDIRECT_URI",
     os.getenv("BASE_URL", "https://tradearena.app") + "/auth/github/callback",
+)
+
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
+GOOGLE_REDIRECT_URI = os.getenv(
+    "GOOGLE_REDIRECT_URI",
+    os.getenv("BASE_URL", "https://tradearena.app") + "/auth/google/callback",
+)
+
+TWITTER_CLIENT_ID = os.getenv("TWITTER_CLIENT_ID", "")
+TWITTER_CLIENT_SECRET = os.getenv("TWITTER_CLIENT_SECRET", "")
+TWITTER_REDIRECT_URI = os.getenv(
+    "TWITTER_REDIRECT_URI",
+    os.getenv("BASE_URL", "https://tradearena.app") + "/auth/twitter/callback",
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -580,6 +597,448 @@ async def github_callback(
         api_key_hash=api_key_hash,
         github_id=gh_id,
         github_username=gh_username,
+        avatar_index=0,
+        created_at=now,
+    )
+    db.add(creator)
+    db.commit()
+
+    return {
+        "token": create_jwt(creator_id),
+        "creator_id": creator_id,
+        "api_key": api_key,
+        "display_name": display_name,
+        "division": body.division,
+        "avatar_index": 0,
+        "level": 1,
+        "xp": 0,
+        "title": None,
+        "is_new_account": True,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Google OAuth 2.0
+# ---------------------------------------------------------------------------
+
+_GOOGLE_AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth"
+_GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+_GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
+
+
+def _require_google_config() -> None:
+    """Raise 503 if Google OAuth is not configured."""
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Google OAuth is not configured on this server",
+        )
+
+
+class GoogleCallbackRequest(BaseModel):
+    code: str
+    division: str = "crypto"
+
+    @field_validator("division")
+    @classmethod
+    def validate_division(cls, v: str) -> str:
+        if v not in _VALID_DIVISIONS:
+            raise ValueError(f"division must be one of: {', '.join(sorted(_VALID_DIVISIONS))}")
+        return v
+
+
+@router.get(
+    "/google",
+    summary="Initiate Google OAuth flow",
+    responses={
+        503: {"description": "Google OAuth not configured"},
+    },
+)
+async def google_redirect() -> dict:
+    """Return the Google authorization URL for the frontend to redirect to."""
+    _require_google_config()
+    params = urlencode(
+        {
+            "client_id": GOOGLE_CLIENT_ID,
+            "redirect_uri": GOOGLE_REDIRECT_URI,
+            "response_type": "code",
+            "scope": "openid email profile",
+            "access_type": "offline",
+        }
+    )
+    return {"authorization_url": f"{_GOOGLE_AUTHORIZE_URL}?{params}"}
+
+
+@router.post(
+    "/google/callback",
+    response_model=GoogleCallbackResponse,
+    summary="Complete Google OAuth signup/login",
+    responses={
+        400: {"description": "Google authentication failed"},
+        503: {"description": "Google OAuth not configured"},
+    },
+)
+async def google_callback(
+    body: GoogleCallbackRequest,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Exchange Google OAuth code for access token, then login or create account.
+
+    Flow:
+    1. Exchange code for Google access token.
+    2. Fetch Google user profile (email, name, sub).
+    3. If google_id matches existing creator → login.
+    4. If email matches existing creator → link Google account + login.
+    5. Otherwise → create new creator with auto-generated API key.
+    """
+    _require_google_config()
+
+    # Step 1: Exchange code for access token
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        token_resp = await client.post(
+            _GOOGLE_TOKEN_URL,
+            data={
+                "client_id": GOOGLE_CLIENT_ID,
+                "client_secret": GOOGLE_CLIENT_SECRET,
+                "code": body.code,
+                "redirect_uri": GOOGLE_REDIRECT_URI,
+                "grant_type": "authorization_code",
+            },
+            headers={"Accept": "application/json"},
+        )
+
+    if token_resp.status_code != 200:
+        _logger.warning("Google token exchange failed: %s", token_resp.status_code)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to exchange Google authorization code",
+        )
+
+    token_data = token_resp.json()
+    access_token = token_data.get("access_token")
+    if not access_token:
+        error_desc = token_data.get("error_description", "Unknown error")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Google OAuth error: {error_desc}",
+        )
+
+    # Step 2: Fetch Google user profile
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        user_resp = await client.get(
+            _GOOGLE_USERINFO_URL,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        if user_resp.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Failed to fetch Google user profile",
+            )
+        g_user = user_resp.json()
+
+    g_id = str(g_user.get("id", ""))
+    g_email = g_user.get("email")
+    g_display_name = g_user.get("name", "")
+
+    if not g_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Google profile missing user ID",
+        )
+
+    # Step 3: Check if google_id already linked
+    creator = db.query(CreatorORM).filter(CreatorORM.google_id == g_id).first()
+    if creator:
+        score = creator.score
+        xp = score.xp if score else 0
+        level = score.level if score else 1
+        return {
+            "token": create_jwt(creator.id),
+            "creator_id": creator.id,
+            "api_key": None,
+            "display_name": creator.display_name,
+            "division": creator.division,
+            "avatar_index": creator.avatar_index or 0,
+            "level": level,
+            "xp": xp,
+            "title": title_for_level(level),
+            "is_new_account": False,
+        }
+
+    # Step 4: Check if email matches existing account → link
+    if g_email:
+        creator = db.query(CreatorORM).filter(CreatorORM.email == g_email.lower()).first()
+        if creator:
+            creator.google_id = g_id
+            db.commit()
+
+            score = creator.score
+            xp = score.xp if score else 0
+            level = score.level if score else 1
+            return {
+                "token": create_jwt(creator.id),
+                "creator_id": creator.id,
+                "api_key": None,
+                "display_name": creator.display_name,
+                "division": creator.division,
+                "avatar_index": creator.avatar_index or 0,
+                "level": level,
+                "xp": xp,
+                "title": title_for_level(level),
+                "is_new_account": False,
+            }
+
+    # Step 5: New account — create creator with auto-generated API key
+    if len(g_display_name) >= 3:
+        display_name = g_display_name[:50]
+    else:
+        display_name = f"trader-{secrets.token_hex(2)}"
+
+    slug = _slugify(display_name)
+    if not slug:
+        slug = f"trader-{secrets.token_hex(2)}"
+    creator_id = f"{slug}-{secrets.token_hex(2)}"
+    if db.query(CreatorORM).filter(CreatorORM.id == creator_id).first():
+        creator_id = f"{slug}-{secrets.token_hex(2)}"
+
+    api_key = f"ta-{secrets.token_hex(16)}"
+    api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+    now = datetime.now(UTC)
+
+    creator = CreatorORM(
+        id=creator_id,
+        display_name=display_name,
+        division=body.division,
+        email=g_email.lower() if g_email else None,
+        api_key_hash=api_key_hash,
+        google_id=g_id,
+        avatar_index=0,
+        created_at=now,
+    )
+    db.add(creator)
+    db.commit()
+
+    return {
+        "token": create_jwt(creator_id),
+        "creator_id": creator_id,
+        "api_key": api_key,
+        "display_name": display_name,
+        "division": body.division,
+        "avatar_index": 0,
+        "level": 1,
+        "xp": 0,
+        "title": None,
+        "is_new_account": True,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Twitter/X OAuth 2.0 (PKCE)
+# ---------------------------------------------------------------------------
+
+_TWITTER_AUTHORIZE_URL = "https://twitter.com/i/oauth2/authorize"
+_TWITTER_TOKEN_URL = "https://api.twitter.com/2/oauth2/token"
+_TWITTER_USER_URL = "https://api.twitter.com/2/users/me"
+
+# In-memory PKCE verifier store (keyed by state param).
+# Production should use Redis/DB, but this is sufficient for single-instance.
+_pkce_store: dict[str, str] = {}
+
+
+def _require_twitter_config() -> None:
+    """Raise 503 if Twitter OAuth is not configured."""
+    if not TWITTER_CLIENT_ID or not TWITTER_CLIENT_SECRET:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Twitter OAuth is not configured on this server",
+        )
+
+
+def _generate_pkce_pair() -> tuple[str, str]:
+    """Generate a PKCE code_verifier and code_challenge (S256)."""
+    verifier = secrets.token_urlsafe(64)
+    digest = hashlib.sha256(verifier.encode("ascii")).digest()
+    challenge = base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+    return verifier, challenge
+
+
+class TwitterCallbackRequest(BaseModel):
+    code: str
+    state: str
+    division: str = "crypto"
+
+    @field_validator("division")
+    @classmethod
+    def validate_division(cls, v: str) -> str:
+        if v not in _VALID_DIVISIONS:
+            raise ValueError(f"division must be one of: {', '.join(sorted(_VALID_DIVISIONS))}")
+        return v
+
+
+@router.get(
+    "/twitter",
+    summary="Initiate Twitter/X OAuth flow",
+    responses={
+        503: {"description": "Twitter OAuth not configured"},
+    },
+)
+async def twitter_redirect() -> dict:
+    """Return the Twitter authorization URL with PKCE challenge for the frontend."""
+    _require_twitter_config()
+
+    state = secrets.token_urlsafe(32)
+    verifier, challenge = _generate_pkce_pair()
+    _pkce_store[state] = verifier
+
+    params = urlencode(
+        {
+            "response_type": "code",
+            "client_id": TWITTER_CLIENT_ID,
+            "redirect_uri": TWITTER_REDIRECT_URI,
+            "scope": "users.read tweet.read",
+            "state": state,
+            "code_challenge": challenge,
+            "code_challenge_method": "S256",
+        }
+    )
+    return {"authorization_url": f"{_TWITTER_AUTHORIZE_URL}?{params}"}
+
+
+@router.post(
+    "/twitter/callback",
+    response_model=TwitterCallbackResponse,
+    summary="Complete Twitter/X OAuth signup/login",
+    responses={
+        400: {"description": "Twitter authentication failed"},
+        503: {"description": "Twitter OAuth not configured"},
+    },
+)
+async def twitter_callback(
+    body: TwitterCallbackRequest,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Exchange Twitter OAuth code for access token, then login or create account.
+
+    Flow:
+    1. Exchange code for Twitter access token (PKCE).
+    2. Fetch Twitter user profile.
+    3. If twitter_id matches existing creator → login.
+    4. Otherwise → create new creator with auto-generated API key.
+    """
+    _require_twitter_config()
+
+    # Retrieve and consume the PKCE verifier
+    verifier = _pkce_store.pop(body.state, None)
+    if not verifier:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired OAuth state parameter",
+        )
+
+    # Step 1: Exchange code for access token using PKCE
+    basic_auth = base64.b64encode(f"{TWITTER_CLIENT_ID}:{TWITTER_CLIENT_SECRET}".encode()).decode()
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        token_resp = await client.post(
+            _TWITTER_TOKEN_URL,
+            data={
+                "grant_type": "authorization_code",
+                "code": body.code,
+                "redirect_uri": TWITTER_REDIRECT_URI,
+                "code_verifier": verifier,
+            },
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Authorization": f"Basic {basic_auth}",
+            },
+        )
+
+    if token_resp.status_code != 200:
+        _logger.warning("Twitter token exchange failed: %s", token_resp.status_code)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to exchange Twitter authorization code",
+        )
+
+    token_data = token_resp.json()
+    access_token = token_data.get("access_token")
+    if not access_token:
+        error_desc = token_data.get("error_description", "Unknown error")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Twitter OAuth error: {error_desc}",
+        )
+
+    # Step 2: Fetch Twitter user profile
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        user_resp = await client.get(
+            _TWITTER_USER_URL,
+            params={"user.fields": "id,username,name"},
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        if user_resp.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Failed to fetch Twitter user profile",
+            )
+        tw_data = user_resp.json().get("data", {})
+
+    tw_id = str(tw_data.get("id", ""))
+    tw_handle = tw_data.get("username", "")
+    tw_display_name = tw_data.get("name") or tw_handle
+
+    if not tw_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Twitter profile missing user ID",
+        )
+
+    # Step 3: Check if twitter_id already linked
+    creator = db.query(CreatorORM).filter(CreatorORM.twitter_id == tw_id).first()
+    if creator:
+        score = creator.score
+        xp = score.xp if score else 0
+        level = score.level if score else 1
+        # Update handle in case it changed
+        if creator.twitter_handle != tw_handle:
+            creator.twitter_handle = tw_handle
+            db.commit()
+        return {
+            "token": create_jwt(creator.id),
+            "creator_id": creator.id,
+            "api_key": None,
+            "display_name": creator.display_name,
+            "division": creator.division,
+            "avatar_index": creator.avatar_index or 0,
+            "level": level,
+            "xp": xp,
+            "title": title_for_level(level),
+            "is_new_account": False,
+        }
+
+    # Step 4: New account — create creator with auto-generated API key
+    display_name = tw_display_name[:50] if len(tw_display_name) >= 3 else tw_handle[:50]
+    if len(display_name) < 3:
+        display_name = f"trader-{secrets.token_hex(2)}"
+
+    slug = _slugify(display_name)
+    if not slug:
+        slug = f"trader-{secrets.token_hex(2)}"
+    creator_id = f"{slug}-{secrets.token_hex(2)}"
+    if db.query(CreatorORM).filter(CreatorORM.id == creator_id).first():
+        creator_id = f"{slug}-{secrets.token_hex(2)}"
+
+    api_key = f"ta-{secrets.token_hex(16)}"
+    api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+    now = datetime.now(UTC)
+
+    creator = CreatorORM(
+        id=creator_id,
+        display_name=display_name,
+        division=body.division,
+        api_key_hash=api_key_hash,
+        twitter_id=tw_id,
+        twitter_handle=tw_handle,
         avatar_index=0,
         created_at=now,
     )
