@@ -74,6 +74,7 @@ class CreatorORM(Base):
     github_username = Column(String(128), nullable=True)
     unsubscribe_token = Column(String(64), nullable=True, unique=True, index=True)
     email_opted_out = Column(Boolean, nullable=False, default=False)
+    webhook_url = Column(String(512), nullable=True)
 
     signals = relationship("SignalORM", back_populates="creator", lazy="select")
     score = relationship("CreatorScoreORM", back_populates="creator", uselist=False)

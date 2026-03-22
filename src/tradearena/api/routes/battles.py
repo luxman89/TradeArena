@@ -105,6 +105,20 @@ async def create_battle(
 
     resp = _battle_to_response(battle)
     await manager.broadcast("battle_created", resp)
+
+    # Fire battle.started webhooks for both participants
+    from tradearena.core.webhooks import fire_webhook_for_creator
+
+    battle_data = {
+        "battle_id": battle.battle_id,
+        "creator1_id": battle.creator1_id,
+        "creator2_id": battle.creator2_id,
+        "window_days": battle.window_days,
+        "battle_type": battle.battle_type,
+    }
+    await fire_webhook_for_creator(db, battle.creator1_id, "battle.started", battle_data)
+    await fire_webhook_for_creator(db, battle.creator2_id, "battle.started", battle_data)
+
     return resp
 
 

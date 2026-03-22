@@ -692,6 +692,64 @@ def rating() -> None:
 
 
 # ---------------------------------------------------------------------------
+# webhook (group)
+# ---------------------------------------------------------------------------
+
+
+@cli.group()
+def webhook() -> None:
+    """Manage webhook notifications."""
+
+
+@webhook.command("set")
+@click.argument("url", required=False, default=None)
+@click.option("--clear", is_flag=True, help="Remove the webhook URL.")
+def webhook_set(url: str | None, clear: bool) -> None:
+    """Set your webhook URL for real-time event notifications.
+
+    Pass a URL to register, or --clear to remove it.
+    """
+    cfg = _require_config("api_key")
+
+    if clear:
+        payload: dict = {"url": None}
+    elif url:
+        payload = {"url": url}
+    else:
+        click.echo("Error: provide a URL or use --clear.", err=True)
+        sys.exit(1)
+
+    resp = _api(cfg, "POST", "/creator/webhook", json=payload)
+    if resp.status_code not in (200, 201):
+        click.echo(f"Error ({resp.status_code}): {resp.text}", err=True)
+        sys.exit(1)
+
+    result = resp.json()
+    click.echo(result.get("message", "Done."))
+    if result.get("webhook_url"):
+        click.echo(f"  Webhook URL: {result['webhook_url']}")
+
+
+@webhook.command("test")
+def webhook_test() -> None:
+    """Send a test event to your registered webhook URL."""
+    cfg = _require_config("api_key")
+
+    resp = _api(cfg, "POST", "/creator/webhook/test")
+    if resp.status_code not in (200, 201):
+        click.echo(f"Error ({resp.status_code}): {resp.text}", err=True)
+        sys.exit(1)
+
+    result = resp.json()
+    if result.get("success"):
+        click.echo(f"Test webhook delivered successfully (HTTP {result.get('status_code')}).")
+    else:
+        error = result.get("error") or f"HTTP {result.get('status_code')}"
+        click.echo(f"Test webhook failed: {error}")
+    click.echo(f"  URL: {result.get('webhook_url')}")
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 

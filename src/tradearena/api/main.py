@@ -28,6 +28,7 @@ from tradearena.api.routes import (
     profiles,
     signals,
     tournaments,
+    webhooks,
 )
 from tradearena.api.ws import PING_INTERVAL_SECONDS, manager
 from tradearena.db.database import (
@@ -176,6 +177,7 @@ async def _background_loop():
     from tradearena.core.matchmaker import run_matchmaking
     from tradearena.core.metrics import collector
     from tradearena.core.oracle import resolve_pending_signals
+    from tradearena.core.webhooks import fire_webhook_for_creator
 
     global _last_matchmaking, _last_bot_run, _last_drip_run  # noqa: PLW0603
 
@@ -198,6 +200,29 @@ async def _background_loop():
                 if stats["resolved"] > 0:
                     logger.info("Oracle resolved %d signals", stats["resolved"])
                     await manager.broadcast("signals_resolved", stats)
+
+                    # Fire signal.resolved webhooks for each resolved signal
+                    resolved_signals = (
+                        db.query(SignalORM)
+                        .filter(SignalORM.outcome.isnot(None), SignalORM.outcome != "NULL")
+                        .order_by(SignalORM.outcome_at.desc())
+                        .limit(stats["resolved"])
+                        .all()
+                    )
+                    for sig in resolved_signals:
+                        await fire_webhook_for_creator(
+                            db,
+                            sig.creator_id,
+                            "signal.resolved",
+                            {
+                                "signal_id": sig.signal_id,
+                                "asset": sig.asset,
+                                "action": sig.action,
+                                "outcome": sig.outcome,
+                                "outcome_price": sig.outcome_price,
+                                "confidence": sig.confidence,
+                            },
+                        )
 
                 # 2. Recompute scores for all creators with signals
                 creator_ids = {
@@ -222,6 +247,22 @@ async def _background_loop():
                         result = resolve_battle(battle, db)
                         if result:
                             resolved_count += 1
+                            # Fire battle.ended webhooks for both participants
+                            battle_data = {
+                                "battle_id": battle.battle_id,
+                                "winner_id": battle.winner_id,
+                                "creator1_id": battle.creator1_id,
+                                "creator2_id": battle.creator2_id,
+                                "creator1_score": battle.creator1_score,
+                                "creator2_score": battle.creator2_score,
+                                "margin": battle.margin,
+                            }
+                            await fire_webhook_for_creator(
+                                db, battle.creator1_id, "battle.ended", battle_data
+                            )
+                            await fire_webhook_for_creator(
+                                db, battle.creator2_id, "battle.ended", battle_data
+                            )
                 if resolved_count:
                     logger.info("Resolved %d battles", resolved_count)
                     await manager.broadcast("battles_resolved", {"count": resolved_count})
@@ -233,6 +274,20 @@ async def _background_loop():
                     if new_battles:
                         logger.info("Matchmaking created %d battles", len(new_battles))
                         await manager.broadcast("matchmaking_complete", {"count": len(new_battles)})
+                        # Fire matchmaking.matched webhooks
+                        for mb in new_battles:
+                            match_data = {
+                                "battle_id": mb.battle_id,
+                                "creator1_id": mb.creator1_id,
+                                "creator2_id": mb.creator2_id,
+                                "window_days": mb.window_days,
+                            }
+                            await fire_webhook_for_creator(
+                                db, mb.creator1_id, "matchmaking.matched", match_data
+                            )
+                            await fire_webhook_for_creator(
+                                db, mb.creator2_id, "matchmaking.matched", match_data
+                            )
 
                 # 5. Hourly bot signal generation
                 if time.time() - _last_bot_run >= BOT_INTERVAL_SECONDS:
@@ -566,6 +621,7 @@ app.include_router(profiles.router)
 app.include_router(email.router)
 app.include_router(export.router)
 app.include_router(matchmaking.router)
+app.include_router(webhooks.router)
 
 # Serve static assets (sprites, tilesets, etc.)
 _ASSETS_DIR = _SCRIPTS_DIR / "assets"
