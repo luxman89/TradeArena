@@ -624,6 +624,12 @@ async def quickstart_page() -> FileResponse:
     )
 
 
+@app.get("/register", include_in_schema=False)
+async def register_redirect() -> RedirectResponse:
+    """Redirect /register to the landing page (GitHub OAuth signup is on the homepage)."""
+    return RedirectResponse(url="/", status_code=302)
+
+
 @app.get("/admin/dashboard", include_in_schema=False)
 async def admin_dashboard() -> FileResponse:
     """Serve the admin monitoring dashboard."""
@@ -662,9 +668,7 @@ async def profile_page(username: str) -> HTMLResponse:
             creator = db.query(CreatorORM).filter(CreatorORM.id == username).first()
             if not creator:
                 creator = (
-                    db.query(CreatorORM)
-                    .filter(CreatorORM.github_username == username)
-                    .first()
+                    db.query(CreatorORM).filter(CreatorORM.github_username == username).first()
                 )
             if creator:
                 score = creator.score

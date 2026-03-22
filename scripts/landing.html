@@ -397,6 +397,15 @@ section {
   margin-top: 4rem;
   background: rgba(255,255,255,0.04);
 }
+.steps-grid-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+.btn-github {
+  gap: 0.625rem;
+}
+.btn-github svg {
+  flex-shrink: 0;
+}
 .step {
   background: var(--void);
   padding: 2.5rem 2rem;
@@ -732,14 +741,14 @@ footer {
 
 /* ── RESPONSIVE ── */
 @media (max-width: 900px) {
-  .steps-grid { grid-template-columns: repeat(2, 1fr); }
+  .steps-grid, .steps-grid-3 { grid-template-columns: repeat(2, 1fr); }
   .scoring-layout { grid-template-columns: 1fr; gap: 3rem; }
   .scoring-visual { max-width: 320px; margin: 0 auto; }
   .trust-grid { grid-template-columns: 1fr; }
   .stats-row { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 600px) {
-  .steps-grid { grid-template-columns: 1fr; }
+  .steps-grid, .steps-grid-3 { grid-template-columns: 1fr; }
   .stats-row { grid-template-columns: 1fr; }
   nav { padding: 1rem 1.25rem; }
   .nav-links { display: none; }
@@ -760,10 +769,13 @@ footer {
   <ul class="nav-links">
     <li><a href="#how-it-works">How It Works</a></li>
     <li><a href="#scoring">Scoring</a></li>
-    <li><a href="#trust">Why Trust Us</a></li>
     <li><a href="/arena">Arena</a></li>
+    <li><a href="/quickstart">Quickstart</a></li>
   </ul>
-  <a href="/register" class="nav-cta">Get Started</a>
+  <a href="#" class="nav-cta" onclick="githubSignup(event)">
+    <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14" style="margin-right:2px"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+    Sign Up
+  </a>
 </nav>
 
 <!-- ── HERO ── -->
@@ -777,20 +789,20 @@ footer {
     Now in open beta
   </div>
 
-  <h1 class="reveal reveal-delay-1">Prove Your<br>Trading <em>Edge</em></h1>
+  <h1 class="reveal reveal-delay-1">Build. Battle.<br><em>Win.</em></h1>
 
   <p class="hero-sub reveal reveal-delay-2">
-    Submit cryptographically committed predictions.<br>
-    Scored transparently across four dimensions.<br>
+    Deploy your trading bot on TradeArena.<br>
+    Cryptographically committed predictions scored across four dimensions.<br>
     No hiding. No faking. Just pure signal.
   </p>
 
   <div class="hero-actions reveal reveal-delay-3">
-    <a href="/register" class="btn-primary">
-      Start Trading
-      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8h10m-4-4 4 4-4 4"/></svg>
+    <a href="#" class="btn-primary btn-github" id="github-signup" onclick="githubSignup(event)">
+      <svg viewBox="0 0 16 16" fill="currentColor" width="18" height="18"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      Sign up with GitHub
     </a>
-    <a href="#how-it-works" class="btn-secondary">How It Works</a>
+    <a href="/quickstart" class="btn-secondary">Quickstart Guide</a>
   </div>
 
   <div class="hash-ticker reveal reveal-delay-4">
@@ -803,46 +815,37 @@ footer {
 <section class="how-it-works" id="how-it-works">
   <div class="container">
     <span class="section-label reveal">Process</span>
-    <h2 class="section-title reveal reveal-delay-1">Four steps to<br>immutable proof</h2>
-    <p class="section-desc reveal reveal-delay-2">Every signal follows the same tamper-proof pipeline. No edits. No deletions. Your record speaks for itself.</p>
+    <h2 class="section-title reveal reveal-delay-1">Three steps to the<br>leaderboard</h2>
+    <p class="section-desc reveal reveal-delay-2">Sign up, deploy your bot, and start competing. Every signal is cryptographically committed and scored transparently.</p>
   </div>
 
   <div class="container">
-    <div class="steps-grid">
+    <div class="steps-grid steps-grid-3">
       <div class="step reveal">
         <div class="step-number">01</div>
         <div class="step-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 20V4m0 0-6 6m6-6 6 6"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0zm-4 7a7 7 0 0 0-7 7h14a7 7 0 0 0-7-7z"/></svg>
         </div>
-        <h3>Submit Signal</h3>
-        <p>Call your trade — asset, direction, confidence level, and your thesis. The SDK validates locally before it ever hits the wire.</p>
+        <h3>Sign Up</h3>
+        <p>One click with GitHub. You get an API key and creator profile instantly — no forms, no email verification.</p>
       </div>
 
       <div class="step reveal reveal-delay-1">
         <div class="step-number">02</div>
         <div class="step-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 15v2m-6 4h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2zm10-10V7a4 4 0 0 0-8 0v4h8z"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z"/></svg>
         </div>
-        <h3>Cryptographic Lock</h3>
-        <p>SHA-256 commitment hash seals your prediction with a nonce and timestamp. Append-only storage — once committed, it's permanent.</p>
+        <h3>Deploy Your Bot</h3>
+        <p>Install the Python SDK, wire up your strategy, and start emitting signals. Local validation catches errors before they hit the API.</p>
       </div>
 
       <div class="step reveal reveal-delay-2">
         <div class="step-number">03</div>
         <div class="step-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-        </div>
-        <h3>Oracle Resolution</h3>
-        <p>When the time window expires, the oracle checks real market data (Binance klines) and stamps the outcome: WIN, LOSS, or NEUTRAL.</p>
-      </div>
-
-      <div class="step reveal reveal-delay-3">
-        <div class="step-number">04</div>
-        <div class="step-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 19v-6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2zm0 0V9a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v10m-6 0a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2m0 0V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2z"/></svg>
         </div>
-        <h3>Composite Score</h3>
-        <p>Four weighted dimensions collapse into a single number. Your rank on the leaderboard reflects real, auditable performance.</p>
+        <h3>Compete</h3>
+        <p>Your signals are scored across four dimensions — win rate, risk-adjusted return, consistency, and calibration. Climb the leaderboard.</p>
       </div>
     </div>
   </div>
@@ -960,12 +963,12 @@ footer {
   <div class="container">
     <div class="stats-row">
       <div class="stat-item reveal">
-        <div class="stat-value" data-target="12847">0</div>
-        <div class="stat-label">Signals Committed</div>
+        <div class="stat-value" id="stat-bots" data-target="0">0</div>
+        <div class="stat-label">Active Bots</div>
       </div>
       <div class="stat-item reveal reveal-delay-1">
-        <div class="stat-value" data-target="342">0</div>
-        <div class="stat-label">Active Traders</div>
+        <div class="stat-value" id="stat-signals" data-target="0">0</div>
+        <div class="stat-label">Total Signals</div>
       </div>
       <div class="stat-item reveal reveal-delay-2">
         <div class="stat-value">100<span class="accent">%</span></div>
@@ -984,11 +987,11 @@ footer {
   <div class="cta-glow"></div>
   <div class="container" style="position:relative;">
     <h2 class="reveal">Stop talking.<br>Start <em>proving.</em></h2>
-    <p class="reveal reveal-delay-1">Create your profile, connect the SDK, and let your track record do the talking. Every feature is free.</p>
+    <p class="reveal reveal-delay-1">Sign up with GitHub, deploy your bot via the SDK, and let your track record do the talking. Every feature is free.</p>
     <div class="reveal reveal-delay-2">
-      <a href="/register" class="btn-primary" style="font-size:1rem; padding: 1rem 2.5rem;">
-        Create Your Profile
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8h10m-4-4 4 4-4 4"/></svg>
+      <a href="#" class="btn-primary btn-github" style="font-size:1rem; padding: 1rem 2.5rem;" onclick="githubSignup(event)">
+        <svg viewBox="0 0 16 16" fill="currentColor" width="18" height="18"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        Sign up with GitHub
       </a>
       <p class="cta-note">No credit card. No premium tiers. Just compete.</p>
     </div>
@@ -1071,11 +1074,61 @@ if (tickerEl) {
 // ── Smooth scroll for anchor links ──
 document.querySelectorAll('a[href^="#"]').forEach(a => {
   a.addEventListener('click', e => {
+    if (a.id === 'github-signup' || a.onclick) return; // handled by githubSignup
     e.preventDefault();
     const target = document.querySelector(a.getAttribute('href'));
     if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 });
+
+// ── GitHub OAuth Signup ──
+async function githubSignup(e) {
+  e.preventDefault();
+  try {
+    const res = await fetch('/auth/github/redirect');
+    const data = await res.json();
+    if (data.authorization_url) {
+      window.location.href = data.authorization_url;
+    }
+  } catch (err) {
+    console.error('GitHub OAuth redirect failed:', err);
+  }
+}
+
+// ── Live Stats from API ──
+(async function loadLiveStats() {
+  try {
+    const res = await fetch('/leaderboard?limit=1');
+    if (!res.ok) return;
+    const data = await res.json();
+    const botsEl = document.getElementById('stat-bots');
+    const signalsEl = document.getElementById('stat-signals');
+    if (botsEl && data.total != null) {
+      botsEl.dataset.target = String(data.total);
+    }
+    if (signalsEl && data.entries && data.entries.length > 0) {
+      // Sum total_signals from all entries; use total count as fallback
+      const totalSignals = data.entries.reduce((sum, e) => sum + (e.total_signals || 0), 0);
+      // Fetch full leaderboard to get accurate signal count
+      const fullRes = await fetch('/leaderboard?limit=200');
+      if (fullRes.ok) {
+        const fullData = await fullRes.json();
+        const allSignals = fullData.entries.reduce((sum, e) => sum + (e.total_signals || 0), 0);
+        signalsEl.dataset.target = String(allSignals);
+      } else {
+        signalsEl.dataset.target = String(totalSignals);
+      }
+    }
+    // Re-observe stat elements for counter animation
+    document.querySelectorAll('.stat-value[data-target]').forEach(el => {
+      if (parseInt(el.dataset.target) > 0) {
+        counterObserver.observe(el);
+      }
+    });
+  } catch (err) {
+    // Silently fall back to static values
+  }
+})();
 </script>
 </body>
 </html>
