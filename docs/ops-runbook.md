@@ -269,6 +269,86 @@ curl -s http://localhost:8000/leaderboard/open | head -c 200
 
 ---
 
+## 5. PyPI Publishing
+
+The `tradearena` CLI is packaged for PyPI distribution. End users install with `pip install tradearena`.
+
+### Prerequisites
+
+- Python 3.12+
+- `uv` (or `pip install build twine`)
+- A PyPI API token (create at https://pypi.org/manage/account/token/ — scope to the `tradearena` project)
+
+### Build
+
+```bash
+cd /opt/tradearena
+
+# Clean previous builds
+rm -rf dist/
+
+# Build sdist + wheel
+uv build
+# Produces: dist/tradearena-X.Y.Z.tar.gz and dist/tradearena-X.Y.Z-py3-none-any.whl
+```
+
+### Verify Before Publishing
+
+```bash
+# Test install in a fresh venv
+uv venv /tmp/test-ta && source /tmp/test-ta/bin/activate
+uv pip install dist/tradearena-*.whl
+tradearena --version
+tradearena --help
+deactivate && rm -rf /tmp/test-ta
+```
+
+### Publish to PyPI
+
+```bash
+# First time: configure token
+# Option A: environment variable
+export TWINE_USERNAME=__token__
+export TWINE_PASSWORD=pypi-your-api-token-here
+
+# Option B: use uv publish (recommended)
+uv publish --token pypi-your-api-token-here
+
+# Option C: use twine
+pip install twine
+twine upload dist/*
+```
+
+### Publish to TestPyPI (dry run)
+
+```bash
+uv publish --publish-url https://test.pypi.org/legacy/ --token pypi-your-test-token-here
+
+# Verify: pip install -i https://test.pypi.org/simple/ tradearena
+```
+
+### Version Bumping
+
+1. Update `version` in `pyproject.toml`
+2. Update `__version__` in `src/tradearena/__init__.py`
+3. Commit, tag, build, publish:
+   ```bash
+   git tag v0.2.0
+   git push origin v0.2.0
+   rm -rf dist/ && uv build
+   uv publish --token $PYPI_TOKEN
+   ```
+
+### Troubleshooting
+
+| Issue | Fix |
+|-------|-----|
+| `twine` reports "file already exists" | Bump the version — PyPI does not allow re-uploading the same version |
+| Missing metadata on PyPI page | Check `pyproject.toml` fields and rebuild |
+| Install fails with dependency error | Verify `requires-python` and dependency version bounds |
+
+---
+
 ## Quick Reference
 
 | Scenario | First action | Escalation |

@@ -1,9 +1,25 @@
 [project]
 name = "tradearena"
 version = "0.1.0"
-description = "Trustless trading signal competition platform"
+description = "Trustless trading signal competition platform — submit, track, and compete on trading signals"
 readme = "README.md"
+license = "MIT"
 requires-python = ">=3.12"
+authors = [
+    { name = "TradeArena", email = "hello@tradearena.io" },
+]
+keywords = ["trading", "signals", "competition", "crypto", "backtesting"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Typing :: Typed",
+]
 dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.30.0",
@@ -19,6 +35,12 @@ dependencies = [
     "authlib>=1.3.0",
     "click>=8.1.0",
 ]
+
+[project.urls]
+Homepage = "https://tradearena.io"
+Repository = "https://github.com/luxman89/TradeArena"
+Documentation = "https://github.com/luxman89/TradeArena#readme"
+"Bug Tracker" = "https://github.com/luxman89/TradeArena/issues"
 
 [project.scripts]
 tradearena = "tradearena.cli:cli"
