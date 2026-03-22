@@ -40,7 +40,8 @@ _logger = logging.getLogger(__name__)
 GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID", "")
 GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")
 GITHUB_REDIRECT_URI = os.getenv(
-    "GITHUB_REDIRECT_URI", "https://tradearena.app/auth/github/callback"
+    "GITHUB_REDIRECT_URI",
+    os.getenv("BASE_URL", "https://tradearena.app") + "/auth/github/callback",
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
