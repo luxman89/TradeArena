@@ -32,6 +32,7 @@ from tradearena.models.responses import (
     AuthMeResponse,
     AuthRegisterResponse,
     AvatarUpdateResponse,
+    DiscordCallbackResponse,
     GitHubCallbackResponse,
     GoogleCallbackResponse,
     ProfileUpdateResponse,
@@ -59,6 +60,13 @@ TWITTER_CLIENT_SECRET = os.getenv("TWITTER_CLIENT_SECRET", "")
 TWITTER_REDIRECT_URI = os.getenv(
     "TWITTER_REDIRECT_URI",
     os.getenv("BASE_URL", "https://tradearena.duckdns.org") + "/auth/twitter/callback",
+)
+
+DISCORD_CLIENT_ID = os.getenv("DISCORD_CLIENT_ID", "")
+DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET", "")
+DISCORD_REDIRECT_URI = os.getenv(
+    "DISCORD_REDIRECT_URI",
+    os.getenv("BASE_URL", "https://tradearena.duckdns.org") + "/auth/discord/callback",
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -1039,6 +1047,227 @@ async def twitter_callback(
         api_key_hash=api_key_hash,
         twitter_id=tw_id,
         twitter_handle=tw_handle,
+        avatar_index=0,
+        created_at=now,
+    )
+    db.add(creator)
+    db.commit()
+
+    return {
+        "token": create_jwt(creator_id),
+        "creator_id": creator_id,
+        "api_key": api_key,
+        "display_name": display_name,
+        "division": body.division,
+        "avatar_index": 0,
+        "level": 1,
+        "xp": 0,
+        "title": None,
+        "is_new_account": True,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Discord OAuth 2.0
+# ---------------------------------------------------------------------------
+
+_DISCORD_AUTHORIZE_URL = "https://discord.com/oauth2/authorize"
+_DISCORD_TOKEN_URL = "https://discord.com/api/oauth2/token"
+_DISCORD_USER_URL = "https://discord.com/api/users/@me"
+
+
+def _require_discord_config() -> None:
+    """Raise 503 if Discord OAuth is not configured."""
+    if not DISCORD_CLIENT_ID or not DISCORD_CLIENT_SECRET:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Discord OAuth is not configured on this server",
+        )
+
+
+class DiscordCallbackRequest(BaseModel):
+    code: str
+    division: str = "crypto"
+
+    @field_validator("division")
+    @classmethod
+    def validate_division(cls, v: str) -> str:
+        if v not in _VALID_DIVISIONS:
+            raise ValueError(f"division must be one of: {', '.join(sorted(_VALID_DIVISIONS))}")
+        return v
+
+
+@router.get(
+    "/discord",
+    summary="Initiate Discord OAuth flow",
+    responses={
+        503: {"description": "Discord OAuth not configured"},
+    },
+)
+async def discord_redirect() -> dict:
+    """Return the Discord authorization URL for the frontend to redirect to."""
+    _require_discord_config()
+    params = urlencode(
+        {
+            "client_id": DISCORD_CLIENT_ID,
+            "redirect_uri": DISCORD_REDIRECT_URI,
+            "response_type": "code",
+            "scope": "identify email",
+        }
+    )
+    return {"authorization_url": f"{_DISCORD_AUTHORIZE_URL}?{params}"}
+
+
+@router.post(
+    "/discord/callback",
+    response_model=DiscordCallbackResponse,
+    summary="Complete Discord OAuth signup/login",
+    responses={
+        400: {"description": "Discord authentication failed"},
+        503: {"description": "Discord OAuth not configured"},
+    },
+)
+async def discord_callback(
+    body: DiscordCallbackRequest,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Exchange Discord OAuth code for access token, then login or create account.
+
+    Flow:
+    1. Exchange code for Discord access token.
+    2. Fetch Discord user profile (id, username, email).
+    3. If discord_id matches existing creator → login.
+    4. If email matches existing creator → link Discord account + login.
+    5. Otherwise → create new creator with auto-generated API key.
+    """
+    _require_discord_config()
+
+    # Step 1: Exchange code for access token
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        token_resp = await client.post(
+            _DISCORD_TOKEN_URL,
+            data={
+                "client_id": DISCORD_CLIENT_ID,
+                "client_secret": DISCORD_CLIENT_SECRET,
+                "grant_type": "authorization_code",
+                "code": body.code,
+                "redirect_uri": DISCORD_REDIRECT_URI,
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+
+    if token_resp.status_code != 200:
+        _logger.warning("Discord token exchange failed: %s", token_resp.status_code)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to exchange Discord authorization code",
+        )
+
+    token_data = token_resp.json()
+    access_token = token_data.get("access_token")
+    if not access_token:
+        error_desc = token_data.get("error_description", "Unknown error")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Discord OAuth error: {error_desc}",
+        )
+
+    # Step 2: Fetch Discord user profile
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        user_resp = await client.get(
+            _DISCORD_USER_URL,
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        if user_resp.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Failed to fetch Discord user profile",
+            )
+        d_user = user_resp.json()
+
+    d_id = str(d_user.get("id", ""))
+    d_username = d_user.get("username", "")
+    d_display_name = d_user.get("global_name") or d_username
+    d_email = d_user.get("email")
+
+    if not d_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Discord profile missing user ID",
+        )
+
+    # Step 3: Check if discord_id already linked
+    creator = db.query(CreatorORM).filter(CreatorORM.discord_id == d_id).first()
+    if creator:
+        score = creator.score
+        xp = score.xp if score else 0
+        level = score.level if score else 1
+        # Update username in case it changed
+        if creator.discord_username != d_username:
+            creator.discord_username = d_username
+            db.commit()
+        return {
+            "token": create_jwt(creator.id),
+            "creator_id": creator.id,
+            "api_key": None,
+            "display_name": creator.display_name,
+            "division": creator.division,
+            "avatar_index": creator.avatar_index or 0,
+            "level": level,
+            "xp": xp,
+            "title": title_for_level(level),
+            "is_new_account": False,
+        }
+
+    # Step 4: Check if email matches existing account → link
+    if d_email:
+        creator = db.query(CreatorORM).filter(CreatorORM.email == d_email.lower()).first()
+        if creator:
+            creator.discord_id = d_id
+            creator.discord_username = d_username
+            db.commit()
+
+            score = creator.score
+            xp = score.xp if score else 0
+            level = score.level if score else 1
+            return {
+                "token": create_jwt(creator.id),
+                "creator_id": creator.id,
+                "api_key": None,
+                "display_name": creator.display_name,
+                "division": creator.division,
+                "avatar_index": creator.avatar_index or 0,
+                "level": level,
+                "xp": xp,
+                "title": title_for_level(level),
+                "is_new_account": False,
+            }
+
+    # Step 5: New account — create creator with auto-generated API key
+    if len(d_display_name) >= 3:
+        display_name = d_display_name[:50]
+    else:
+        display_name = f"trader-{secrets.token_hex(2)}"
+
+    slug = _slugify(display_name)
+    if not slug:
+        slug = f"trader-{secrets.token_hex(2)}"
+    creator_id = f"{slug}-{secrets.token_hex(2)}"
+    if db.query(CreatorORM).filter(CreatorORM.id == creator_id).first():
+        creator_id = f"{slug}-{secrets.token_hex(2)}"
+
+    api_key = f"ta-{secrets.token_hex(16)}"
+    api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+    now = datetime.now(UTC)
+
+    creator = CreatorORM(
+        id=creator_id,
+        display_name=display_name,
+        division=body.division,
+        email=d_email.lower() if d_email else None,
+        api_key_hash=api_key_hash,
+        discord_id=d_id,
+        discord_username=d_username,
         avatar_index=0,
         created_at=now,
     )

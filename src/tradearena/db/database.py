@@ -75,6 +75,8 @@ class CreatorORM(Base):
     google_id = Column(String(64), nullable=True, unique=True, index=True)
     twitter_id = Column(String(64), nullable=True, unique=True, index=True)
     twitter_handle = Column(String(128), nullable=True)
+    discord_id = Column(String(64), nullable=True, unique=True, index=True)
+    discord_username = Column(String(128), nullable=True)
     unsubscribe_token = Column(String(64), nullable=True, unique=True, index=True)
     email_opted_out = Column(Boolean, nullable=False, default=False)
     webhook_url = Column(String(512), nullable=True)
