@@ -1,4 +1,4 @@
-"""TradeArena CLI — submit signals, check status, and view battles from the terminal."""
+"""TradeArena CLI — submit signals, check status, and compete from the terminal."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ import httpx
 CONFIG_DIR = Path.home() / ".tradearena"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
-DEFAULT_BASE_URL = "https://tradearena.io"
+DEFAULT_BASE_URL = "https://tradearena.duckdns.org"
 
 
 # ---------------------------------------------------------------------------
@@ -39,6 +39,15 @@ def _require_config(*keys: str) -> dict:
         click.echo("Run `tradearena init --api-key <key>` first.", err=True)
         sys.exit(1)
     return cfg
+
+
+def _require_creator_id(cfg: dict) -> str:
+    creator_id = cfg.get("creator_id")
+    if not creator_id:
+        click.echo("Error: creator_id not set. Submit a signal first or run:", err=True)
+        click.echo("  tradearena init --api-key <key> --creator-id <id>", err=True)
+        sys.exit(1)
+    return creator_id
 
 
 def _api(cfg: dict, method: str, path: str, **kwargs) -> httpx.Response:
@@ -185,11 +194,7 @@ def submit(
 def status(limit: int) -> None:
     """Show your recent signals and scores."""
     cfg = _require_config("api_key")
-    creator_id = cfg.get("creator_id")
-    if not creator_id:
-        click.echo("Error: creator_id not set. Submit a signal first or run:", err=True)
-        click.echo("  tradearena init --api-key <key> --creator-id <id>", err=True)
-        sys.exit(1)
+    creator_id = _require_creator_id(cfg)
 
     # Fetch profile
     resp = _api(cfg, "GET", f"/creator/{creator_id}")
@@ -239,16 +244,19 @@ def status(limit: int) -> None:
 
 
 # ---------------------------------------------------------------------------
-# battles
+# battles (legacy top-level command kept for backward compatibility)
 # ---------------------------------------------------------------------------
 
 
 @cli.command()
 @click.option("--all", "show_all", is_flag=True, help="Include resolved battles.")
 def battles(show_all: bool) -> None:
-    """Show active battles."""
+    """Show active battles (shortcut for 'battle list')."""
     cfg = _require_config("api_key")
+    _show_battle_list(cfg, show_all)
 
+
+def _show_battle_list(cfg: dict, show_all: bool) -> None:
     resp = _api(cfg, "GET", "/battles/active")
     if resp.status_code != 200:
         click.echo(f"Error ({resp.status_code}): {resp.text}", err=True)
@@ -262,15 +270,14 @@ def battles(show_all: bool) -> None:
         click.echo("No active battles.")
     else:
         click.echo(f"Active battles ({len(active)}):")
-        click.echo(f"{'ID':<10} {'Creator 1':<20} {'Creator 2':<20} {'Asset':<12} {'Status'}")
-        click.echo("-" * 75)
+        click.echo(f"{'ID':<10} {'Creator 1':<20} {'Creator 2':<20} {'Status'}")
+        click.echo("-" * 60)
         for b in active:
-            bid = b.get("id", b.get("battle_id", "?"))[:8]
+            bid = b.get("battle_id", b.get("id", "?"))[:8]
             click.echo(
                 f"{bid:<10} "
-                f"{b.get('creator_1_id', '?'):<20} "
-                f"{b.get('creator_2_id', '?'):<20} "
-                f"{b.get('asset', '?'):<12} "
+                f"{b.get('creator1_id', b.get('creator_1_id', '?')):<20} "
+                f"{b.get('creator2_id', b.get('creator_2_id', '?')):<20} "
                 f"{b.get('status', '?')}"
             )
 
@@ -283,9 +290,330 @@ def battles(show_all: bool) -> None:
             if history:
                 click.echo(f"\nRecent history ({len(history)}):")
                 for b in history:
-                    bid = b.get("id", b.get("battle_id", "?"))[:8]
-                    winner = b.get("winner_id", "?")
+                    bid = b.get("battle_id", b.get("id", "?"))[:8]
+                    winner = b.get("winner_id", "draw")
                     click.echo(f"  {bid}  winner={winner}  status={b.get('status', '?')}")
+
+
+# ---------------------------------------------------------------------------
+# battle (group)
+# ---------------------------------------------------------------------------
+
+
+@cli.group()
+def battle() -> None:
+    """Manage 1v1 battles."""
+
+
+@battle.command("challenge")
+@click.argument("bot_id")
+def battle_challenge(bot_id: str) -> None:
+    """Challenge a bot to a 1v1 battle."""
+    cfg = _require_config("api_key")
+    creator_id = _require_creator_id(cfg)
+
+    resp = _api(
+        cfg,
+        "POST",
+        "/battle/create",
+        json={"creator1_id": creator_id, "creator2_id": bot_id},
+    )
+    if resp.status_code == 404:
+        click.echo(f"Error: bot '{bot_id}' not found.", err=True)
+        sys.exit(1)
+    if resp.status_code == 409:
+        click.echo(f"Error: active battle already exists with '{bot_id}'.", err=True)
+        sys.exit(1)
+    if resp.status_code == 422:
+        click.echo("Error: cannot battle against yourself.", err=True)
+        sys.exit(1)
+    if resp.status_code not in (200, 201):
+        click.echo(f"Error ({resp.status_code}): {resp.text}", err=True)
+        sys.exit(1)
+
+    result = resp.json()
+    click.echo("Battle created!")
+    click.echo(f"  Battle ID: {result.get('battle_id')}")
+    click.echo(f"  You:       {result.get('creator1_id')}")
+    click.echo(f"  Opponent:  {result.get('creator2_id')}")
+    click.echo(f"  Window:    {result.get('window_days', 7)} days")
+    click.echo(f"  Status:    {result.get('status')}")
+
+
+@battle.command("list")
+@click.option("--all", "show_all", is_flag=True, help="Include resolved battles.")
+def battle_list(show_all: bool) -> None:
+    """Show your recent battles."""
+    cfg = _require_config("api_key")
+    _show_battle_list(cfg, show_all)
+
+
+@battle.command("status")
+@click.argument("battle_id")
+def battle_status(battle_id: str) -> None:
+    """Show battle details and result."""
+    cfg = _require_config("api_key")
+
+    resp = _api(cfg, "GET", f"/battle/{battle_id}")
+    if resp.status_code == 404:
+        click.echo(f"Error: battle '{battle_id}' not found.", err=True)
+        sys.exit(1)
+    if resp.status_code != 200:
+        click.echo(f"Error ({resp.status_code}): {resp.text}", err=True)
+        sys.exit(1)
+
+    b = resp.json()
+    click.echo(f"Battle: {b.get('battle_id')}")
+    click.echo(f"  Status:     {b.get('status')}")
+    click.echo(f"  Creator 1:  {b.get('creator1_id')}")
+    click.echo(f"  Creator 2:  {b.get('creator2_id')}")
+    click.echo(f"  Window:     {b.get('window_days')} days")
+    click.echo(f"  Type:       {b.get('battle_type')}")
+    click.echo(f"  Created:    {b.get('created_at', '')[:19]}")
+
+    if b.get("status") == "RESOLVED":
+        click.echo(f"  Resolved:   {(b.get('resolved_at') or '')[:19]}")
+        click.echo(f"  Winner:     {b.get('winner_id') or 'draw'}")
+        click.echo(f"  Score:      {b.get('creator1_score', 0):.4f} vs {b.get('creator2_score', 0):.4f}")
+        click.echo(f"  Margin:     {b.get('margin', 0):.4f}")
+
+        for label, key in [("Creator 1", "creator1_details"), ("Creator 2", "creator2_details")]:
+            details = b.get(key)
+            if details and isinstance(details, dict):
+                click.echo(f"  {label} details:")
+                for dk, dv in details.items():
+                    if isinstance(dv, float):
+                        click.echo(f"    {dk}: {dv:.4f}")
+                    else:
+                        click.echo(f"    {dk}: {dv}")
+
+
+# ---------------------------------------------------------------------------
+# matchmaking (group)
+# ---------------------------------------------------------------------------
+
+
+@cli.group()
+def matchmaking() -> None:
+    """ELO matchmaking queue."""
+
+
+@matchmaking.command("join")
+def matchmaking_join() -> None:
+    """Enter the matchmaking queue."""
+    cfg = _require_config("api_key")
+    creator_id = _require_creator_id(cfg)
+
+    resp = _api(cfg, "POST", "/matchmaking/queue", params={"bot_id": creator_id})
+    if resp.status_code == 404:
+        click.echo(f"Error: creator '{creator_id}' not found.", err=True)
+        sys.exit(1)
+    if resp.status_code != 200:
+        click.echo(f"Error ({resp.status_code}): {resp.text}", err=True)
+        sys.exit(1)
+
+    result = resp.json()
+    click.echo(result.get("message", "Joined matchmaking queue."))
+
+
+@matchmaking.command("status")
+def matchmaking_status() -> None:
+    """Check your matchmaking status and ELO rating."""
+    cfg = _require_config("api_key")
+    creator_id = _require_creator_id(cfg)
+
+    resp = _api(cfg, "GET", f"/bots/{creator_id}/rating")
+    if resp.status_code == 404:
+        click.echo(f"Error: creator '{creator_id}' not found.", err=True)
+        sys.exit(1)
+    if resp.status_code != 200:
+        click.echo(f"Error ({resp.status_code}): {resp.text}", err=True)
+        sys.exit(1)
+
+    r = resp.json()
+    click.echo(f"ELO Rating: {r.get('elo', 1200)}")
+    click.echo(f"  Matches: {r.get('matches_played', 0)}")
+    click.echo(f"  Wins:    {r.get('wins', 0)}")
+    click.echo(f"  Losses:  {r.get('losses', 0)}")
+    click.echo(f"  Draws:   {r.get('draws', 0)}")
+
+
+# ---------------------------------------------------------------------------
+# tournament (group)
+# ---------------------------------------------------------------------------
+
+
+@cli.group()
+def tournament() -> None:
+    """Browse and compete in tournaments."""
+
+
+@tournament.command("list")
+@click.option(
+    "--status",
+    "tournament_status",
+    default=None,
+    type=click.Choice(["registering", "in_progress", "completed"], case_sensitive=False),
+    help="Filter by tournament status.",
+)
+def tournament_list(tournament_status: str | None) -> None:
+    """Show upcoming and active tournaments."""
+    cfg = _require_config("api_key")
+
+    params: dict = {}
+    if tournament_status:
+        params["tournament_status"] = tournament_status
+
+    resp = _api(cfg, "GET", "/tournaments", params=params)
+    if resp.status_code != 200:
+        click.echo(f"Error ({resp.status_code}): {resp.text}", err=True)
+        sys.exit(1)
+
+    data = resp.json()
+    tournaments = data.get("tournaments", [])
+    if not tournaments:
+        click.echo("No tournaments found.")
+        return
+
+    click.echo(f"Tournaments ({data.get('total', len(tournaments))}):")
+    click.echo(f"{'ID':<10} {'Name':<25} {'Format':<20} {'Status':<14} {'Participants'}")
+    click.echo("-" * 80)
+    for t in tournaments:
+        tid = t.get("id", "?")[:8]
+        entries = t.get("entries", [])
+        max_p = t.get("max_participants", "?")
+        click.echo(
+            f"{tid:<10} "
+            f"{t.get('name', '?'):<25} "
+            f"{t.get('format', '?'):<20} "
+            f"{t.get('status', '?'):<14} "
+            f"{len(entries)}/{max_p}"
+        )
+
+
+@tournament.command("register")
+@click.argument("tournament_id")
+def tournament_register(tournament_id: str) -> None:
+    """Register your bot in a tournament."""
+    cfg = _require_config("api_key")
+    creator_id = _require_creator_id(cfg)
+
+    resp = _api(
+        cfg,
+        "POST",
+        f"/tournament/{tournament_id}/join",
+        json={"creator_id": creator_id},
+    )
+    if resp.status_code == 404:
+        click.echo(f"Error: tournament or creator not found.", err=True)
+        sys.exit(1)
+    if resp.status_code == 409:
+        detail = resp.json().get("detail", "Registration conflict.")
+        click.echo(f"Error: {detail}", err=True)
+        sys.exit(1)
+    if resp.status_code not in (200, 201):
+        click.echo(f"Error ({resp.status_code}): {resp.text}", err=True)
+        sys.exit(1)
+
+    result = resp.json()
+    entries = result.get("entries", [])
+    click.echo(f"Registered in tournament '{result.get('name')}'!")
+    click.echo(f"  Tournament ID: {result.get('id')}")
+    click.echo(f"  Format:        {result.get('format')}")
+    click.echo(f"  Participants:  {len(entries)}/{result.get('max_participants')}")
+    click.echo(f"  Status:        {result.get('status')}")
+
+
+@tournament.command("bracket")
+@click.argument("tournament_id")
+def tournament_bracket(tournament_id: str) -> None:
+    """Show tournament bracket."""
+    cfg = _require_config("api_key")
+
+    resp = _api(cfg, "GET", f"/tournament/{tournament_id}")
+    if resp.status_code == 404:
+        click.echo(f"Error: tournament '{tournament_id}' not found.", err=True)
+        sys.exit(1)
+    if resp.status_code != 200:
+        click.echo(f"Error ({resp.status_code}): {resp.text}", err=True)
+        sys.exit(1)
+
+    t = resp.json()
+    click.echo(f"Tournament: {t.get('name')}")
+    click.echo(f"  Format: {t.get('format')}  |  Status: {t.get('status')}  |  Round: {t.get('current_round', 0)}")
+
+    entries = t.get("entries", [])
+    if entries:
+        click.echo(f"\nParticipants ({len(entries)}):")
+        click.echo(f"  {'Seed':<6} {'Creator':<25} {'Points':>7} {'Status'}")
+        click.echo("  " + "-" * 55)
+        for e in sorted(entries, key=lambda x: x.get("seed", 999)):
+            elim = "eliminated" if e.get("eliminated_at") else "active"
+            click.echo(
+                f"  {e.get('seed', '?'):<6} "
+                f"{e.get('creator_id', '?'):<25} "
+                f"{e.get('points', 0):>7} "
+                f"{elim}"
+            )
+
+    matches = t.get("matches", [])
+    if matches:
+        # Group by round
+        rounds: dict[int, list] = {}
+        for m in matches:
+            r = m.get("round", 0)
+            rounds.setdefault(r, []).append(m)
+
+        click.echo("\nMatches:")
+        for r in sorted(rounds):
+            click.echo(f"  Round {r}:")
+            for m in sorted(rounds[r], key=lambda x: x.get("match_order", 0)):
+                winner = m.get("winner_bot_id") or "pending"
+                click.echo(
+                    f"    Match {m.get('match_order')}: "
+                    f"battle={m.get('battle_id', '?')[:8]}  "
+                    f"winner={winner}"
+                )
+
+
+# ---------------------------------------------------------------------------
+# rating
+# ---------------------------------------------------------------------------
+
+
+@cli.command()
+def rating() -> None:
+    """Show your current ELO rating and rank."""
+    cfg = _require_config("api_key")
+    creator_id = _require_creator_id(cfg)
+
+    # Get rating
+    resp = _api(cfg, "GET", f"/bots/{creator_id}/rating")
+    if resp.status_code == 404:
+        click.echo(f"Error: creator '{creator_id}' not found.", err=True)
+        sys.exit(1)
+    if resp.status_code != 200:
+        click.echo(f"Error ({resp.status_code}): {resp.text}", err=True)
+        sys.exit(1)
+
+    r = resp.json()
+    click.echo(f"ELO Rating: {r.get('elo', 1200)}")
+    click.echo(f"  Matches: {r.get('matches_played', 0)}  W: {r.get('wins', 0)}  L: {r.get('losses', 0)}  D: {r.get('draws', 0)}")
+
+    # Get leaderboard position
+    lb_resp = _api(cfg, "GET", "/leaderboard/elo", params={"limit": 100})
+    if lb_resp.status_code == 200:
+        lb = lb_resp.json()
+        entries = lb.get("entries", [])
+        rank = None
+        for i, entry in enumerate(entries, 1):
+            if entry.get("bot_id") == creator_id:
+                rank = i
+                break
+        if rank:
+            click.echo(f"  Rank:    #{rank} of {lb.get('total', len(entries))}")
+        else:
+            click.echo(f"  Rank:    unranked ({lb.get('total', 0)} rated players)")
 
 
 # ---------------------------------------------------------------------------
