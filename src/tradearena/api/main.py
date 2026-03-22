@@ -10,7 +10,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, PlainTextResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -24,6 +24,7 @@ from tradearena.api.routes import (
     export,
     leaderboard,
     oracle,
+    profiles,
     signals,
     tournaments,
 )
@@ -49,6 +50,7 @@ _ADMIN_HTML = _SCRIPTS_DIR / "admin.html"
 _QUICKSTART_HTML = _SCRIPTS_DIR / "quickstart.html"
 _DEV_GUIDE_HTML = _SCRIPTS_DIR / "developer-guide.html"
 _LEADERBOARD_HTML = _SCRIPTS_DIR / "leaderboard.html"
+_PROFILE_HTML = _SCRIPTS_DIR / "profile.html"
 
 DRIP_EMAIL_INTERVAL_SECONDS = 600  # 10 minutes
 ORACLE_INTERVAL_SECONDS = 300  # 5 minutes
@@ -559,6 +561,7 @@ app.include_router(creators.router, tags=["creators"])
 app.include_router(oracle.router)
 app.include_router(battles.router)
 app.include_router(tournaments.router)
+app.include_router(profiles.router)
 app.include_router(email.router)
 app.include_router(export.router)
 
@@ -637,6 +640,75 @@ async def leaderboard_page() -> FileResponse:
     return FileResponse(
         _LEADERBOARD_HTML,
         media_type="text/html",
+        headers={"Cache-Control": "no-cache, must-revalidate"},
+    )
+
+
+@app.get("/profile/{username}", include_in_schema=False)
+async def profile_page(username: str) -> HTMLResponse:
+    """Serve the profile page with server-rendered OG meta tags for social sharing.
+
+    Crawlers see proper og:title, og:description, og:image tags.
+    Browsers get the full interactive profile page.
+    """
+    # Read the base template
+    html = _PROFILE_HTML.read_text()
+
+    # Try to inject OG tags for the specific user
+    base_url = os.getenv("BASE_URL", "https://tradearena.app")
+    try:
+        db = SessionLocal()
+        try:
+            creator = db.query(CreatorORM).filter(CreatorORM.id == username).first()
+            if not creator:
+                creator = (
+                    db.query(CreatorORM)
+                    .filter(CreatorORM.github_username == username)
+                    .first()
+                )
+            if creator:
+                score = creator.score
+                composite = round(score.composite_score, 4) if score else 0.0
+                win_rate = round((score.win_rate if score else 0.0) * 100, 1)
+                total_signals = score.total_signals if score else 0
+                level = score.level if score else 1
+
+                og_title = f"{creator.display_name} — TradeArena"
+                og_desc = (
+                    f"Level {level} · Score {composite:.2f} · "
+                    f"{win_rate}% win rate · {total_signals} signals"
+                )
+                og_image = f"{base_url}/api/v1/users/{creator.id}/og-image.png"
+                profile_url = f"{base_url}/profile/{creator.id}"
+
+                og_tags = (
+                    f'<meta property="og:title" content="{og_title}">\n'
+                    f'<meta property="og:description" content="{og_desc}">\n'
+                    f'<meta property="og:image" content="{og_image}">\n'
+                    f'<meta property="og:image:width" content="1200">\n'
+                    f'<meta property="og:image:height" content="630">\n'
+                    f'<meta property="og:url" content="{profile_url}">\n'
+                    f'<meta name="twitter:title" content="{og_title}">\n'
+                    f'<meta name="twitter:description" content="{og_desc}">\n'
+                    f'<meta name="twitter:image" content="{og_image}">\n'
+                    f'<meta name="description" content="{og_desc}">\n'
+                )
+                # Inject after the existing twitter:site meta tag
+                html = html.replace(
+                    '<meta name="twitter:site" content="@tradearena">',
+                    '<meta name="twitter:site" content="@tradearena">\n' + og_tags,
+                )
+                html = html.replace(
+                    '<title id="page-title">Creator Profile — TradeArena</title>',
+                    f'<title id="page-title">{og_title}</title>',
+                )
+        finally:
+            db.close()
+    except Exception:
+        logger.exception("Failed to inject OG tags for profile/%s", username)
+
+    return HTMLResponse(
+        content=html,
         headers={"Cache-Control": "no-cache, must-revalidate"},
     )
 

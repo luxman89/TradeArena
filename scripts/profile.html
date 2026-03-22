@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title id="page-title">Creator Profile — TradeArena</title>
+<!-- OG meta tags are injected server-side for social sharing -->
+<meta property="og:type" content="profile">
+<meta property="og:site_name" content="TradeArena">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@tradearena">
+<style>
+  :root {
+    --bg: #0f0f19;
+    --bg2: #1a1a2e;
+    --accent: #00c896;
+    --accent2: #9664ff;
+    --text: #e0e0e8;
+    --text-muted: #78788a;
+    --border: #2a2a40;
+    --card: #16162a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    min-height: 100vh;
+  }
+  .loading { text-align: center; padding: 80px 20px; color: var(--text-muted); font-size: 18px; }
+  .error { text-align: center; padding: 80px 20px; color: #ff6b6b; font-size: 18px; }
+
+  .profile-header {
+    background: linear-gradient(135deg, var(--bg2), var(--bg));
+    border-bottom: 1px solid var(--border);
+    padding: 40px 20px 30px;
+  }
+  .profile-header-inner {
+    max-width: 900px;
+    margin: 0 auto;
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+  }
+  .avatar-wrap {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 3px solid var(--accent);
+    flex-shrink: 0;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 42px;
+  }
+  .avatar-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .avatar-wrap.glow-green { border-color: #22c55e; box-shadow: 0 0 16px rgba(34,197,94,0.4); }
+  .avatar-wrap.glow-blue  { border-color: #3b82f6; box-shadow: 0 0 16px rgba(59,130,246,0.4); }
+  .avatar-wrap.glow-gold  { border-color: #eab308; box-shadow: 0 0 16px rgba(234,179,8,0.5); }
+
+  .profile-info { flex: 1; }
+  .profile-name { font-size: 28px; font-weight: 700; margin-bottom: 4px; }
+  .profile-title { color: var(--accent); font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+  .profile-meta { color: var(--text-muted); font-size: 14px; margin-top: 8px; display: flex; gap: 16px; flex-wrap: wrap; }
+  .profile-meta span { display: flex; align-items: center; gap: 4px; }
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .badge-crypto { background: rgba(0,200,150,0.15); color: #00c896; }
+  .badge-polymarket { background: rgba(150,100,255,0.15); color: #9664ff; }
+  .badge-multi { background: rgba(255,180,0,0.15); color: #ffb400; }
+
+  .share-btn {
+    margin-top: 12px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    padding: 8px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .share-btn:hover { opacity: 0.85; }
+
+  .stats-section {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 30px 20px;
+  }
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 30px;
+  }
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .stat-value {
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .stat-label {
+    font-size: 13px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .stat-value.green { color: #22c55e; }
+  .stat-value.red   { color: #ef4444; }
+
+  .section-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .score-bar-wrap { margin-bottom: 12px; }
+  .score-bar-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+  .score-bar-label span:last-child { color: var(--accent); font-weight: 600; }
+  .score-bar {
+    height: 8px;
+    background: var(--bg);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .score-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    transition: width 0.6s ease;
+  }
+
+  .record-row {
+    display: flex;
+    gap: 24px;
+    font-size: 15px;
+    padding: 8px 0;
+  }
+  .record-row .w { color: #22c55e; }
+  .record-row .l { color: #ef4444; }
+  .record-row .d { color: #eab308; }
+
+  .strategy-text {
+    color: var(--text-muted);
+    font-size: 15px;
+    line-height: 1.6;
+    margin-top: 8px;
+  }
+
+  .nav-bar {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 20px;
+  }
+  .nav-bar-inner {
+    max-width: 900px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .nav-brand {
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 18px;
+    text-decoration: none;
+  }
+  .nav-links a {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 14px;
+    margin-left: 20px;
+  }
+  .nav-links a:hover { color: var(--text); }
+
+  @media (max-width: 600px) {
+    .profile-header-inner { flex-direction: column; align-items: center; text-align: center; }
+    .profile-meta { justify-content: center; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav-bar">
+  <div class="nav-bar-inner">
+    <a href="/" class="nav-brand">TradeArena</a>
+    <div class="nav-links">
+      <a href="/arena">Arena</a>
+      <a href="/leaderboard-live">Leaderboard</a>
+      <a href="/developer-guide">API Docs</a>
+    </div>
+  </div>
+</nav>
+
+<div id="app">
+  <div class="loading" id="loading">Loading profile...</div>
+  <div class="error" id="error" style="display:none"></div>
+  <div id="content" style="display:none">
+
+    <header class="profile-header">
+      <div class="profile-header-inner">
+        <div class="avatar-wrap" id="avatar-wrap">
+          <span id="avatar-fallback"></span>
+        </div>
+        <div class="profile-info">
+          <div class="profile-name" id="display-name"></div>
+          <div class="profile-title" id="profile-title"></div>
+          <div class="profile-meta">
+            <span id="division-badge"></span>
+            <span id="level-text"></span>
+            <span id="joined-text"></span>
+            <span id="rank-text"></span>
+          </div>
+          <button class="share-btn" id="share-btn" onclick="shareProfile()">Share Profile</button>
+        </div>
+      </div>
+    </header>
+
+    <section class="stats-section">
+      <div class="stats-grid" id="stats-grid"></div>
+
+      <div class="section-title">Score Breakdown</div>
+      <div id="score-bars" style="margin-bottom:30px"></div>
+
+      <div class="section-title">Battle Record</div>
+      <div class="record-row" id="battle-record"></div>
+
+      <div id="strategy-section" style="display:none;margin-top:30px">
+        <div class="section-title">Strategy</div>
+        <div class="strategy-text" id="strategy-text"></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+const username = window.location.pathname.split('/profile/')[1];
+if (!username) {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('error').style.display = 'block';
+  document.getElementById('error').textContent = 'No username specified.';
+}
+
+async function loadProfile() {
+  try {
+    const [profileRes, statsRes] = await Promise.all([
+      fetch('/api/v1/users/' + encodeURIComponent(username) + '/profile'),
+      fetch('/api/v1/users/' + encodeURIComponent(username) + '/stats'),
+    ]);
+
+    if (!profileRes.ok) {
+      throw new Error(profileRes.status === 404 ? 'Creator not found.' : 'Failed to load profile.');
+    }
+
+    const profile = await profileRes.json();
+    const stats = await statsRes.json();
+
+    document.getElementById('page-title').textContent = profile.display_name + ' — TradeArena';
+
+    // Avatar
+    const wrap = document.getElementById('avatar-wrap');
+    if (profile.glow) wrap.classList.add('glow-' + profile.glow);
+    if (profile.github_avatar_url) {
+      wrap.innerHTML = '<img src="' + profile.github_avatar_url + '" alt="avatar">';
+    } else {
+      document.getElementById('avatar-fallback').textContent = profile.display_name.charAt(0).toUpperCase();
+    }
+
+    // Name & title
+    document.getElementById('display-name').textContent = profile.display_name;
+    const titleEl = document.getElementById('profile-title');
+    titleEl.textContent = profile.title || '';
+
+    // Meta
+    const divClass = 'badge badge-' + profile.division;
+    document.getElementById('division-badge').innerHTML = '<span class="' + divClass + '">' + profile.division + '</span>';
+    document.getElementById('level-text').textContent = 'Level ' + profile.level;
+
+    const joined = new Date(profile.created_at);
+    document.getElementById('joined-text').textContent = 'Joined ' + joined.toLocaleDateString('en-US', {month:'short',year:'numeric'});
+
+    if (stats.ranking.leaderboard_rank) {
+      document.getElementById('rank-text').textContent = 'Rank #' + stats.ranking.leaderboard_rank;
+    }
+
+    // Stats grid
+    const grid = document.getElementById('stats-grid');
+    const statCards = [
+      { label: 'Composite Score', value: profile.scores.composite.toFixed(2), cls: '' },
+      { label: 'Win Rate', value: (profile.scores.win_rate * 100).toFixed(1) + '%', cls: profile.scores.win_rate >= 0.5 ? 'green' : '' },
+      { label: 'Total Signals', value: stats.signals.total, cls: '' },
+      { label: 'Wins', value: stats.signals.wins, cls: 'green' },
+      { label: 'Losses', value: stats.signals.losses, cls: 'red' },
+      { label: 'Pending', value: stats.signals.pending, cls: '' },
+    ];
+    grid.innerHTML = statCards.map(function(s) {
+      return '<div class="stat-card"><div class="stat-value ' + s.cls + '">' + s.value + '</div><div class="stat-label">' + s.label + '</div></div>';
+    }).join('');
+
+    // Score bars
+    const bars = document.getElementById('score-bars');
+    const scores = [
+      { label: 'Win Rate', value: profile.scores.win_rate, weight: '30%' },
+      { label: 'Risk-Adjusted Return', value: profile.scores.risk_adjusted_return, weight: '30%' },
+      { label: 'Consistency', value: profile.scores.consistency, weight: '25%' },
+      { label: 'Confidence Calibration', value: profile.scores.confidence_calibration, weight: '15%' },
+    ];
+    bars.innerHTML = scores.map(function(s) {
+      var pct = (s.value * 100).toFixed(1);
+      return '<div class="score-bar-wrap"><div class="score-bar-label"><span>' + s.label + ' (' + s.weight + ')</span><span>' + pct + '%</span></div><div class="score-bar"><div class="score-bar-fill" style="width:' + pct + '%"></div></div></div>';
+    }).join('');
+
+    // Battle record
+    var b = stats.battles;
+    document.getElementById('battle-record').innerHTML =
+      '<span class="w">' + b.wins + 'W</span> · ' +
+      '<span class="l">' + b.losses + 'L</span> · ' +
+      '<span class="d">' + b.draws + 'D</span>' +
+      '<span style="color:var(--text-muted);margin-left:8px">(' + b.total + ' total)</span>';
+
+    // Strategy
+    if (profile.strategy_description) {
+      document.getElementById('strategy-section').style.display = 'block';
+      document.getElementById('strategy-text').textContent = profile.strategy_description;
+    }
+
+    // Show content
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('content').style.display = 'block';
+
+  } catch (err) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('error').style.display = 'block';
+    document.getElementById('error').textContent = err.message;
+  }
+}
+
+function shareProfile() {
+  var url = window.location.href;
+  if (navigator.share) {
+    navigator.share({ title: document.title, url: url });
+  } else if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(function() {
+      var btn = document.getElementById('share-btn');
+      btn.textContent = 'Link Copied!';
+      setTimeout(function() { btn.textContent = 'Share Profile'; }, 2000);
+    });
+  }
+}
+
+if (username) loadProfile();
+</script>
+</body>
+</html>
