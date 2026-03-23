@@ -33,6 +33,7 @@ from services.discord_bot.knowledge import (
     load_readme,
 )
 from services.discord_bot.paperclip import PaperclipClient
+from services.discord_bot.pins import handle_announcement_pin, handle_reaction_pin
 from services.discord_bot.roles import sync_contributor_roles, sync_rank_roles
 
 logging.basicConfig(
@@ -180,6 +181,7 @@ def find_answer(question: str) -> str:
 intents = Intents.default()
 intents.message_content = True
 intents.members = True
+intents.reactions = True
 
 client = discord.Client(intents=intents)
 
@@ -259,6 +261,25 @@ async def on_message(message: Message) -> None:
     if message.channel.name == BUG_REPORTS_CHANNEL:
         await _handle_bug_report(message)
         return
+
+    # --- #announcements: auto-pin new posts ---
+    if message.channel.name == ANNOUNCEMENTS_CHANNEL:
+        await handle_announcement_pin(message)
+        return
+
+
+@client.event
+async def on_raw_reaction_add(payload: discord.RawReactionActionEvent) -> None:
+    """Handle reaction adds for auto-pinning (threshold and moderator pin emoji)."""
+    if payload.guild_id is None:
+        return
+    guild = client.get_guild(payload.guild_id)
+    if guild is None:
+        return
+    # Ignore bot's own reactions
+    if client.user and payload.user_id == client.user.id:
+        return
+    await handle_reaction_pin(payload, guild)
 
 
 async def _check_spam(message: Message) -> bool:
