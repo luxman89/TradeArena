@@ -23,6 +23,7 @@ from tradearena.api.routes import (
     email,
     export,
     leaderboard,
+    marketplace,
     matchmaking,
     oracle,
     profiles,
@@ -622,6 +623,7 @@ app.include_router(email.router)
 app.include_router(export.router)
 app.include_router(matchmaking.router)
 app.include_router(webhooks.router)
+app.include_router(marketplace.router)
 
 # Serve static assets (sprites, tilesets, etc.)
 _ASSETS_DIR = _SCRIPTS_DIR / "assets"

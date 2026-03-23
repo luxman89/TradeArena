@@ -338,6 +338,40 @@ class EmailEventORM(Base):
     creator = relationship("CreatorORM", back_populates="email_events")
 
 
+class BotTemplateORM(Base):
+    """Bot templates published to the marketplace."""
+
+    __tablename__ = "bot_templates"
+    __table_args__ = (
+        CheckConstraint(
+            "strategy_type IN ('momentum','mean_reversion','sentiment','volatility','custom')",
+            name="ck_strategy_type",
+        ),
+        CheckConstraint("version >= 1", name="ck_template_version"),
+        Index("ix_bot_templates_creator_id", "creator_id"),
+        Index("ix_bot_templates_strategy_type", "strategy_type"),
+        Index("ix_bot_templates_is_public", "is_public"),
+    )
+
+    id = Column(String(64), primary_key=True)
+    creator_id = Column(String(64), ForeignKey("creators.id"), nullable=False)
+    name = Column(String(128), nullable=False)
+    description = Column(Text, nullable=False)
+    strategy_type = Column(String(32), nullable=False, default="custom")
+    code = Column(Text, nullable=False)
+    config = Column(JSON, nullable=True)
+    version = Column(Integer, nullable=False, default=1)
+    tags = Column(JSON, nullable=True)  # list of strings
+    is_public = Column(Boolean, nullable=False, default=True)
+    fork_count = Column(Integer, nullable=False, default=0)
+    forked_from_id = Column(String(64), ForeignKey("bot_templates.id"), nullable=True)
+    created_at = Column(DateTime, nullable=False)
+    updated_at = Column(DateTime, nullable=False)
+
+    creator = relationship("CreatorORM", backref="bot_templates")
+    forked_from = relationship("BotTemplateORM", remote_side="BotTemplateORM.id")
+
+
 def create_tables() -> None:
     Base.metadata.create_all(bind=engine)
 
