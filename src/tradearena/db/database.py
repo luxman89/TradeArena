@@ -372,6 +372,65 @@ class BotTemplateORM(Base):
     forked_from = relationship("BotTemplateORM", remote_side="BotTemplateORM.id")
 
 
+class TournamentScheduleORM(Base):
+    """Recurring tournament schedule configuration."""
+
+    __tablename__ = "tournament_schedules"
+    __table_args__ = (
+        CheckConstraint(
+            "recurrence IN ('daily','weekly','custom')",
+            name="ck_schedule_recurrence",
+        ),
+        CheckConstraint(
+            "format IN ('single_elimination','round_robin')",
+            name="ck_schedule_format",
+        ),
+        CheckConstraint("max_participants >= 2", name="ck_schedule_min_participants"),
+        CheckConstraint("hour >= 0 AND hour <= 23", name="ck_schedule_hour"),
+        Index("ix_tournament_schedules_is_active", "is_active"),
+        Index("ix_tournament_schedules_next_run_at", "next_run_at"),
+    )
+
+    id = Column(String(64), primary_key=True)
+    name = Column(String(128), nullable=False)
+    format = Column(String(32), nullable=False, default="single_elimination")
+    recurrence = Column(String(16), nullable=False, default="daily")
+    day_of_week = Column(Integer, nullable=True)  # 0=Mon..6=Sun, for weekly
+    hour = Column(Integer, nullable=False, default=12)  # UTC hour
+    max_participants = Column(Integer, nullable=False, default=8)
+    division = Column(String(32), nullable=True)  # null = all divisions
+    min_signals = Column(Integer, nullable=False, default=5)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_by = Column(String(64), ForeignKey("creators.id"), nullable=True)
+    created_at = Column(DateTime, nullable=False)
+    next_run_at = Column(DateTime, nullable=False)
+    last_run_at = Column(DateTime, nullable=True)
+
+    creator = relationship("CreatorORM")
+    standings = relationship("LeagueStandingORM", back_populates="schedule")
+
+
+class LeagueStandingORM(Base):
+    """Aggregated standings across recurring tournament events."""
+
+    __tablename__ = "league_standings"
+    __table_args__ = (
+        Index("ix_league_standings_schedule_id", "schedule_id"),
+        Index("ix_league_standings_creator_id", "creator_id"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    schedule_id = Column(String(64), ForeignKey("tournament_schedules.id"), nullable=False)
+    creator_id = Column(String(64), ForeignKey("creators.id"), nullable=False)
+    tournaments_played = Column(Integer, nullable=False, default=0)
+    tournaments_won = Column(Integer, nullable=False, default=0)
+    total_points = Column(Integer, nullable=False, default=0)
+    updated_at = Column(DateTime, nullable=False)
+
+    schedule = relationship("TournamentScheduleORM", back_populates="standings")
+    creator = relationship("CreatorORM")
+
+
 def create_tables() -> None:
     Base.metadata.create_all(bind=engine)
 

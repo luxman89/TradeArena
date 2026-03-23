@@ -27,6 +27,7 @@ from tradearena.api.routes import (
     matchmaking,
     oracle,
     profiles,
+    schedules,
     signals,
     tournaments,
     webhooks,
@@ -302,6 +303,16 @@ async def _background_loop():
                 if time.time() - _last_drip_run >= DRIP_EMAIL_INTERVAL_SECONDS:
                     _last_drip_run = time.time()
                     await _process_drip_emails(db)
+
+                # 7. Tournament schedule runner
+                from tradearena.core.scheduler import run_scheduled_tournaments
+
+                scheduled = run_scheduled_tournaments(db)
+                if scheduled:
+                    logger.info("Created %d scheduled tournaments", scheduled)
+                    await manager.broadcast(
+                        "tournaments_scheduled", {"count": scheduled}
+                    )
 
             finally:
                 db.close()
@@ -624,6 +635,7 @@ app.include_router(export.router)
 app.include_router(matchmaking.router)
 app.include_router(webhooks.router)
 app.include_router(marketplace.router)
+app.include_router(schedules.router)
 
 # Serve static assets (sprites, tilesets, etc.)
 _ASSETS_DIR = _SCRIPTS_DIR / "assets"
