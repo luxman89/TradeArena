@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from tradearena.api.deps import require_api_key
 from tradearena.api.rate_limit import signal_rate_limiter
 from tradearena.api.ws import manager
+from tradearena.core.asset_types import classify_asset
 from tradearena.core.commitment import build_committed_signal
 from tradearena.db.database import CreatorORM, CreatorScoreORM, SignalORM, get_db
 from tradearena.models.signal import SignalCreate, SignalEmitResponse
@@ -53,10 +54,13 @@ async def emit_signal(
 
     committed = build_committed_signal(raw)
 
+    asset_type = classify_asset(committed["asset"])
+
     signal_orm = SignalORM(
         signal_id=committed["signal_id"],
         creator_id=committed["creator_id"],
         asset=committed["asset"],
+        asset_type=asset_type.value,
         action=committed["action"],
         confidence=committed["confidence"],
         reasoning=committed["reasoning"],

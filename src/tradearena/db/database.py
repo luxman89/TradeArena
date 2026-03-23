@@ -108,6 +108,7 @@ class SignalORM(Base):
     signal_id = Column(String(64), primary_key=True)
     creator_id = Column(String(64), ForeignKey("creators.id"), nullable=False)
     asset = Column(String(20), nullable=False)
+    asset_type = Column(String(10), nullable=True, default="crypto")  # crypto|stock|forex
     action = Column(String(10), nullable=False)
     confidence = Column(Float, nullable=False)
     reasoning = Column(Text, nullable=False)

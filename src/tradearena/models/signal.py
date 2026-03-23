@@ -154,6 +154,7 @@ class Signal(BaseModel):
     signal_id: str
     creator_id: str
     asset: str
+    asset_type: str | None = None  # crypto, stock, forex
     action: SignalAction
     confidence: float
     reasoning: str

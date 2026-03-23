@@ -18,7 +18,12 @@ import httpx
 from sqlalchemy.orm import Session
 
 from tradearena.core import cache
+from tradearena.core.asset_types import AssetType, classify_asset
 from tradearena.core.exchanges import (
+    CRYPTO_PROVIDERS,
+    FOREX_PROVIDERS,
+    STOCK_PROVIDERS,
+    ExchangeProvider,
     SymbolNotFound,
     fetch_klines_with_fallback,
     fetch_price_with_fallback,
@@ -50,12 +55,46 @@ def parse_timeframe(tf: str | None) -> timedelta:
     return timedelta(days=1)
 
 
-def asset_to_symbol(asset: str) -> str:
-    """Convert asset string to exchange symbol. 'BTC/USDT' -> 'BTCUSDT', 'BTC' -> 'BTCUSDT'."""
-    symbol = asset.upper().replace("/", "").replace("-", "")
-    if not symbol.endswith("USDT") and not symbol.endswith("BUSD"):
-        symbol += "USDT"
+def asset_to_symbol(asset: str, asset_type: AssetType | None = None) -> str:
+    """Convert asset string to the appropriate exchange symbol.
+
+    Crypto: 'BTC/USDT' -> 'BTCUSDT', 'BTC' -> 'BTCUSDT'
+    Stock:  'AAPL' -> 'AAPL', 'AAPL.US' -> 'AAPL'
+    Forex:  'EUR/USD' -> 'EURUSD=X', 'EURUSD' -> 'EURUSD=X'
+    """
+    if asset_type is None:
+        asset_type = classify_asset(asset)
+
+    symbol = asset.upper().replace(" ", "")
+
+    if asset_type == AssetType.CRYPTO:
+        symbol = symbol.replace("/", "").replace("-", "")
+        if not symbol.endswith("USDT") and not symbol.endswith("BUSD"):
+            symbol += "USDT"
+        return symbol
+
+    if asset_type == AssetType.FOREX:
+        symbol = symbol.replace("/", "").replace("-", "")
+        if not symbol.endswith("=X"):
+            symbol += "=X"
+        return symbol
+
+    # Stock: strip common suffixes, keep ticker clean
+    symbol = symbol.replace("/", "").replace("-", "")
+    for suffix in (".US", ".NYSE", ".NASDAQ"):
+        if symbol.endswith(suffix):
+            symbol = symbol[: -len(suffix)]
+            break
     return symbol
+
+
+def _providers_for_asset(asset_type: AssetType) -> list[ExchangeProvider]:
+    """Return the provider chain appropriate for this asset type."""
+    if asset_type == AssetType.STOCK:
+        return STOCK_PROVIDERS
+    if asset_type == AssetType.FOREX:
+        return FOREX_PROVIDERS
+    return CRYPTO_PROVIDERS
 
 
 def _pick_interval(delta: timedelta) -> str:
@@ -76,6 +115,7 @@ async def fetch_klines(
     interval: str,
     start_ms: int,
     end_ms: int,
+    providers: list[ExchangeProvider] | None = None,
 ) -> list[list]:
     """Fetch kline/candlestick data with caching and multi-exchange fallback."""
     cached = cache.get(symbol, interval, start_ms, end_ms)
@@ -83,7 +123,7 @@ async def fetch_klines(
         return cached
 
     data = await fetch_klines_with_fallback(
-        client, symbol, interval, start_ms, end_ms
+        client, symbol, interval, start_ms, end_ms, providers=providers
     )
     if data:
         cache.put(symbol, interval, start_ms, end_ms, data)
@@ -94,6 +134,7 @@ async def fetch_price_at(
     client: httpx.AsyncClient,
     symbol: str,
     at_time: datetime,
+    providers: list[ExchangeProvider] | None = None,
 ) -> float | None:
     """Get the closing price of the 1m candle nearest to at_time."""
     ts_ms = int(at_time.timestamp() * 1000)
@@ -105,7 +146,7 @@ async def fetch_price_at(
             return None
         return float(cached[0][4])
 
-    price = await fetch_price_with_fallback(client, symbol, ts_ms)
+    price = await fetch_price_with_fallback(client, symbol, ts_ms, providers=providers)
     # Cache the result (store as single-element kline list for cache compat)
     if price is not None:
         kline = [ts_ms, "0", "0", "0", str(price), "0", end_ms, "0", 0, "0", "0", "0"]
@@ -185,6 +226,7 @@ async def resolve_signal(
 ) -> tuple[str, float, datetime] | None:
     """Resolve a single signal's outcome using multi-exchange price data.
 
+    Routes to the correct provider chain based on asset type (crypto, stock, forex).
     Returns (outcome, outcome_price, outcome_at) or None if not yet eligible.
     """
     now = datetime.now(UTC)
@@ -194,21 +236,31 @@ async def resolve_signal(
     if eligible_at > now:
         return None
 
-    symbol = asset_to_symbol(signal.asset)
+    # Determine asset type and route to correct providers
+    raw_type = getattr(signal, "asset_type", None)
+    if isinstance(raw_type, str) and raw_type in AssetType._value2member_map_:
+        asset_type = AssetType(raw_type)
+    else:
+        asset_type = classify_asset(signal.asset)
+    symbol = asset_to_symbol(signal.asset, asset_type)
+    providers = _providers_for_asset(asset_type)
+
     start_ms = int(signal.committed_at.replace(tzinfo=UTC).timestamp() * 1000)
     end_ms = int(eligible_at.timestamp() * 1000)
 
     if signal.target_price is not None and signal.stop_loss is not None:
         interval = _pick_interval(tf_delta)
-        klines = await fetch_klines(client, symbol, interval, start_ms, end_ms)
+        klines = await fetch_klines(client, symbol, interval, start_ms, end_ms, providers=providers)
         if not klines:
             return None
         outcome, outcome_price = _resolve_with_targets(
             klines, signal.action, signal.target_price, signal.stop_loss
         )
     else:
-        open_price = await fetch_price_at(client, symbol, signal.committed_at.replace(tzinfo=UTC))
-        close_price = await fetch_price_at(client, symbol, eligible_at)
+        open_price = await fetch_price_at(
+            client, symbol, signal.committed_at.replace(tzinfo=UTC), providers=providers
+        )
+        close_price = await fetch_price_at(client, symbol, eligible_at, providers=providers)
         if open_price is None or close_price is None:
             return None
         outcome, outcome_price = _resolve_by_direction(open_price, close_price, signal.action)
@@ -247,7 +299,8 @@ async def resolve_pending_signals(db: Session) -> dict[str, int]:
             except SymbolNotFound:
                 logger.warning(
                     "Signal %s asset %s delisted from all exchanges",
-                    signal.signal_id, signal.asset,
+                    signal.signal_id,
+                    signal.asset,
                 )
                 signal.outcome = Outcome.NEUTRAL
                 signal.outcome_price = 0.0
