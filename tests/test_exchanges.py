@@ -2,16 +2,13 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
 
 from tradearena.core.exchanges import (
-    BinanceProvider,
     ExchangeError,
-    KrakenProvider,
-    OKXProvider,
     SymbolNotFound,
     _kraken_symbol,
     _okx_symbol,
@@ -20,7 +17,6 @@ from tradearena.core.exchanges import (
     fetch_klines_with_fallback,
     fetch_price_with_fallback,
 )
-
 
 # ---------------------------------------------------------------------------
 # Symbol mapping
@@ -47,8 +43,8 @@ class TestSymbolMapping:
 # ---------------------------------------------------------------------------
 
 
-def _candle(o, h, l, c, ts=0):
-    return [ts, str(o), str(h), str(l), str(c), "0", 0, "0", 0, "0", "0", "0"]
+def _candle(o, h, lo, c, ts=0):
+    return [ts, str(o), str(h), str(lo), str(c), "0", 0, "0", 0, "0", "0", "0"]
 
 
 class TestCheckHalt:
@@ -247,6 +243,4 @@ class TestFetchPriceWithFallback:
         p1.fetch_price_at_ms = AsyncMock(side_effect=SymbolNotFound("nope"))
 
         with pytest.raises(SymbolNotFound, match="delisted"):
-            await fetch_price_with_fallback(
-                AsyncMock(), "XYZUSDT", 1000000, providers=[p1]
-            )
+            await fetch_price_with_fallback(AsyncMock(), "XYZUSDT", 1000000, providers=[p1])

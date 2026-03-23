@@ -60,7 +60,10 @@ def _api(cfg: dict, method: str, path: str, **kwargs) -> httpx.Response:
     except httpx.ConnectError:
         base = cfg.get("base_url", DEFAULT_BASE_URL)
         click.echo(f"Error: cannot connect to {base}", err=True)
-        click.echo("Check that the server is running or use --url to set a different address.", err=True)
+        click.echo(
+            "Check that the server is running or use --url to set a different address.",
+            err=True,
+        )
         sys.exit(1)
     except httpx.TimeoutException:
         click.echo(f"Error: request to {url} timed out.", err=True)
@@ -374,7 +377,8 @@ def battle_status(battle_id: str) -> None:
     if b.get("status") == "RESOLVED":
         click.echo(f"  Resolved:   {(b.get('resolved_at') or '')[:19]}")
         click.echo(f"  Winner:     {b.get('winner_id') or 'draw'}")
-        click.echo(f"  Score:      {b.get('creator1_score', 0):.4f} vs {b.get('creator2_score', 0):.4f}")
+        s1, s2 = b.get("creator1_score", 0), b.get("creator2_score", 0)
+        click.echo(f"  Score:      {s1:.4f} vs {s2:.4f}")
         click.echo(f"  Margin:     {b.get('margin', 0):.4f}")
 
         for label, key in [("Creator 1", "creator1_details"), ("Creator 2", "creator2_details")]:
@@ -505,7 +509,7 @@ def tournament_register(tournament_id: str) -> None:
         json={"creator_id": creator_id},
     )
     if resp.status_code == 404:
-        click.echo(f"Error: tournament or creator not found.", err=True)
+        click.echo("Error: tournament or creator not found.", err=True)
         sys.exit(1)
     if resp.status_code == 409:
         detail = resp.json().get("detail", "Registration conflict.")
@@ -540,7 +544,8 @@ def tournament_bracket(tournament_id: str) -> None:
 
     t = resp.json()
     click.echo(f"Tournament: {t.get('name')}")
-    click.echo(f"  Format: {t.get('format')}  |  Status: {t.get('status')}  |  Round: {t.get('current_round', 0)}")
+    fmt, st, rnd = t.get("format"), t.get("status"), t.get("current_round", 0)
+    click.echo(f"  Format: {fmt}  |  Status: {st}  |  Round: {rnd}")
 
     entries = t.get("entries", [])
     if entries:
@@ -673,7 +678,13 @@ def rating() -> None:
 
     r = resp.json()
     click.echo(f"ELO Rating: {r.get('elo', 1200)}")
-    click.echo(f"  Matches: {r.get('matches_played', 0)}  W: {r.get('wins', 0)}  L: {r.get('losses', 0)}  D: {r.get('draws', 0)}")
+    m, w, lo, d = (
+        r.get("matches_played", 0),
+        r.get("wins", 0),
+        r.get("losses", 0),
+        r.get("draws", 0),
+    )
+    click.echo(f"  Matches: {m}  W: {w}  L: {lo}  D: {d}")
 
     # Get leaderboard position
     lb_resp = _api(cfg, "GET", "/leaderboard/elo", params={"limit": 100})

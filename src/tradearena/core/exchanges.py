@@ -24,8 +24,8 @@ logger = logging.getLogger(__name__)
 _PAD = ["0", 0, "0", 0, "0", "0"]
 
 
-def _binance_kline(ts_ms: int, o: str, h: str, l: str, c: str, v: str) -> list:
-    return [ts_ms, o, h, l, c, v] + _PAD
+def _binance_kline(ts_ms: int, o: str, h: str, lo: str, c: str, v: str) -> list:
+    return [ts_ms, o, h, lo, c, v] + _PAD
 
 
 # ---------------------------------------------------------------------------
@@ -513,8 +513,8 @@ def check_halt(klines: list[list], threshold: int = 5) -> bool:
         return False
     streak = 0
     for candle in klines:
-        o, h, l, c = candle[1], candle[2], candle[3], candle[4]
-        if o == h == l == c:
+        o, h, lo, c = candle[1], candle[2], candle[3], candle[4]
+        if o == h == lo == c:
             streak += 1
             if streak >= threshold:
                 return True
@@ -625,7 +625,6 @@ async def fetch_price_with_fallback(
 ) -> float | None:
     """Fetch price at a specific timestamp, trying each provider in order."""
     providers = providers or DEFAULT_PROVIDERS
-    last_error: Exception | None = None
     delisted_count = 0
 
     for provider in providers:
@@ -650,7 +649,6 @@ async def fetch_price_with_fallback(
             logger.info("Symbol %s not found on %s", symbol, provider.name)
             continue
         except (httpx.HTTPError, ExchangeError) as exc:
-            last_error = exc
             logger.warning(
                 "Exchange %s price lookup failed for %s: %s",
                 provider.name,

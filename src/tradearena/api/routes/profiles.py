@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import io
-from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
@@ -20,9 +19,7 @@ def _find_creator(db: Session, username: str) -> CreatorORM:
     """Look up a creator by id or github_username."""
     creator = db.query(CreatorORM).filter(CreatorORM.id == username).first()
     if not creator:
-        creator = (
-            db.query(CreatorORM).filter(CreatorORM.github_username == username).first()
-        )
+        creator = db.query(CreatorORM).filter(CreatorORM.github_username == username).first()
     if not creator:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -127,15 +124,21 @@ async def get_user_stats(
 
     # Signal outcome counts
     total_signals = score.total_signals if score else 0
-    wins = db.query(SignalORM).filter(
-        SignalORM.creator_id == creator.id, SignalORM.outcome == "WIN"
-    ).count()
-    losses = db.query(SignalORM).filter(
-        SignalORM.creator_id == creator.id, SignalORM.outcome == "LOSS"
-    ).count()
-    neutrals = db.query(SignalORM).filter(
-        SignalORM.creator_id == creator.id, SignalORM.outcome == "NEUTRAL"
-    ).count()
+    wins = (
+        db.query(SignalORM)
+        .filter(SignalORM.creator_id == creator.id, SignalORM.outcome == "WIN")
+        .count()
+    )
+    losses = (
+        db.query(SignalORM)
+        .filter(SignalORM.creator_id == creator.id, SignalORM.outcome == "LOSS")
+        .count()
+    )
+    neutrals = (
+        db.query(SignalORM)
+        .filter(SignalORM.creator_id == creator.id, SignalORM.outcome == "NEUTRAL")
+        .count()
+    )
     pending = total_signals - wins - losses - neutrals
 
     # Active bots (creators whose id ends with b0t pattern are bots, but
@@ -204,7 +207,7 @@ def _generate_og_image(
         font_md = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 32)
         font_sm = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 24)
         font_brand = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 28)
-    except (OSError, IOError):
+    except OSError:
         font_lg = ImageFont.load_default()
         font_md = font_lg
         font_sm = font_lg

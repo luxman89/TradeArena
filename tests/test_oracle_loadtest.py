@@ -21,19 +21,17 @@ import pytest
 from tradearena.core import cache
 from tradearena.core.oracle import (
     fetch_klines,
-    fetch_price_at,
     resolve_signal,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_candle(open_p, high, low, close, ts_ms=0):
     """Minimal kline list matching Binance format."""
-    return [ts_ms, str(open_p), str(high), str(low), str(close),
-            "0", 0, "0", 0, "0", "0", "0"]
+    return [ts_ms, str(open_p), str(high), str(low), str(close), "0", 0, "0", 0, "0", "0", "0"]
 
 
 def _make_signal(
@@ -79,6 +77,7 @@ def _mock_binance_client(klines=None, latency_ms=5):
 # Test: concurrent resolve_signal calls
 # ---------------------------------------------------------------------------
 
+
 class TestConcurrentResolveSignal:
     """Test resolve_signal under concurrent load with mocked Binance."""
 
@@ -104,23 +103,20 @@ class TestConcurrentResolveSignal:
         ]
 
         start = time.perf_counter()
-        results = await asyncio.gather(
-            *[resolve_signal(s, client) for s in signals]
-        )
+        results = await asyncio.gather(*[resolve_signal(s, client) for s in signals])
         elapsed = time.perf_counter() - start
 
         resolved = [r for r in results if r is not None]
         assert len(resolved) == 10, f"Expected 10 resolved, got {len(resolved)}"
-        print(f"\n  [direction-mode] 10 signals resolved in {elapsed:.3f}s "
-              f"({elapsed / 10 * 1000:.1f}ms/signal)")
+        print(
+            f"\n  [direction-mode] 10 signals resolved in {elapsed:.3f}s "
+            f"({elapsed / 10 * 1000:.1f}ms/signal)"
+        )
 
     @pytest.mark.asyncio
     async def test_10_concurrent_signals_target_mode(self):
         """10 signals resolved concurrently (target/stop mode)."""
-        klines = [
-            _make_candle(40000, 42000, 39000, 41500, ts_ms=i * 60000)
-            for i in range(12)
-        ]
+        klines = [_make_candle(40000, 42000, 39000, 41500, ts_ms=i * 60000) for i in range(12)]
         client = _mock_binance_client(klines=klines, latency_ms=5)
         signals = [
             _make_signal(
@@ -136,15 +132,15 @@ class TestConcurrentResolveSignal:
         ]
 
         start = time.perf_counter()
-        results = await asyncio.gather(
-            *[resolve_signal(s, client) for s in signals]
-        )
+        results = await asyncio.gather(*[resolve_signal(s, client) for s in signals])
         elapsed = time.perf_counter() - start
 
         resolved = [r for r in results if r is not None]
         assert len(resolved) == 10
-        print(f"\n  [target-mode] 10 signals resolved in {elapsed:.3f}s "
-              f"({elapsed / 10 * 1000:.1f}ms/signal)")
+        print(
+            f"\n  [target-mode] 10 signals resolved in {elapsed:.3f}s "
+            f"({elapsed / 10 * 1000:.1f}ms/signal)"
+        )
 
     @pytest.mark.asyncio
     async def test_50_concurrent_signals_mixed(self):
@@ -175,37 +171,40 @@ class TestConcurrentResolveSignal:
         for i in range(50):
             asset = assets[i % len(assets)]
             if i % 2 == 0:
-                signals.append(_make_signal(
-                    signal_id=f"sig-mix-{i}",
-                    asset=asset,
-                    action="buy" if i % 4 == 0 else "sell",
-                    target_price=42000.0,
-                    stop_loss=38000.0,
-                    timeframe="1h",
-                    committed_hours_ago=48,
-                ))
+                signals.append(
+                    _make_signal(
+                        signal_id=f"sig-mix-{i}",
+                        asset=asset,
+                        action="buy" if i % 4 == 0 else "sell",
+                        target_price=42000.0,
+                        stop_loss=38000.0,
+                        timeframe="1h",
+                        committed_hours_ago=48,
+                    )
+                )
             else:
-                signals.append(_make_signal(
-                    signal_id=f"sig-mix-{i}",
-                    asset=asset,
-                    action="long" if i % 3 == 0 else "short",
-                    timeframe="4h",
-                    committed_hours_ago=48,
-                ))
+                signals.append(
+                    _make_signal(
+                        signal_id=f"sig-mix-{i}",
+                        asset=asset,
+                        action="long" if i % 3 == 0 else "short",
+                        timeframe="4h",
+                        committed_hours_ago=48,
+                    )
+                )
 
         start = time.perf_counter()
-        results = await asyncio.gather(
-            *[resolve_signal(s, client) for s in signals]
-        )
+        results = await asyncio.gather(*[resolve_signal(s, client) for s in signals])
         elapsed = time.perf_counter() - start
 
         resolved = [r for r in results if r is not None]
         assert len(resolved) == 50
         cache_info = cache.stats()
-        print(f"\n  [mixed-50] {len(resolved)} signals in {elapsed:.3f}s "
-              f"({elapsed / 50 * 1000:.1f}ms/signal)")
-        print(f"  Binance API calls: {call_count} | "
-              f"Cache entries: {cache_info['active']}")
+        print(
+            f"\n  [mixed-50] {len(resolved)} signals in {elapsed:.3f}s "
+            f"({elapsed / 50 * 1000:.1f}ms/signal)"
+        )
+        print(f"  Binance API calls: {call_count} | Cache entries: {cache_info['active']}")
 
     @pytest.mark.asyncio
     async def test_100_concurrent_signals_same_asset(self):
@@ -227,22 +226,23 @@ class TestConcurrentResolveSignal:
         ]
 
         start = time.perf_counter()
-        results = await asyncio.gather(
-            *[resolve_signal(s, client) for s in signals]
-        )
+        results = await asyncio.gather(*[resolve_signal(s, client) for s in signals])
         elapsed = time.perf_counter() - start
 
         resolved = [r for r in results if r is not None]
         assert len(resolved) == 100
         cache_info = cache.stats()
-        print(f"\n  [same-asset-100] {len(resolved)} signals in {elapsed:.3f}s "
-              f"({elapsed / 100 * 1000:.1f}ms/signal)")
+        print(
+            f"\n  [same-asset-100] {len(resolved)} signals in {elapsed:.3f}s "
+            f"({elapsed / 100 * 1000:.1f}ms/signal)"
+        )
         print(f"  Cache entries: {cache_info['active']} (expect few due to dedup)")
 
 
 # ---------------------------------------------------------------------------
 # Test: cache effectiveness under concurrent access
 # ---------------------------------------------------------------------------
+
 
 class TestCacheUnderConcurrency:
     """Verify the cache handles concurrent reads/writes correctly."""
@@ -270,15 +270,14 @@ class TestCacheUnderConcurrency:
         client.get = fake_get
 
         # 20 concurrent fetches for the same key
-        tasks = [
-            fetch_klines(client, "BTCUSDT", "1h", 1000000, 2000000)
-            for _ in range(20)
-        ]
+        tasks = [fetch_klines(client, "BTCUSDT", "1h", 1000000, 2000000) for _ in range(20)]
         results = await asyncio.gather(*tasks)
 
         assert all(r == klines for r in results)
-        print(f"\n  [cache-dedup] 20 concurrent fetches -> {call_count} API calls "
-              f"(ideal: 1, acceptable: <=5)")
+        print(
+            f"\n  [cache-dedup] 20 concurrent fetches -> {call_count} API calls "
+            f"(ideal: 1, acceptable: <=5)"
+        )
 
     @pytest.mark.asyncio
     async def test_cache_stats_accuracy_under_load(self):
@@ -297,8 +296,7 @@ class TestCacheUnderConcurrency:
 
         # Fetch 10 different keys concurrently
         tasks = [
-            fetch_klines(client, "BTCUSDT", "1h", i * 100000, (i + 1) * 100000)
-            for i in range(10)
+            fetch_klines(client, "BTCUSDT", "1h", i * 100000, (i + 1) * 100000) for i in range(10)
         ]
         await asyncio.gather(*tasks)
 
@@ -311,6 +309,7 @@ class TestCacheUnderConcurrency:
 # ---------------------------------------------------------------------------
 # Test: latency profiling
 # ---------------------------------------------------------------------------
+
 
 class TestLatencyProfile:
     """Measure resolution latency distribution."""
@@ -357,7 +356,7 @@ class TestLatencyProfile:
         p99 = sorted(latencies)[int(len(latencies) * 0.99)]
         mean = statistics.mean(latencies)
 
-        print(f"\n  [latency-profile] n=50 sequential resolutions")
+        print("\n  [latency-profile] n=50 sequential resolutions")
         print(f"  mean={mean:.2f}ms  p50={p50:.2f}ms  p95={p95:.2f}ms  p99={p99:.2f}ms")
         print(f"  min={min(latencies):.2f}ms  max={max(latencies):.2f}ms")
 
@@ -367,6 +366,7 @@ class TestLatencyProfile:
 # ---------------------------------------------------------------------------
 # Test: error resilience under load
 # ---------------------------------------------------------------------------
+
 
 class TestErrorResilience:
     """Verify graceful degradation when some Binance calls fail."""
@@ -422,8 +422,10 @@ class TestErrorResilience:
 
         successes = [r for r in results if r is not None and not isinstance(r, Exception)]
         failures = [r for r in results if isinstance(r, Exception)]
-        print(f"\n  [error-resilience] 20 signals with flaky API: "
-              f"{len(successes)} ok, {len(failures)} errors")
+        print(
+            f"\n  [error-resilience] 20 signals with flaky API: "
+            f"{len(successes)} ok, {len(failures)} errors"
+        )
         assert len(successes) > 0
         assert len(failures) > 0  # some should fail
 
@@ -431,6 +433,7 @@ class TestErrorResilience:
 # ---------------------------------------------------------------------------
 # Test: sequential vs concurrent throughput comparison
 # ---------------------------------------------------------------------------
+
 
 class TestThroughputComparison:
     """Compare sequential vs concurrent resolution throughput."""
@@ -480,11 +483,13 @@ class TestThroughputComparison:
         conc_time = time.perf_counter() - t0
 
         speedup = seq_time / conc_time if conc_time > 0 else float("inf")
-        print(f"\n  [throughput] 20 signals with 10ms API latency:")
-        print(f"  Sequential: {seq_time:.3f}s | Concurrent: {conc_time:.3f}s | "
-              f"Speedup: {speedup:.1f}x")
+        print("\n  [throughput] 20 signals with 10ms API latency:")
+        print(
+            f"  Sequential: {seq_time:.3f}s | Concurrent: {conc_time:.3f}s | "
+            f"Speedup: {speedup:.1f}x"
+        )
 
         # NOTE: resolve_pending_signals runs sequentially today.
         # This test quantifies the potential speedup from concurrent execution.
-        print(f"  ** BOTTLENECK: resolve_pending_signals uses a sequential for-loop **")
+        print("  ** BOTTLENECK: resolve_pending_signals uses a sequential for-loop **")
         print(f"  ** Concurrent execution could yield ~{speedup:.0f}x throughput improvement **")

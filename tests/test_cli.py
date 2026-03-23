@@ -330,8 +330,18 @@ class TestTournamentBracket:
             "entries": [
                 {"creator_id": "alice", "seed": 1, "eliminated_at": None, "points": 0},
                 {"creator_id": "bob", "seed": 2, "eliminated_at": None, "points": 0},
-                {"creator_id": "carol", "seed": 3, "eliminated_at": "2026-03-20T12:00:00", "points": 0},
-                {"creator_id": "dave", "seed": 4, "eliminated_at": "2026-03-20T12:00:00", "points": 0},
+                {
+                    "creator_id": "carol",
+                    "seed": 3,
+                    "eliminated_at": "2026-03-20T12:00:00",
+                    "points": 0,
+                },
+                {
+                    "creator_id": "dave",
+                    "seed": 4,
+                    "eliminated_at": "2026-03-20T12:00:00",
+                    "points": 0,
+                },
             ],
             "matches": [
                 {"round": 1, "match_order": 1, "battle_id": "bat-m1", "winner_bot_id": "alice"},

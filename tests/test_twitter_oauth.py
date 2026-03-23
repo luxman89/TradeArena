@@ -129,6 +129,7 @@ def _twitter_mock_client(
 def _inject_pkce_state(state: str):
     """Inject a PKCE verifier into the in-memory store for testing."""
     import tradearena.api.routes.auth as auth_mod
+
     auth_mod._pkce_store[state] = "test-verifier-12345"
 
 
@@ -155,6 +156,7 @@ def test_twitter_redirect_returns_authorization_url(client):
 def test_twitter_redirect_503_when_not_configured(client):
     """GET /auth/twitter should 503 when Twitter OAuth is not configured."""
     import tradearena.api.routes.auth as auth_mod
+
     auth_mod.TWITTER_CLIENT_ID = ""
     auth_mod.TWITTER_CLIENT_SECRET = ""
     resp = client.get("/auth/twitter")
@@ -194,6 +196,7 @@ def test_twitter_callback_login_existing_user(mock_client_cls, client):
     """Callback with existing twitter_id should login without creating new account."""
     # Pre-create a user with this twitter_id
     from datetime import UTC, datetime
+
     db = next(override_get_db())
     creator = CreatorORM(
         id="existing-user-01",
@@ -228,6 +231,7 @@ def test_twitter_callback_login_existing_user(mock_client_cls, client):
 def test_twitter_callback_updates_handle_on_login(mock_client_cls, client):
     """If Twitter handle changed, it should be updated on login."""
     from datetime import UTC, datetime
+
     db = next(override_get_db())
     creator = CreatorORM(
         id="handle-user-01",
@@ -315,12 +319,8 @@ def test_twitter_callback_user_profile_failure(mock_client_cls, client):
 @patch("tradearena.api.routes.auth.httpx.AsyncClient")
 def test_twitter_callback_short_display_name_uses_handle(mock_client_cls, client):
     """If Twitter name is too short, use username instead."""
-    short_name_user = {
-        "data": {"id": "111222333", "username": "longusername", "name": "AB"}
-    }
-    mock_client_cls.side_effect = _twitter_mock_client(
-        user_data=short_name_user
-    )
+    short_name_user = {"data": {"id": "111222333", "username": "longusername", "name": "AB"}}
+    mock_client_cls.side_effect = _twitter_mock_client(user_data=short_name_user)
     _inject_pkce_state("test-state-7")
 
     resp = client.post(
@@ -336,6 +336,7 @@ def test_twitter_callback_short_display_name_uses_handle(mock_client_cls, client
 def test_twitter_callback_503_when_not_configured(client):
     """POST /auth/twitter/callback should 503 when not configured."""
     import tradearena.api.routes.auth as auth_mod
+
     auth_mod.TWITTER_CLIENT_ID = ""
     auth_mod.TWITTER_CLIENT_SECRET = ""
 
