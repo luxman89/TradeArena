@@ -1,4 +1,4 @@
-"""Tests for the Discord bot — bug report escalation and leaderboard posting."""
+"""Tests for the Discord bot — bug report escalation, leaderboard, and changelog posting."""
 
 from __future__ import annotations
 
@@ -11,7 +11,10 @@ from services.discord_bot.bot import (
     _build_issue_description,
     _extract_bug_title,
     _handle_bug_report,
+    build_changelog_embed,
     build_leaderboard_embed,
+    check_changelog,
+    fetch_latest_release,
     fetch_leaderboard,
     post_leaderboard,
 )
@@ -426,3 +429,269 @@ class TestPostLeaderboardDedup:
                 mock_fetch.assert_not_called()
         finally:
             bot_mod._last_leaderboard_post = original
+
+
+# ---------------------------------------------------------------------------
+# Changelog — fetch_latest_release
+# ---------------------------------------------------------------------------
+
+SAMPLE_RELEASE = {
+    "tag_name": "v0.3.0",
+    "name": "v0.3.0 — Changelog Posting",
+    "body": "## What's Changed\n- Added changelog posting to Discord\n- Bug fixes",
+    "html_url": "https://github.com/luxman89/TradeArena/releases/tag/v0.3.0",
+    "published_at": "2026-03-23T10:00:00Z",
+}
+
+
+class TestFetchLatestRelease:
+    @pytest.mark.asyncio
+    async def test_success(self):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = SAMPLE_RELEASE
+        mock_response.raise_for_status = MagicMock()
+
+        with patch("services.discord_bot.bot.httpx.AsyncClient") as mock_cls:
+            mock_client = AsyncMock()
+            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_cls.return_value = mock_client
+
+            release = await fetch_latest_release()
+
+        assert release is not None
+        assert release["tag_name"] == "v0.3.0"
+
+    @pytest.mark.asyncio
+    async def test_404_returns_none(self):
+        mock_response = MagicMock()
+        mock_response.status_code = 404
+
+        with patch("services.discord_bot.bot.httpx.AsyncClient") as mock_cls:
+            mock_client = AsyncMock()
+            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_cls.return_value = mock_client
+
+            release = await fetch_latest_release()
+
+        assert release is None
+
+    @pytest.mark.asyncio
+    async def test_http_error_returns_none(self):
+        import httpx as httpx_mod
+
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.raise_for_status = MagicMock(
+            side_effect=httpx_mod.HTTPStatusError(
+                "error", request=MagicMock(), response=mock_response
+            )
+        )
+
+        with patch("services.discord_bot.bot.httpx.AsyncClient") as mock_cls:
+            mock_client = AsyncMock()
+            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_cls.return_value = mock_client
+
+            release = await fetch_latest_release()
+
+        assert release is None
+
+    @pytest.mark.asyncio
+    async def test_connection_error_returns_none(self):
+        import httpx as httpx_mod
+
+        with patch("services.discord_bot.bot.httpx.AsyncClient") as mock_cls:
+            mock_client = AsyncMock()
+            mock_client.get = AsyncMock(side_effect=httpx_mod.ConnectError("refused"))
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_cls.return_value = mock_client
+
+            release = await fetch_latest_release()
+
+        assert release is None
+
+    @pytest.mark.asyncio
+    async def test_includes_github_token_when_set(self):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = SAMPLE_RELEASE
+        mock_response.raise_for_status = MagicMock()
+
+        with (
+            patch("services.discord_bot.bot.httpx.AsyncClient") as mock_cls,
+            patch.dict("os.environ", {"GITHUB_TOKEN": "ghp_test123"}),
+        ):
+            mock_client = AsyncMock()
+            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_cls.return_value = mock_client
+
+            await fetch_latest_release()
+
+            call_kwargs = mock_client.get.call_args
+            headers = call_kwargs[1].get("headers", call_kwargs.kwargs.get("headers", {}))
+            assert "Bearer ghp_test123" in headers.get("Authorization", "")
+
+
+# ---------------------------------------------------------------------------
+# Changelog — build_changelog_embed
+# ---------------------------------------------------------------------------
+
+
+class TestBuildChangelogEmbed:
+    def test_embed_title_contains_release_name(self):
+        embed = build_changelog_embed(SAMPLE_RELEASE)
+        assert "v0.3.0" in embed.title
+
+    def test_embed_description_contains_body(self):
+        embed = build_changelog_embed(SAMPLE_RELEASE)
+        assert "changelog posting" in embed.description.lower()
+
+    def test_embed_has_version_field(self):
+        embed = build_changelog_embed(SAMPLE_RELEASE)
+        version_field = next((f for f in embed.fields if f.name == "Version"), None)
+        assert version_field is not None
+        assert "v0.3.0" in version_field.value
+
+    def test_embed_has_changelog_link(self):
+        embed = build_changelog_embed(SAMPLE_RELEASE)
+        link_field = next((f for f in embed.fields if f.name == "Full Changelog"), None)
+        assert link_field is not None
+        assert "github.com" in link_field.value
+
+    def test_embed_color_is_green(self):
+        embed = build_changelog_embed(SAMPLE_RELEASE)
+        assert embed.color is not None
+        assert embed.color.value == 0x2ECC71
+
+    def test_embed_url_set(self):
+        embed = build_changelog_embed(SAMPLE_RELEASE)
+        assert embed.url == SAMPLE_RELEASE["html_url"]
+
+    def test_embed_timestamp_from_published_at(self):
+        embed = build_changelog_embed(SAMPLE_RELEASE)
+        assert embed.timestamp is not None
+
+    def test_truncates_long_body(self):
+        long_release = {**SAMPLE_RELEASE, "body": "A" * 3000}
+        embed = build_changelog_embed(long_release)
+        assert len(embed.description) <= 2000
+
+    def test_handles_empty_body(self):
+        no_body = {**SAMPLE_RELEASE, "body": ""}
+        embed = build_changelog_embed(no_body)
+        assert "No release notes" in embed.description
+
+    def test_handles_none_body(self):
+        no_body = {**SAMPLE_RELEASE, "body": None}
+        embed = build_changelog_embed(no_body)
+        assert "No release notes" in embed.description
+
+    def test_fallback_name_to_tag(self):
+        no_name = {**SAMPLE_RELEASE, "name": None}
+        embed = build_changelog_embed(no_name)
+        assert "v0.3.0" in embed.title
+
+
+# ---------------------------------------------------------------------------
+# Changelog — check_changelog dedup and posting
+# ---------------------------------------------------------------------------
+
+
+class TestCheckChangelog:
+    @pytest.mark.asyncio
+    async def test_initializes_tag_on_first_run(self):
+        """First run should record the tag without posting."""
+        import services.discord_bot.bot as bot_mod
+
+        original = bot_mod._last_changelog_tag
+        try:
+            bot_mod._last_changelog_tag = None
+            with patch.object(
+                bot_mod, "fetch_latest_release", new=AsyncMock(return_value=SAMPLE_RELEASE)
+            ):
+                with patch.object(bot_mod, "client") as mock_client:
+                    mock_client.guilds = []
+                    await check_changelog()
+
+            assert bot_mod._last_changelog_tag == "v0.3.0"
+            # No guilds iterated = no posting happened
+        finally:
+            bot_mod._last_changelog_tag = original
+
+    @pytest.mark.asyncio
+    async def test_skips_same_tag(self):
+        """Should not post if the tag hasn't changed."""
+        import services.discord_bot.bot as bot_mod
+
+        original = bot_mod._last_changelog_tag
+        try:
+            bot_mod._last_changelog_tag = "v0.3.0"
+            with patch.object(
+                bot_mod, "fetch_latest_release", new=AsyncMock(return_value=SAMPLE_RELEASE)
+            ):
+                with patch.object(bot_mod, "client") as mock_client:
+                    mock_client.guilds = []
+                    await check_changelog()
+
+            # Tag unchanged, no posting
+            assert bot_mod._last_changelog_tag == "v0.3.0"
+        finally:
+            bot_mod._last_changelog_tag = original
+
+    @pytest.mark.asyncio
+    async def test_posts_on_new_tag(self):
+        """Should post when a new tag is detected."""
+        import services.discord_bot.bot as bot_mod
+
+        original = bot_mod._last_changelog_tag
+        try:
+            bot_mod._last_changelog_tag = "v0.2.0"  # Old tag
+
+            mock_channel = MagicMock()
+            mock_channel.name = "announcements"
+            mock_channel.send = AsyncMock()
+
+            mock_guild = MagicMock()
+            mock_guild.name = "TradeArena"
+            mock_guild.text_channels = [mock_channel]
+
+            with patch.object(
+                bot_mod, "fetch_latest_release", new=AsyncMock(return_value=SAMPLE_RELEASE)
+            ):
+                with patch.object(bot_mod, "client") as mock_client:
+                    mock_client.guilds = [mock_guild]
+                    with patch("discord.utils.get", return_value=mock_channel):
+                        await check_changelog()
+
+            assert bot_mod._last_changelog_tag == "v0.3.0"
+            mock_channel.send.assert_called_once()
+            # Verify it sent an embed
+            call_kwargs = mock_channel.send.call_args
+            assert "embed" in call_kwargs.kwargs
+        finally:
+            bot_mod._last_changelog_tag = original
+
+    @pytest.mark.asyncio
+    async def test_no_release_does_nothing(self):
+        """Should do nothing if no release is found."""
+        import services.discord_bot.bot as bot_mod
+
+        original = bot_mod._last_changelog_tag
+        try:
+            bot_mod._last_changelog_tag = "v0.2.0"
+            with patch.object(bot_mod, "fetch_latest_release", new=AsyncMock(return_value=None)):
+                await check_changelog()
+
+            assert bot_mod._last_changelog_tag == "v0.2.0"  # Unchanged
+        finally:
+            bot_mod._last_changelog_tag = original

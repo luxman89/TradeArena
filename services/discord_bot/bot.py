@@ -6,6 +6,7 @@ Core responsibilities:
 - Basic moderation (spam detection)
 - Escalate well-structured bug reports from #bug-reports to Paperclip issues
 - Post daily leaderboard updates to #announcements
+- Post changelog entries from GitHub releases to #announcements
 
 Usage:
     DISCORD_BOT_TOKEN=... python -m services.discord_bot.bot
@@ -50,6 +51,10 @@ ANNOUNCEMENTS_CHANNEL = "announcements"
 
 # TradeArena API for leaderboard
 TRADEARENA_API_URL = os.getenv("TRADEARENA_API_URL", "http://localhost:8000").rstrip("/")
+
+# GitHub repo for changelog polling
+GITHUB_REPO = os.getenv("GITHUB_REPO", "luxman89/TradeArena")
+CHANGELOG_CHECK_MINUTES = 30  # Poll interval for new releases
 
 # Leaderboard post time — daily at 12:00 UTC
 LEADERBOARD_POST_TIME = time(hour=12, minute=0, tzinfo=UTC)
@@ -177,6 +182,9 @@ _recent_messages: dict[int, list[str]] = {}  # user_id -> last N messages
 # Track last leaderboard post to avoid duplicates
 _last_leaderboard_post: datetime | None = None
 
+# Track the last changelog release tag we posted to avoid duplicates
+_last_changelog_tag: str | None = None
+
 
 @client.event
 async def on_ready() -> None:
@@ -186,6 +194,9 @@ async def on_ready() -> None:
     if not post_leaderboard.is_running():
         post_leaderboard.start()
         log.info("Leaderboard scheduled task started (daily at %s)", LEADERBOARD_POST_TIME)
+    if not check_changelog.is_running():
+        check_changelog.start()
+        log.info("Changelog check started (every %d minutes)", CHANGELOG_CHECK_MINUTES)
 
 
 @client.event
@@ -496,6 +507,112 @@ async def post_leaderboard() -> None:
 
 @post_leaderboard.before_loop
 async def _wait_until_ready() -> None:
+    await client.wait_until_ready()
+
+
+# ---------------------------------------------------------------------------
+# Changelog posting — GitHub release polling
+# ---------------------------------------------------------------------------
+
+
+async def fetch_latest_release() -> dict | None:
+    """Fetch the latest release from the GitHub API."""
+    url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+    headers = {"Accept": "application/vnd.github+json"}
+    token = os.getenv("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    try:
+        async with httpx.AsyncClient(timeout=10) as http:
+            resp = await http.get(url, headers=headers)
+            if resp.status_code == 404:
+                return None
+            resp.raise_for_status()
+            return resp.json()
+    except Exception:
+        log.exception("Failed to fetch latest GitHub release")
+        return None
+
+
+def build_changelog_embed(release: dict) -> discord.Embed:
+    """Format a GitHub release into a Discord embed for #announcements."""
+    tag = release.get("tag_name", "unknown")
+    name = release.get("name") or tag
+    body = release.get("body", "") or ""
+    html_url = release.get("html_url", "")
+    published = release.get("published_at", "")
+
+    # Trim body to fit Discord embed limits (max 4096 for description)
+    if len(body) > 2000:
+        body = body[:1997] + "..."
+
+    embed = discord.Embed(
+        title=f"🚀 New Release: {name}",
+        description=body or "No release notes provided.",
+        color=0x2ECC71,  # Green
+        url=html_url,
+    )
+    embed.add_field(name="Version", value=f"`{tag}`", inline=True)
+
+    if html_url:
+        embed.add_field(
+            name="Full Changelog",
+            value=f"[View on GitHub]({html_url})",
+            inline=True,
+        )
+
+    if published:
+        try:
+            pub_dt = datetime.fromisoformat(published.replace("Z", "+00:00"))
+            embed.timestamp = pub_dt
+        except ValueError:
+            pass
+
+    embed.set_footer(text=f"{GITHUB_REPO} • GitHub Releases")
+    return embed
+
+
+@tasks.loop(minutes=CHANGELOG_CHECK_MINUTES)
+async def check_changelog() -> None:
+    """Poll GitHub for new releases and post to #announcements."""
+    global _last_changelog_tag
+
+    release = await fetch_latest_release()
+    if release is None:
+        return
+
+    tag = release.get("tag_name")
+    if not tag:
+        return
+
+    # On first run, record the current tag without posting (avoid re-posting old releases)
+    if _last_changelog_tag is None:
+        _last_changelog_tag = tag
+        log.info("Initialized changelog tracker with tag: %s", tag)
+        return
+
+    # Skip if we already posted this tag
+    if tag == _last_changelog_tag:
+        return
+
+    _last_changelog_tag = tag
+    log.info("New release detected: %s", tag)
+
+    embed = build_changelog_embed(release)
+    for guild in client.guilds:
+        channel = discord.utils.get(guild.text_channels, name=ANNOUNCEMENTS_CHANNEL)
+        if not channel:
+            log.warning("No #%s channel in %s", ANNOUNCEMENTS_CHANNEL, guild.name)
+            continue
+        try:
+            await channel.send(embed=embed)
+            log.info("Posted changelog for %s to #%s in %s", tag, ANNOUNCEMENTS_CHANNEL, guild.name)
+        except discord.Forbidden:
+            log.error("Missing permission to send in #%s in %s", ANNOUNCEMENTS_CHANNEL, guild.name)
+
+
+@check_changelog.before_loop
+async def _wait_changelog_ready() -> None:
     await client.wait_until_ready()
 
 
