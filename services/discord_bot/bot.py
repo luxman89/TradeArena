@@ -35,6 +35,8 @@ from services.discord_bot.knowledge import (
 from services.discord_bot.paperclip import PaperclipClient
 from services.discord_bot.pins import handle_announcement_pin, handle_reaction_pin
 from services.discord_bot.roles import sync_contributor_roles, sync_rank_roles
+from services.discord_bot.setup import setup_server
+from services.discord_bot.welcome import post_welcome_and_rules
 
 logging.basicConfig(
     level=logging.INFO,
@@ -200,6 +202,15 @@ async def on_ready() -> None:
     log.info("Bot connected as %s (id=%s)", client.user, client.user.id if client.user else "?")
     log.info("Serving %d guilds", len(client.guilds))
     _init_knowledge()
+
+    # Auto-setup: create missing channels/roles and post welcome/rules
+    for guild in client.guilds:
+        try:
+            await setup_server(guild)
+            await post_welcome_and_rules(guild)
+        except Exception:
+            log.exception("Server setup failed for guild: %s", guild.name)
+
     if not post_leaderboard.is_running():
         post_leaderboard.start()
         log.info("Leaderboard scheduled task started (daily at %s)", LEADERBOARD_POST_TIME)
