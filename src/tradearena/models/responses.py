@@ -247,6 +247,34 @@ class StreaksData(BaseModel):
     max_loss_streak: int
 
 
+class SignalFrequencyPoint(BaseModel):
+    date: str
+    count: int
+
+
+class OutcomeDistribution(BaseModel):
+    counts: dict[str, int]
+    percentages: dict[str, float]
+
+
+class AssetPerformance(BaseModel):
+    asset: str
+    win_rate: float | None = None
+    total: int
+    wins: int
+    losses: int
+    neutral: int
+
+
+class TimeframePerformance(BaseModel):
+    timeframe: str
+    win_rate: float | None = None
+    total: int
+    wins: int
+    losses: int
+    neutral: int
+
+
 class AnalyticsResponse(BaseModel):
     range: str
     total_signals: int
@@ -256,6 +284,10 @@ class AnalyticsResponse(BaseModel):
     streaks: StreaksData
     action_distribution: dict[str, int]
     confidence_calibration_curve: list[CalibrationPoint]
+    signal_frequency: list[SignalFrequencyPoint]
+    outcome_distribution: OutcomeDistribution
+    asset_performance: list[AssetPerformance]
+    timeframe_performance: list[TimeframePerformance]
 
 
 # ---------------------------------------------------------------------------

@@ -8,10 +8,14 @@ from types import SimpleNamespace
 from tradearena.core.analytics import (
     compute_action_distribution,
     compute_analytics,
+    compute_asset_performance,
     compute_confidence_calibration_curve,
     compute_drawdown_series,
     compute_equity_curve,
+    compute_outcome_distribution,
+    compute_signal_frequency,
     compute_streaks,
+    compute_timeframe_performance,
 )
 
 
@@ -20,6 +24,8 @@ def _sig(
     confidence=0.5,
     action="buy",
     committed_at=None,
+    asset="BTCUSDT",
+    timeframe="1d",
     **kwargs,
 ):
     """Create a lightweight signal-like object for analytics tests."""
@@ -30,6 +36,8 @@ def _sig(
         confidence=confidence,
         action=action,
         committed_at=committed_at,
+        asset=asset,
+        timeframe=timeframe,
         **kwargs,
     )
 
@@ -235,3 +243,153 @@ class TestComputeAnalytics:
         assert result["total_signals"] == 0
         assert result["equity_curve"] == []
         assert result["streaks"]["max_win_streak"] == 0
+        assert result["signal_frequency"] == []
+        assert result["outcome_distribution"]["counts"]["WIN"] == 0
+        assert result["asset_performance"] == []
+        assert result["timeframe_performance"] == []
+
+    def test_includes_new_fields(self):
+        t = datetime(2025, 1, 1, tzinfo=UTC)
+        sigs = [
+            _sig(outcome="WIN", asset="BTCUSDT", timeframe="1d", committed_at=t),
+            _sig(
+                outcome="LOSS",
+                asset="ETHUSDT",
+                timeframe="4h",
+                committed_at=t + timedelta(days=1),
+            ),
+        ]
+        result = compute_analytics(sigs, "all")
+        assert len(result["signal_frequency"]) == 2
+        assert result["outcome_distribution"]["counts"]["WIN"] == 1
+        assert len(result["asset_performance"]) == 2
+        assert len(result["timeframe_performance"]) == 2
+
+
+# ── Signal frequency ────────────────────────────────────────────────────
+
+
+class TestSignalFrequency:
+    def test_empty(self):
+        assert compute_signal_frequency([]) == []
+
+    def test_single_day(self):
+        t = datetime(2025, 1, 5, 10, 0, tzinfo=UTC)
+        sigs = [_sig(committed_at=t), _sig(committed_at=t + timedelta(hours=2))]
+        result = compute_signal_frequency(sigs)
+        assert len(result) == 1
+        assert result[0]["date"] == "2025-01-05"
+        assert result[0]["count"] == 2
+
+    def test_multiple_days_sorted(self):
+        t1 = datetime(2025, 1, 3, tzinfo=UTC)
+        t2 = datetime(2025, 1, 1, tzinfo=UTC)
+        t3 = datetime(2025, 1, 3, 12, 0, tzinfo=UTC)
+        sigs = [_sig(committed_at=t1), _sig(committed_at=t2), _sig(committed_at=t3)]
+        result = compute_signal_frequency(sigs)
+        assert len(result) == 2
+        assert result[0]["date"] == "2025-01-01"
+        assert result[0]["count"] == 1
+        assert result[1]["date"] == "2025-01-03"
+        assert result[1]["count"] == 2
+
+
+# ── Outcome distribution ────────────────────────────────────────────────
+
+
+class TestOutcomeDistribution:
+    def test_empty(self):
+        result = compute_outcome_distribution([])
+        assert result["counts"] == {"WIN": 0, "LOSS": 0, "NEUTRAL": 0, "pending": 0}
+
+    def test_mixed_outcomes(self):
+        sigs = [
+            _sig(outcome="WIN"),
+            _sig(outcome="WIN"),
+            _sig(outcome="LOSS"),
+            _sig(outcome="NEUTRAL"),
+            _sig(outcome=None),
+        ]
+        result = compute_outcome_distribution(sigs)
+        assert result["counts"]["WIN"] == 2
+        assert result["counts"]["LOSS"] == 1
+        assert result["counts"]["NEUTRAL"] == 1
+        assert result["counts"]["pending"] == 1
+        assert result["percentages"]["WIN"] == 0.4
+
+    def test_all_pending(self):
+        sigs = [_sig(outcome=None), _sig(outcome=None)]
+        result = compute_outcome_distribution(sigs)
+        assert result["counts"]["pending"] == 2
+        assert result["percentages"]["pending"] == 1.0
+
+
+# ── Asset performance ───────────────────────────────────────────────────
+
+
+class TestAssetPerformance:
+    def test_empty(self):
+        assert compute_asset_performance([]) == []
+
+    def test_single_asset(self):
+        sigs = [
+            _sig(outcome="WIN", asset="BTCUSDT"),
+            _sig(outcome="LOSS", asset="BTCUSDT"),
+            _sig(outcome="WIN", asset="BTCUSDT"),
+        ]
+        result = compute_asset_performance(sigs)
+        assert len(result) == 1
+        assert result[0]["asset"] == "BTCUSDT"
+        assert result[0]["total"] == 3
+        assert result[0]["wins"] == 2
+        assert result[0]["losses"] == 1
+        assert result[0]["win_rate"] == round(2 / 3, 4)
+
+    def test_multiple_assets_sorted(self):
+        sigs = [
+            _sig(outcome="WIN", asset="ETHUSDT"),
+            _sig(outcome="LOSS", asset="BTCUSDT"),
+        ]
+        result = compute_asset_performance(sigs)
+        assert result[0]["asset"] == "BTCUSDT"
+        assert result[1]["asset"] == "ETHUSDT"
+
+    def test_no_resolved_win_rate_none(self):
+        sigs = [_sig(outcome=None, asset="BTCUSDT")]
+        result = compute_asset_performance(sigs)
+        assert result[0]["win_rate"] is None
+        assert result[0]["total"] == 1
+
+
+# ── Timeframe performance ───────────────────────────────────────────────
+
+
+class TestTimeframePerformance:
+    def test_empty(self):
+        assert compute_timeframe_performance([]) == []
+
+    def test_single_timeframe(self):
+        sigs = [
+            _sig(outcome="WIN", timeframe="4h"),
+            _sig(outcome="WIN", timeframe="4h"),
+            _sig(outcome="LOSS", timeframe="4h"),
+        ]
+        result = compute_timeframe_performance(sigs)
+        assert len(result) == 1
+        assert result[0]["timeframe"] == "4h"
+        assert result[0]["win_rate"] == round(2 / 3, 4)
+
+    def test_unspecified_timeframe(self):
+        sigs = [_sig(outcome="WIN", timeframe=None)]
+        result = compute_timeframe_performance(sigs)
+        assert result[0]["timeframe"] == "unspecified"
+
+    def test_multiple_timeframes(self):
+        sigs = [
+            _sig(outcome="WIN", timeframe="1h"),
+            _sig(outcome="LOSS", timeframe="1d"),
+        ]
+        result = compute_timeframe_performance(sigs)
+        assert len(result) == 2
+        assert result[0]["timeframe"] == "1d"
+        assert result[1]["timeframe"] == "1h"
