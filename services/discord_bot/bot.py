@@ -1,9 +1,10 @@
 """TradeArena Community Manager Discord Bot.
 
-Core responsibilities (Phase 1):
+Core responsibilities:
 - Answer SDK/installation/setup questions in #bot-help using TradeArena docs
 - Welcome new members in #introductions
 - Basic moderation (spam detection)
+- Escalate well-structured bug reports from #bug-reports to Paperclip issues (Phase 2)
 
 Usage:
     DISCORD_BOT_TOKEN=... python -m services.discord_bot.bot
@@ -27,6 +28,7 @@ from services.discord_bot.knowledge import (
     load_knowledge_base,
     load_readme,
 )
+from services.discord_bot.paperclip import PaperclipClient
 
 logging.basicConfig(
     level=logging.INFO,
@@ -55,6 +57,12 @@ SPAM_LINK_PATTERN = re.compile(
 
 _knowledge: dict[str, str] = {}
 _context_prompt: str = ""
+
+# ---------------------------------------------------------------------------
+# Paperclip client (initialized once at startup)
+# ---------------------------------------------------------------------------
+
+_paperclip = PaperclipClient()
 
 
 def _init_knowledge() -> None:
@@ -298,8 +306,39 @@ async def _handle_bot_help(message: Message) -> None:
         )
 
 
+def _extract_bug_title(content: str) -> str:
+    """Extract a concise title from bug report content.
+
+    Uses the first non-empty line (up to 100 chars), or a generic prefix.
+    """
+    for line in content.split("\n"):
+        line = line.strip().lstrip("#").strip()
+        if len(line) >= 10:
+            title = line[:100]
+            if len(line) > 100:
+                title += "..."
+            return title
+    return "Bug report from Discord"
+
+
+def _build_issue_description(message: Message) -> str:
+    """Format a Paperclip issue description from a Discord bug report."""
+    author = message.author.display_name
+    channel_url = ""
+    if message.guild and hasattr(message, "jump_url"):
+        channel_url = message.jump_url
+
+    parts = [
+        f"**Reported by:** {author} (Discord)",
+    ]
+    if channel_url:
+        parts.append(f"**Source:** [Discord message]({channel_url})")
+    parts.append(f"\n---\n\n{message.content.strip()}")
+    return "\n".join(parts)
+
+
 async def _handle_bug_report(message: Message) -> None:
-    """Acknowledge bug reports and remind about the template."""
+    """Acknowledge bug reports and escalate to Paperclip when well-structured."""
     content = message.content.strip()
     if len(content) < 20:
         return
@@ -308,14 +347,38 @@ async def _handle_bug_report(message: Message) -> None:
     if message.reference:  # skip replies
         return
 
-    # Check if the report has basic structure
-    has_steps = any(
-        kw in content.lower()
-        for kw in ["steps", "reproduce", "expected", "actual", "error", "traceback"]
-    )
+    # Check if the report has sufficient detail for escalation
+    detail_keywords = ["steps", "reproduce", "expected", "actual", "error", "traceback"]
+    has_detail = sum(1 for kw in detail_keywords if kw in content.lower())
 
-    if has_steps:
+    if has_detail >= 2:
+        # Well-structured report — escalate to Paperclip
         await message.add_reaction("✅")
+
+        if _paperclip.configured:
+            title = _extract_bug_title(content)
+            description = _build_issue_description(message)
+            issue = await _paperclip.create_issue(
+                title=f"[Discord Bug] {title}",
+                description=description,
+                priority="medium",
+            )
+            if issue:
+                await message.add_reaction("🎫")
+                await message.reply(
+                    f"Thanks for the detailed bug report! I've created a tracking issue: "
+                    f"**{issue.identifier}**\n"
+                    f"The engineering team will investigate.",
+                    mention_author=False,
+                )
+                log.info(
+                    "Escalated bug report from %s to Paperclip issue %s",
+                    message.author.display_name,
+                    issue.identifier,
+                )
+                return
+
+        # Paperclip not configured or creation failed — fall back to acknowledgement
         await message.reply(
             "Thanks for the detailed bug report! The engineering team will look into this.",
             mention_author=False,
