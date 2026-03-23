@@ -230,6 +230,20 @@ async def force_resolve_battle(
             detail="Cannot resolve — one or both creators have fewer than 2 resolved signals.",
         )
 
+    from tradearena.core.audit import log_action
+
+    log_action(
+        db,
+        actor="admin",
+        action="battle.force_resolved",
+        target=battle_id,
+        metadata={
+            "creator1_id": battle.creator1_id,
+            "creator2_id": battle.creator2_id,
+            "winner_id": battle.winner_id,
+        },
+    )
+
     resp = _battle_to_response(result)
     await manager.broadcast("battle_resolved", resp)
     return resp

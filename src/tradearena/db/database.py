@@ -291,6 +291,25 @@ class MatchmakingQueueORM(Base):
     creator = relationship("CreatorORM")
 
 
+class AuditLogORM(Base):
+    """Structured audit log for admin/privileged actions."""
+
+    __tablename__ = "audit_log"
+    __table_args__ = (
+        Index("ix_audit_log_actor", "actor"),
+        Index("ix_audit_log_action", "action"),
+        Index("ix_audit_log_target", "target"),
+        Index("ix_audit_log_timestamp", "timestamp"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    actor = Column(String(128), nullable=False)  # creator_id, "system", or "admin"
+    action = Column(String(64), nullable=False)  # e.g. "api_key.created", "battle.force_resolved"
+    target = Column(String(128), nullable=True)  # target entity id (creator_id, battle_id, etc.)
+    timestamp = Column(DateTime, nullable=False)
+    metadata_ = Column("metadata", JSON, nullable=True)  # extra context
+
+
 class EmailEventORM(Base):
     """Tracks onboarding drip emails sent to creators."""
 

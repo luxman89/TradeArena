@@ -232,6 +232,16 @@ async def register(body: RegisterRequest, db: Session = Depends(get_db)) -> dict
     db.add(creator)
     db.commit()
 
+    from tradearena.core.audit import log_action
+
+    log_action(
+        db,
+        actor=creator_id,
+        action="api_key.created",
+        target=creator_id,
+        metadata={"division": body.division, "email": body.email},
+    )
+
     token = create_jwt(creator_id)
 
     return {
@@ -348,13 +358,28 @@ async def update_profile(
     if not creator:
         raise HTTPException(status_code=404, detail="Creator not found")
 
+    changes = {}
     if body.display_name is not None:
+        changes["display_name"] = body.display_name
         creator.display_name = body.display_name
     if body.strategy_description is not None:
+        changes["strategy_description"] = body.strategy_description
         creator.strategy_description = body.strategy_description
     if body.division is not None:
+        changes["division"] = body.division
         creator.division = body.division
     db.commit()
+
+    if changes:
+        from tradearena.core.audit import log_action
+
+        log_action(
+            db,
+            actor=creator_id,
+            action="profile.updated",
+            target=creator_id,
+            metadata={"fields_changed": list(changes.keys())},
+        )
 
     return {
         "creator_id": creator.id,
@@ -564,6 +589,16 @@ async def github_callback(
             creator.github_username = gh_username
             db.commit()
 
+            from tradearena.core.audit import log_action
+
+            log_action(
+                db,
+                actor=creator.id,
+                action="oauth.linked",
+                target=creator.id,
+                metadata={"provider": "github", "github_username": gh_username},
+            )
+
             score = creator.score
             xp = score.xp if score else 0
             level = score.level if score else 1
@@ -610,6 +645,16 @@ async def github_callback(
     )
     db.add(creator)
     db.commit()
+
+    from tradearena.core.audit import log_action
+
+    log_action(
+        db,
+        actor=creator_id,
+        action="api_key.created",
+        target=creator_id,
+        metadata={"provider": "github", "github_username": gh_username},
+    )
 
     return {
         "token": create_jwt(creator_id),

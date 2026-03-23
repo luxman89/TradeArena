@@ -12,9 +12,9 @@ from sqlalchemy.orm import Session
 from tradearena.api.ws import manager
 from tradearena.core.metrics import collector
 from tradearena.db.database import (
+    AuditLogORM,
     BattleORM,
     CreatorORM,
-    CreatorScoreORM,
     SignalORM,
     get_db,
 )
@@ -43,10 +43,7 @@ def get_metrics(
     # --- Signal volume ---
     total_signals = db.query(func.count(SignalORM.signal_id)).scalar() or 0
     pending_signals = (
-        db.query(func.count(SignalORM.signal_id))
-        .filter(SignalORM.outcome.is_(None))
-        .scalar()
-        or 0
+        db.query(func.count(SignalORM.signal_id)).filter(SignalORM.outcome.is_(None)).scalar() or 0
     )
     resolved_signals = total_signals - pending_signals
 
@@ -103,15 +100,10 @@ def get_metrics(
 
     # --- Battles ---
     active_battles = (
-        db.query(func.count(BattleORM.battle_id))
-        .filter(BattleORM.status == "ACTIVE")
-        .scalar()
-        or 0
+        db.query(func.count(BattleORM.battle_id)).filter(BattleORM.status == "ACTIVE").scalar() or 0
     )
     resolved_battles = (
-        db.query(func.count(BattleORM.battle_id))
-        .filter(BattleORM.status == "RESOLVED")
-        .scalar()
+        db.query(func.count(BattleORM.battle_id)).filter(BattleORM.status == "RESOLVED").scalar()
         or 0
     )
 
@@ -134,9 +126,7 @@ def get_metrics(
             "last_24h": signals_24h,
             "last_1h": signals_1h,
             "resolved_24h": resolved_24h,
-            "asset_distribution": [
-                {"asset": row[0], "count": row[1]} for row in asset_dist
-            ],
+            "asset_distribution": [{"asset": row[0], "count": row[1]} for row in asset_dist],
         },
         "creators": {
             "total": total_creators,
@@ -151,4 +141,51 @@ def get_metrics(
         },
         "resolver": resolver_stats,
         "errors": error_log,
+    }
+
+
+@router.get("/audit-log", summary="Query audit log")
+def get_audit_log(
+    _: None = Depends(_check_admin),
+    db: Session = Depends(get_db),
+    actor: str | None = Query(None, description="Filter by actor"),
+    action: str | None = Query(None, description="Filter by action type"),
+    target: str | None = Query(None, description="Filter by target entity"),
+    since: str | None = Query(None, description="ISO datetime lower bound"),
+    until: str | None = Query(None, description="ISO datetime upper bound"),
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+) -> dict:
+    """Paginated audit log with filtering by actor, action, target, and time range."""
+    query = db.query(AuditLogORM)
+
+    if actor:
+        query = query.filter(AuditLogORM.actor == actor)
+    if action:
+        query = query.filter(AuditLogORM.action == action)
+    if target:
+        query = query.filter(AuditLogORM.target == target)
+    if since:
+        query = query.filter(AuditLogORM.timestamp >= datetime.fromisoformat(since))
+    if until:
+        query = query.filter(AuditLogORM.timestamp <= datetime.fromisoformat(until))
+
+    total = query.count()
+    entries = query.order_by(AuditLogORM.timestamp.desc()).offset(offset).limit(limit).all()
+
+    return {
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "entries": [
+            {
+                "id": e.id,
+                "actor": e.actor,
+                "action": e.action,
+                "target": e.target,
+                "timestamp": e.timestamp.isoformat() if e.timestamp else None,
+                "metadata": e.metadata_,
+            }
+            for e in entries
+        ],
     }
