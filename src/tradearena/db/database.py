@@ -16,6 +16,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     create_engine,
     event,
 )
@@ -429,6 +430,45 @@ class LeagueStandingORM(Base):
     updated_at = Column(DateTime, nullable=False)
 
     schedule = relationship("TournamentScheduleORM", back_populates="standings")
+    creator = relationship("CreatorORM")
+
+
+class FollowORM(Base):
+    """Creator follow relationships."""
+
+    __tablename__ = "follows"
+    __table_args__ = (
+        UniqueConstraint("follower_id", "followed_id", name="uq_follow_pair"),
+        CheckConstraint("follower_id != followed_id", name="ck_no_self_follow"),
+        Index("ix_follows_follower_id", "follower_id"),
+        Index("ix_follows_followed_id", "followed_id"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    follower_id = Column(String(64), ForeignKey("creators.id"), nullable=False)
+    followed_id = Column(String(64), ForeignKey("creators.id"), nullable=False)
+    created_at = Column(DateTime, nullable=False)
+
+    follower = relationship("CreatorORM", foreign_keys=[follower_id])
+    followed = relationship("CreatorORM", foreign_keys=[followed_id])
+
+
+class SignalCommentORM(Base):
+    """Comments on individual signals."""
+
+    __tablename__ = "signal_comments"
+    __table_args__ = (
+        Index("ix_signal_comments_signal_id", "signal_id"),
+        Index("ix_signal_comments_creator_id", "creator_id"),
+    )
+
+    id = Column(String(64), primary_key=True)
+    signal_id = Column(String(64), ForeignKey("signals.signal_id"), nullable=False)
+    creator_id = Column(String(64), ForeignKey("creators.id"), nullable=False)
+    body = Column(Text, nullable=False)
+    created_at = Column(DateTime, nullable=False)
+
+    signal = relationship("SignalORM")
     creator = relationship("CreatorORM")
 
 

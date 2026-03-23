@@ -29,6 +29,7 @@ from tradearena.api.routes import (
     profiles,
     schedules,
     signals,
+    social,
     tournaments,
     webhooks,
 )
@@ -310,9 +311,7 @@ async def _background_loop():
                 scheduled = run_scheduled_tournaments(db)
                 if scheduled:
                     logger.info("Created %d scheduled tournaments", scheduled)
-                    await manager.broadcast(
-                        "tournaments_scheduled", {"count": scheduled}
-                    )
+                    await manager.broadcast("tournaments_scheduled", {"count": scheduled})
 
             finally:
                 db.close()
@@ -357,6 +356,7 @@ _OPENAPI_TAGS = [
     {"name": "battles", "description": "Head-to-head creator battles"},
     {"name": "tournaments", "description": "Bracket-style tournament system"},
     {"name": "oracle", "description": "Signal outcome resolution and status"},
+    {"name": "social", "description": "Follow creators, comment on signals, following feed"},
     {"name": "meta", "description": "Health checks and service metadata"},
 ]
 
@@ -636,6 +636,7 @@ app.include_router(matchmaking.router)
 app.include_router(webhooks.router)
 app.include_router(marketplace.router)
 app.include_router(schedules.router)
+app.include_router(social.router, tags=["social"])
 
 # Serve static assets (sprites, tilesets, etc.)
 _ASSETS_DIR = _SCRIPTS_DIR / "assets"

@@ -295,6 +295,80 @@ class AnalyticsResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Social
+# ---------------------------------------------------------------------------
+
+
+class FollowResponse(BaseModel):
+    follower_id: str
+    followed_id: str
+    created_at: str
+
+
+class FollowerEntry(BaseModel):
+    creator_id: str
+    display_name: str
+    followed_at: str
+
+
+class FollowersResponse(BaseModel):
+    creator_id: str
+    total: int
+    offset: int
+    limit: int
+    followers: list[FollowerEntry]
+
+
+class FollowingResponse(BaseModel):
+    creator_id: str
+    total: int
+    offset: int
+    limit: int
+    following: list[FollowerEntry]
+
+
+class SignalCommentEntry(BaseModel):
+    id: str
+    signal_id: str
+    creator_id: str
+    display_name: str
+    body: str
+    created_at: str
+
+
+class SignalCommentsResponse(BaseModel):
+    signal_id: str
+    total: int
+    offset: int
+    limit: int
+    comments: list[SignalCommentEntry]
+
+
+class FollowingFeedEntry(BaseModel):
+    signal_id: str
+    creator_id: str
+    display_name: str
+    asset: str
+    action: str
+    confidence: float
+    reasoning: str
+    committed_at: str
+    outcome: str | None = None
+
+
+class FollowingFeedResponse(BaseModel):
+    total: int
+    offset: int
+    limit: int
+    signals: list[FollowingFeedEntry]
+
+
+# ---------------------------------------------------------------------------
+# Health
+# ---------------------------------------------------------------------------
+
+
 class HealthResponse(BaseModel):
     status: str
     version: str
