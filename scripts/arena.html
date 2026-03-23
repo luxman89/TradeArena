@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <title>TradeArena — NYSE Trading Floor</title>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <script src="/assets/phaser.min.js"></script>
@@ -385,6 +387,77 @@ body{display:flex;flex-direction:column}
   .prog-card{width:120px;padding:10px 8px 8px}
   .prog-timeline-wrap{padding:16px 32px}
 }
+
+/* ── MOBILE & TOUCH OPTIMIZATIONS ── */
+
+/* Prevent touch callouts and text selection on game UI */
+#arena,#phaser-container,#topbar,#panel,#ticker{
+  -webkit-touch-callout:none;-webkit-user-select:none;user-select:none;
+  touch-action:none;
+}
+
+/* Ensure minimum 44px tap targets for all interactive elements */
+#p-close{min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center}
+.modal-close{min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center}
+.auth-tab{min-height:44px}
+.auth-field{min-height:44px;font-size:16px}/* 16px prevents iOS zoom on focus */
+.auth-submit{min-height:44px}
+#challenge-btn{min-height:44px;min-width:44px}
+
+/* ── Tablet (768px and below) ── */
+@media(max-width:768px){
+  #topbar{padding:0 10px;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .topbar-stats{gap:10px;font-size:.6rem}
+  .stat{white-space:nowrap}
+  #panel{width:280px}
+  .modal{width:calc(100vw - 32px);max-width:380px}
+  .battle-stage{gap:16px}
+  .battle-fighter{width:130px;padding:12px 8px 8px}
+  .battle-stats{width:calc(100vw - 32px);max-width:380px}
+  .battle-log{width:calc(100vw - 32px);max-width:380px}
+}
+
+/* ── Mobile (414px and below) ── */
+@media(max-width:414px){
+  #topbar{height:48px;padding:0 8px;gap:6px}
+  .topbar-stats{display:none}
+  .logo{font-size:.5rem}
+  #topbar button,#topbar a{min-height:44px;min-width:44px;padding:8px;font-size:.35rem;display:flex;align-items:center;justify-content:center}
+  #panel{width:100%;left:0;border-left:none}
+  #ph{padding:10px;gap:8px}
+  #pb{padding:10px}
+  #ticker{height:28px}
+  #tk-wrap{font-size:.5rem}
+  .modal{width:calc(100vw - 16px);max-height:90vh;border-radius:6px}
+  .battle-stage{gap:8px;flex-wrap:nowrap;transform:scale(0.85);transform-origin:center center}
+  .battle-fighter{width:110px;padding:10px 6px 6px}
+  .battle-vs{font-size:.8rem;padding-top:16px}
+  #battle-close{min-height:44px;min-width:120px;font-size:.45rem;padding:12px 24px}
+}
+
+/* ── Small mobile (375px and below) ── */
+@media(max-width:375px){
+  #topbar{height:48px;padding:0 6px}
+  .logo{font-size:.45rem}
+  #topbar button,#topbar a{padding:6px;font-size:.3rem}
+  #panel{width:100%}
+  .battle-stage{transform:scale(0.75);transform-origin:center center}
+}
+
+/* ── Landscape mobile ── */
+@media(max-height:420px) and (orientation:landscape){
+  #topbar{height:36px}
+  #ticker{display:none}
+  #panel{width:260px}
+  .prog-timeline-wrap{padding:8px 16px}
+}
+
+/* Touch-device hover suppression */
+@media(hover:none){
+  .prog-card:hover{transform:none;box-shadow:none}
+  .sig-dot[title]:hover::after{display:none}
+  #canvas-tooltip{display:none !important}
+}
 </style>
 </head>
 <body>
@@ -754,6 +827,75 @@ function resizeAfterTransition() {
 }
 
 // ═════════════════════════════════════════════════
+// MOBILE & TOUCH UTILITIES
+// ═════════════════════════════════════════════════
+const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
+// Pinch-to-zoom state
+let _pinchStartDist = 0;
+let _pinchStartZoom = 1;
+let _cameraZoom = 1;
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 2.5;
+
+function setupPinchZoom(scene) {
+  if (!isTouchDevice) return;
+  const el = phaserGame.canvas;
+
+  el.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      _pinchStartDist = Math.hypot(dx, dy);
+      _pinchStartZoom = _cameraZoom;
+    }
+  }, { passive: false });
+
+  el.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      if (_pinchStartDist > 0) {
+        const scale = dist / _pinchStartDist;
+        _cameraZoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, _pinchStartZoom * scale));
+        scene.cameras.main.setZoom(_cameraZoom);
+      }
+    }
+  }, { passive: false });
+
+  el.addEventListener('touchend', (e) => {
+    if (e.touches.length < 2) _pinchStartDist = 0;
+  }, { passive: true });
+}
+
+// On mobile, adjust resize to account for different topbar heights
+const _origResize = resize;
+resize = function() {
+  if (!phaserGame) return;
+  const pw = panel.classList.contains('open') ? (window.innerWidth <= 414 ? window.innerWidth : 272) : 0;
+  const container = document.getElementById('phaser-container');
+  if (container) {
+    const topbarH = document.getElementById('topbar').offsetHeight || 44;
+    const tickerH = document.getElementById('ticker').offsetHeight || 32;
+    container.style.width = (window.innerWidth - (window.innerWidth <= 414 ? 0 : pw)) + 'px';
+    container.style.height = (window.innerHeight - topbarH - tickerH) + 'px';
+  }
+  phaserGame.scale.refresh();
+};
+
+// Prevent default touch behaviors on the game area
+document.addEventListener('DOMContentLoaded', () => {
+  document.body.addEventListener('touchmove', (e) => {
+    if (e.target.closest('#arena') || e.target.closest('#phaser-container')) {
+      if (e.touches.length === 1) e.preventDefault();
+    }
+  }, { passive: false });
+});
+
+// ═════════════════════════════════════════════════
 // PHASER 3 — GameScene + config
 // ═════════════════════════════════════════════════
 let gameScene = null;
@@ -984,6 +1126,16 @@ class GameScene extends Phaser.Scene {
     // Initial resize
     resize();
     window.addEventListener('resize', resize);
+
+    // Mobile: enable pinch-to-zoom on touch devices
+    setupPinchZoom(this);
+
+    // Mobile: handle orientation changes
+    if (isTouchDevice) {
+      window.addEventListener('orientationchange', () => {
+        setTimeout(resize, 150); // delay for orientation animation
+      });
+    }
 
     console.log('[TradeArena/Phaser] Boot complete — scene running');
   }
@@ -2501,8 +2653,9 @@ class GameScene extends Phaser.Scene {
         openPanel(ag);
         playSound('panelOpen');
       });
-      // Hover tooltip
+      // Hover tooltip (suppressed on touch devices)
       sprite.on('pointerover', (pointer) => {
+        if (isTouchDevice) return;
         if (panel.classList.contains('open')) return;
         tooltipAgent = ag;
         clearTimeout(tooltipTimer);
@@ -2785,6 +2938,10 @@ function createPhaserGame() {
     scale: {
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH,
+    },
+    input: {
+      activePointers: 3, // Enable multi-touch for pinch-to-zoom
+      touch: { capture: true },
     },
   });
   console.log('[TradeArena/Phaser] Game instance created');
