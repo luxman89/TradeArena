@@ -22,6 +22,7 @@ def _format_entry(creator: CreatorORM) -> dict:
         "creator_id": creator.id,
         "display_name": creator.display_name,
         "division": creator.division,
+        "discord_id": creator.discord_id,
         "composite_score": round(score.composite_score, 4) if score else 0.0,
         "win_rate": round(score.win_rate, 4) if score else 0.0,
         "risk_adjusted_return": round(score.risk_adjusted_return, 4) if score else 0.0,

@@ -15,6 +15,7 @@ class LeaderboardEntry(BaseModel):
     creator_id: str
     display_name: str
     division: str
+    discord_id: str | None = None
     composite_score: float
     win_rate: float
     risk_adjusted_return: float

@@ -33,6 +33,7 @@ from services.discord_bot.knowledge import (
     load_readme,
 )
 from services.discord_bot.paperclip import PaperclipClient
+from services.discord_bot.roles import sync_contributor_roles, sync_rank_roles
 
 logging.basicConfig(
     level=logging.INFO,
@@ -58,6 +59,12 @@ CHANGELOG_CHECK_MINUTES = 30  # Poll interval for new releases
 
 # Leaderboard post time — daily at 12:00 UTC
 LEADERBOARD_POST_TIME = time(hour=12, minute=0, tzinfo=UTC)
+
+# Role sync runs right after leaderboard (12:05 UTC) to use fresh data
+ROLE_SYNC_TIME = time(hour=12, minute=5, tzinfo=UTC)
+
+# Contributor role check interval (minutes)
+CONTRIBUTOR_CHECK_MINUTES = 60
 
 # Spam thresholds
 SPAM_REPEAT_THRESHOLD = 3  # same message N times in a row
@@ -197,6 +204,12 @@ async def on_ready() -> None:
     if not check_changelog.is_running():
         check_changelog.start()
         log.info("Changelog check started (every %d minutes)", CHANGELOG_CHECK_MINUTES)
+    if not sync_roles.is_running():
+        sync_roles.start()
+        log.info("Role sync scheduled task started (daily at %s)", ROLE_SYNC_TIME)
+    if not check_contributors.is_running():
+        check_contributors.start()
+        log.info("Contributor check started (every %d minutes)", CONTRIBUTOR_CHECK_MINUTES)
 
 
 @client.event
@@ -613,6 +626,55 @@ async def check_changelog() -> None:
 
 @check_changelog.before_loop
 async def _wait_changelog_ready() -> None:
+    await client.wait_until_ready()
+
+
+# ---------------------------------------------------------------------------
+# Role management — rank sync and contributor check
+# ---------------------------------------------------------------------------
+
+
+@tasks.loop(time=ROLE_SYNC_TIME)
+async def sync_roles() -> None:
+    """Scheduled task: sync Elite Trader / Pro Trader roles based on leaderboard."""
+    for guild in client.guilds:
+        try:
+            changes = await sync_rank_roles(guild)
+            total = len(changes["added"]) + len(changes["removed"])
+            if total > 0:
+                log.info(
+                    "Rank role sync in %s: %d added, %d removed",
+                    guild.name,
+                    len(changes["added"]),
+                    len(changes["removed"]),
+                )
+        except Exception:
+            log.exception("Error syncing rank roles in %s", guild.name)
+
+
+@sync_roles.before_loop
+async def _wait_sync_roles_ready() -> None:
+    await client.wait_until_ready()
+
+
+@tasks.loop(minutes=CONTRIBUTOR_CHECK_MINUTES)
+async def check_contributors() -> None:
+    """Scheduled task: assign Contributor role to members with merged PRs."""
+    for guild in client.guilds:
+        try:
+            changes = await sync_contributor_roles(guild)
+            if changes["added"]:
+                log.info(
+                    "Contributor role sync in %s: assigned to %s",
+                    guild.name,
+                    ", ".join(changes["added"]),
+                )
+        except Exception:
+            log.exception("Error syncing contributor roles in %s", guild.name)
+
+
+@check_contributors.before_loop
+async def _wait_contributors_ready() -> None:
     await client.wait_until_ready()
 
 
