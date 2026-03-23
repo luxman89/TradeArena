@@ -2,9 +2,16 @@
 
 from __future__ import annotations
 
+import importlib
+
 import pytest
 
 from tradearena.api.rate_limit import RateLimitMiddleware, signal_rate_limiter
+
+# Skip discord test files when discord.py is not installed (it's an optional dep)
+collect_ignore_glob = []
+if importlib.util.find_spec("discord") is None:
+    collect_ignore_glob.append("test_discord_*.py")
 
 
 @pytest.fixture(autouse=True)
