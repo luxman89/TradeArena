@@ -4,7 +4,8 @@ Core responsibilities:
 - Answer SDK/installation/setup questions in #bot-help using TradeArena docs
 - Welcome new members in #introductions
 - Basic moderation (spam detection)
-- Escalate well-structured bug reports from #bug-reports to Paperclip issues (Phase 2)
+- Escalate well-structured bug reports from #bug-reports to Paperclip issues
+- Post daily leaderboard updates to #announcements
 
 Usage:
     DISCORD_BOT_TOKEN=... python -m services.discord_bot.bot
@@ -18,10 +19,12 @@ import logging
 import os
 import re
 import sys
-from datetime import UTC, datetime
+from datetime import UTC, datetime, time
 
 import discord
+import httpx
 from discord import Intents, Member, Message
+from discord.ext import tasks
 
 from services.discord_bot.knowledge import (
     build_context_prompt,
@@ -43,6 +46,13 @@ log = logging.getLogger("tradearena.bot")
 BOT_HELP_CHANNEL = "bot-help"
 INTRODUCTIONS_CHANNEL = "introductions"
 BUG_REPORTS_CHANNEL = "bug-reports"
+ANNOUNCEMENTS_CHANNEL = "announcements"
+
+# TradeArena API for leaderboard
+TRADEARENA_API_URL = os.getenv("TRADEARENA_API_URL", "http://localhost:8000").rstrip("/")
+
+# Leaderboard post time — daily at 12:00 UTC
+LEADERBOARD_POST_TIME = time(hour=12, minute=0, tzinfo=UTC)
 
 # Spam thresholds
 SPAM_REPEAT_THRESHOLD = 3  # same message N times in a row
@@ -164,12 +174,18 @@ client = discord.Client(intents=intents)
 # Simple per-user message tracking for spam detection
 _recent_messages: dict[int, list[str]] = {}  # user_id -> last N messages
 
+# Track last leaderboard post to avoid duplicates
+_last_leaderboard_post: datetime | None = None
+
 
 @client.event
 async def on_ready() -> None:
     log.info("Bot connected as %s (id=%s)", client.user, client.user.id if client.user else "?")
     log.info("Serving %d guilds", len(client.guilds))
     _init_knowledge()
+    if not post_leaderboard.is_running():
+        post_leaderboard.start()
+        log.info("Leaderboard scheduled task started (daily at %s)", LEADERBOARD_POST_TIME)
 
 
 @client.event
@@ -394,6 +410,93 @@ async def _handle_bug_report(message: Message) -> None:
             "<https://github.com/luxman89/TradeArena/issues>",
             mention_author=False,
         )
+
+
+# ---------------------------------------------------------------------------
+# Leaderboard updates
+# ---------------------------------------------------------------------------
+
+RANK_MEDALS = {1: "🥇", 2: "🥈", 3: "🥉"}
+
+
+async def fetch_leaderboard(limit: int = 10) -> list[dict] | None:
+    """Fetch top creators from the TradeArena leaderboard API."""
+    url = f"{TRADEARENA_API_URL}/leaderboard?limit={limit}"
+    try:
+        async with httpx.AsyncClient(timeout=10) as http:
+            resp = await http.get(url)
+            resp.raise_for_status()
+            data = resp.json()
+            return data.get("entries", [])
+    except Exception:
+        log.exception("Failed to fetch leaderboard")
+        return None
+
+
+def build_leaderboard_embed(entries: list[dict]) -> discord.Embed:
+    """Format leaderboard entries into a Discord embed."""
+    embed = discord.Embed(
+        title="📊 TradeArena Leaderboard",
+        description="Daily top traders ranked by composite score",
+        color=0x00B4D8,
+        timestamp=datetime.now(UTC),
+    )
+
+    if not entries:
+        embed.add_field(name="No data", value="No traders on the leaderboard yet.")
+        return embed
+
+    lines = []
+    for i, entry in enumerate(entries, start=1):
+        medal = RANK_MEDALS.get(i, f"**{i}.**")
+        name = entry.get("display_name", "Unknown")
+        score = entry.get("composite_score", 0.0)
+        win_rate = entry.get("win_rate", 0.0)
+        total = entry.get("total_signals", 0)
+        lines.append(f"{medal} **{name}** — {score:.2f} (WR: {win_rate:.0%} · {total} signals)")
+
+    embed.add_field(
+        name="Top Traders",
+        value="\n".join(lines),
+        inline=False,
+    )
+    embed.set_footer(text="Updated daily at 12:00 UTC • tradearena.io")
+    return embed
+
+
+@tasks.loop(time=LEADERBOARD_POST_TIME)
+async def post_leaderboard() -> None:
+    """Scheduled task: post leaderboard to #announcements daily."""
+    global _last_leaderboard_post
+
+    now = datetime.now(UTC)
+    if _last_leaderboard_post and (now - _last_leaderboard_post).total_seconds() < 3600:
+        log.info("Skipping leaderboard post — last post was at %s", _last_leaderboard_post)
+        return
+
+    entries = await fetch_leaderboard(limit=10)
+    if entries is None:
+        log.warning("Leaderboard fetch failed — skipping post")
+        return
+
+    for guild in client.guilds:
+        channel = discord.utils.get(guild.text_channels, name=ANNOUNCEMENTS_CHANNEL)
+        if not channel:
+            log.warning("No #%s channel in %s", ANNOUNCEMENTS_CHANNEL, guild.name)
+            continue
+
+        embed = build_leaderboard_embed(entries)
+        try:
+            await channel.send(embed=embed)
+            _last_leaderboard_post = now
+            log.info("Posted leaderboard update to #%s in %s", ANNOUNCEMENTS_CHANNEL, guild.name)
+        except discord.Forbidden:
+            log.error("Missing permission to send in #%s in %s", ANNOUNCEMENTS_CHANNEL, guild.name)
+
+
+@post_leaderboard.before_loop
+async def _wait_until_ready() -> None:
+    await client.wait_until_ready()
 
 
 # ---------------------------------------------------------------------------

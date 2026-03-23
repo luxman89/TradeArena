@@ -1,7 +1,8 @@
-"""Tests for the Discord bot — bug report escalation to Paperclip issues."""
+"""Tests for the Discord bot — bug report escalation and leaderboard posting."""
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -10,6 +11,9 @@ from services.discord_bot.bot import (
     _build_issue_description,
     _extract_bug_title,
     _handle_bug_report,
+    build_leaderboard_embed,
+    fetch_leaderboard,
+    post_leaderboard,
 )
 from services.discord_bot.paperclip import PaperclipClient, PaperclipIssue
 
@@ -273,3 +277,152 @@ class TestPaperclipClient:
             result = await pc.create_issue("title", "desc")
 
         assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Leaderboard — build_leaderboard_embed
+# ---------------------------------------------------------------------------
+
+SAMPLE_ENTRIES = [
+    {
+        "creator_id": "alice-a1b2",
+        "display_name": "Alice",
+        "composite_score": 0.85,
+        "win_rate": 0.72,
+        "total_signals": 50,
+    },
+    {
+        "creator_id": "bob-c3d4",
+        "display_name": "Bob",
+        "composite_score": 0.78,
+        "win_rate": 0.65,
+        "total_signals": 30,
+    },
+    {
+        "creator_id": "carol-e5f6",
+        "display_name": "Carol",
+        "composite_score": 0.71,
+        "win_rate": 0.60,
+        "total_signals": 25,
+    },
+]
+
+
+class TestBuildLeaderboardEmbed:
+    def test_embed_title(self):
+        embed = build_leaderboard_embed(SAMPLE_ENTRIES)
+        assert "Leaderboard" in embed.title
+
+    def test_embed_contains_trader_names(self):
+        embed = build_leaderboard_embed(SAMPLE_ENTRIES)
+        field_value = embed.fields[0].value
+        assert "Alice" in field_value
+        assert "Bob" in field_value
+        assert "Carol" in field_value
+
+    def test_embed_contains_scores(self):
+        embed = build_leaderboard_embed(SAMPLE_ENTRIES)
+        field_value = embed.fields[0].value
+        assert "0.85" in field_value
+        assert "0.78" in field_value
+
+    def test_embed_medals_for_top_three(self):
+        embed = build_leaderboard_embed(SAMPLE_ENTRIES)
+        field_value = embed.fields[0].value
+        assert "🥇" in field_value
+        assert "🥈" in field_value
+        assert "🥉" in field_value
+
+    def test_empty_entries(self):
+        embed = build_leaderboard_embed([])
+        assert any("No" in f.value for f in embed.fields)
+
+    def test_embed_color_set(self):
+        embed = build_leaderboard_embed(SAMPLE_ENTRIES)
+        assert embed.color is not None
+
+
+# ---------------------------------------------------------------------------
+# Leaderboard — fetch_leaderboard
+# ---------------------------------------------------------------------------
+
+
+class TestFetchLeaderboard:
+    @pytest.mark.asyncio
+    async def test_success(self):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"entries": SAMPLE_ENTRIES, "total": 3}
+        mock_response.raise_for_status = MagicMock()
+
+        with patch("services.discord_bot.bot.httpx.AsyncClient") as mock_cls:
+            mock_client = AsyncMock()
+            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_cls.return_value = mock_client
+
+            entries = await fetch_leaderboard(limit=10)
+
+        assert entries is not None
+        assert len(entries) == 3
+        assert entries[0]["display_name"] == "Alice"
+
+    @pytest.mark.asyncio
+    async def test_http_error_returns_none(self):
+        import httpx as httpx_mod
+
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_response.raise_for_status = MagicMock(
+            side_effect=httpx_mod.HTTPStatusError(
+                "error", request=MagicMock(), response=mock_response
+            )
+        )
+
+        with patch("services.discord_bot.bot.httpx.AsyncClient") as mock_cls:
+            mock_client = AsyncMock()
+            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_cls.return_value = mock_client
+
+            entries = await fetch_leaderboard()
+
+        assert entries is None
+
+    @pytest.mark.asyncio
+    async def test_connection_error_returns_none(self):
+        import httpx as httpx_mod
+
+        with patch("services.discord_bot.bot.httpx.AsyncClient") as mock_cls:
+            mock_client = AsyncMock()
+            mock_client.get = AsyncMock(side_effect=httpx_mod.ConnectError("refused"))
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_cls.return_value = mock_client
+
+            entries = await fetch_leaderboard()
+
+        assert entries is None
+
+
+# ---------------------------------------------------------------------------
+# Leaderboard — post_leaderboard duplicate guard
+# ---------------------------------------------------------------------------
+
+
+class TestPostLeaderboardDedup:
+    @pytest.mark.asyncio
+    async def test_skips_when_recently_posted(self):
+        """Should skip if last post was less than an hour ago."""
+        import services.discord_bot.bot as bot_mod
+
+        original = bot_mod._last_leaderboard_post
+        try:
+            bot_mod._last_leaderboard_post = datetime.now(UTC)
+            with patch.object(bot_mod, "fetch_leaderboard") as mock_fetch:
+                await post_leaderboard()
+                mock_fetch.assert_not_called()
+        finally:
+            bot_mod._last_leaderboard_post = original
