@@ -17,8 +17,8 @@
   --cyan:#06B6D4;
   --text:#F1F1F6;--muted:#6B7280;--muted2:#4B5563;
 }
-html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif}
-body{display:flex;flex-direction:column}
+html,body{height:100%;height:100dvh;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif}
+body{display:flex;flex-direction:column;padding-top:env(safe-area-inset-top);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);padding-bottom:env(safe-area-inset-bottom)}
 
 #topbar{
   height:44px;background:var(--surface);border-bottom:1px solid var(--border);
@@ -391,9 +391,13 @@ body{display:flex;flex-direction:column}
 /* ── MOBILE & TOUCH OPTIMIZATIONS ── */
 
 /* Prevent touch callouts and text selection on game UI */
-#arena,#phaser-container,#topbar,#panel,#ticker{
+#arena,#phaser-container,#panel,#ticker{
   -webkit-touch-callout:none;-webkit-user-select:none;user-select:none;
   touch-action:none;
+}
+#topbar{
+  -webkit-touch-callout:none;-webkit-user-select:none;user-select:none;
+  touch-action:pan-x;/* allow horizontal scroll on touch */
 }
 
 /* Ensure minimum 44px tap targets for all interactive elements */
@@ -419,16 +423,18 @@ body{display:flex;flex-direction:column}
 
 /* ── Mobile (414px and below) ── */
 @media(max-width:414px){
-  #topbar{height:48px;padding:0 8px;gap:6px}
+  #topbar{height:48px;padding:0 8px;gap:6px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  #topbar::-webkit-scrollbar{display:none}
   .topbar-stats{display:none}
-  .logo{font-size:.5rem}
-  #topbar button,#topbar a{min-height:44px;min-width:44px;padding:8px;font-size:.35rem;display:flex;align-items:center;justify-content:center}
+  .logo{font-size:.5rem;flex-shrink:0}
+  #topbar button,#topbar a{min-height:44px;min-width:44px;padding:8px;font-size:.35rem;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .live{flex-shrink:0}
   #panel{width:100%;left:0;border-left:none}
   #ph{padding:10px;gap:8px}
   #pb{padding:10px}
   #ticker{height:28px}
   #tk-wrap{font-size:.5rem}
-  .modal{width:calc(100vw - 16px);max-height:90vh;border-radius:6px}
+  .modal{width:calc(100vw - 16px);max-height:90dvh;border-radius:6px}
   .battle-stage{gap:8px;flex-wrap:nowrap;transform:scale(0.85);transform-origin:center center}
   .battle-fighter{width:110px;padding:10px 6px 6px}
   .battle-vs{font-size:.8rem;padding-top:16px}
@@ -437,9 +443,10 @@ body{display:flex;flex-direction:column}
 
 /* ── Small mobile (375px and below) ── */
 @media(max-width:375px){
-  #topbar{height:48px;padding:0 6px}
-  .logo{font-size:.45rem}
-  #topbar button,#topbar a{padding:6px;font-size:.3rem}
+  #topbar{height:48px;padding:0 6px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  #topbar::-webkit-scrollbar{display:none}
+  .logo{font-size:.45rem;flex-shrink:0}
+  #topbar button,#topbar a{padding:6px;font-size:.3rem;flex-shrink:0}
   #panel{width:100%}
   .battle-stage{transform:scale(0.75);transform-origin:center center}
 }
@@ -835,14 +842,32 @@ const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 
 let _pinchStartDist = 0;
 let _pinchStartZoom = 1;
 let _cameraZoom = 1;
-const ZOOM_MIN = 0.5;
-const ZOOM_MAX = 2.5;
+const ZOOM_MIN = 0.7;
+const ZOOM_MAX = 1.8;
+const ZOOM_DEFAULT = 1;
+let _lastTapTime = 0;
+let _zoomScene = null;
+
+function _resetZoom() {
+  _cameraZoom = ZOOM_DEFAULT;
+  if (_zoomScene) _zoomScene.cameras.main.setZoom(ZOOM_DEFAULT);
+}
 
 function setupPinchZoom(scene) {
   if (!isTouchDevice) return;
+  _zoomScene = scene;
   const el = phaserGame.canvas;
 
+  // Double-tap to reset zoom
   el.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1) {
+      const now = Date.now();
+      if (now - _lastTapTime < 300 && _cameraZoom !== ZOOM_DEFAULT) {
+        e.preventDefault();
+        _resetZoom();
+      }
+      _lastTapTime = now;
+    }
     if (e.touches.length === 2) {
       e.preventDefault();
       const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -871,7 +896,7 @@ function setupPinchZoom(scene) {
   }, { passive: true });
 }
 
-// On mobile, adjust resize to account for different topbar heights
+// On mobile, adjust resize to account for different topbar heights and dynamic viewport
 const _origResize = resize;
 resize = function() {
   if (!phaserGame) return;
@@ -880,11 +905,18 @@ resize = function() {
   if (container) {
     const topbarH = document.getElementById('topbar').offsetHeight || 44;
     const tickerH = document.getElementById('ticker').offsetHeight || 32;
+    // Use visualViewport for accurate mobile height (accounts for address bar)
+    const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
     container.style.width = (window.innerWidth - (window.innerWidth <= 414 ? 0 : pw)) + 'px';
-    container.style.height = (window.innerHeight - topbarH - tickerH) + 'px';
+    container.style.height = (vh - topbarH - tickerH) + 'px';
   }
   phaserGame.scale.refresh();
 };
+
+// Listen to visualViewport resize for mobile address bar changes
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', resize);
+}
 
 // Prevent default touch behaviors on the game area
 document.addEventListener('DOMContentLoaded', () => {
@@ -1130,9 +1162,10 @@ class GameScene extends Phaser.Scene {
     // Mobile: enable pinch-to-zoom on touch devices
     setupPinchZoom(this);
 
-    // Mobile: handle orientation changes
+    // Mobile: handle orientation changes — reset zoom and resize
     if (isTouchDevice) {
       window.addEventListener('orientationchange', () => {
+        _resetZoom();
         setTimeout(resize, 150); // delay for orientation animation
       });
     }
