@@ -29,6 +29,7 @@ services:
     restart: unless-stopped
     networks:
       - internal
+      - caddy
 
   postgres:
     image: postgres:16-alpine
@@ -98,3 +99,6 @@ volumes:
 networks:
   internal:
     driver: bridge
+  caddy:
+    external: true
+    name: deploy_default
