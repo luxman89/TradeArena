@@ -4212,6 +4212,38 @@ async function hydrateUser() {
 
 hydrateUser();
 
+// ── OAuth callback handler (GitHub/Twitter redirect lands on /arena#oauth_callback&...) ──
+(function handleOAuthCallback() {
+  const hash = window.location.hash;
+  if (!hash.startsWith('#oauth_callback&')) return;
+  const params = new URLSearchParams(hash.slice('#oauth_callback&'.length));
+  const token = params.get('token');
+  const creatorId = params.get('creator_id');
+  if (!token || !creatorId) return;
+  // Clear the hash so it doesn't linger
+  history.replaceState(null, '', '/arena');
+  // Store auth
+  localStorage.setItem('ta_token', token);
+  localStorage.setItem('ta_creator_id', creatorId);
+  const isNew = params.get('is_new') === '1';
+  const apiKey = params.get('api_key');
+  const displayName = params.get('display_name') || creatorId;
+  currentUser = {
+    token, creator_id: creatorId,
+    display_name: displayName,
+    division: params.get('division') || 'crypto',
+    level: parseInt(params.get('level') || '1', 10),
+    xp: parseInt(params.get('xp') || '0', 10),
+    is_new_account: isNew,
+  };
+  updateUserBar();
+  if (isNew && apiKey) {
+    showToast('Account created! Your API key: ' + apiKey);
+  } else {
+    showToast('Welcome back, ' + displayName);
+  }
+})();
+
 function renderTimeline() {
   const timeline = document.getElementById('prog-timeline');
   timeline.innerHTML = '';

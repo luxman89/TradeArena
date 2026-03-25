@@ -9,11 +9,12 @@ import os
 import re
 import secrets
 from datetime import UTC, datetime
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 import bcrypt as _bcrypt
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
@@ -668,6 +669,137 @@ async def github_callback(
         "title": None,
         "is_new_account": True,
     }
+
+
+@router.get(
+    "/github/callback",
+    include_in_schema=False,
+    summary="GitHub OAuth browser redirect handler",
+)
+async def github_callback_redirect(
+    code: str = Query(...),
+    db: Session = Depends(get_db),
+) -> RedirectResponse:
+    """Handle GitHub's OAuth redirect (GET with ?code=...).
+
+    Exchanges the code server-side, then redirects to the arena page
+    with auth data encoded in the URL fragment so the frontend can
+    pick it up.
+    """
+    _require_github_config()
+
+    # Exchange code for access token
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        token_resp = await client.post(
+            _GITHUB_TOKEN_URL,
+            data={
+                "client_id": GITHUB_CLIENT_ID,
+                "client_secret": GITHUB_CLIENT_SECRET,
+                "code": code,
+                "redirect_uri": GITHUB_REDIRECT_URI,
+            },
+            headers={"Accept": "application/json"},
+        )
+
+    if token_resp.status_code != 200:
+        return RedirectResponse("/?auth_error=token_exchange_failed")
+
+    token_data = token_resp.json()
+    access_token = token_data.get("access_token")
+    if not access_token:
+        error_desc = token_data.get("error_description", "unknown")
+        return RedirectResponse(f"/?auth_error={quote(error_desc)}")
+
+    # Fetch GitHub user profile + email
+    gh_headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Accept": "application/json",
+    }
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        user_resp = await client.get(_GITHUB_USER_URL, headers=gh_headers)
+        if user_resp.status_code != 200:
+            return RedirectResponse("/?auth_error=github_profile_failed")
+        gh_user = user_resp.json()
+
+        gh_email = gh_user.get("email")
+        if not gh_email:
+            emails_resp = await client.get(_GITHUB_EMAILS_URL, headers=gh_headers)
+            if emails_resp.status_code == 200:
+                for entry in emails_resp.json():
+                    if entry.get("primary") and entry.get("verified"):
+                        gh_email = entry["email"]
+                        break
+
+    gh_id = str(gh_user["id"])
+    gh_username = gh_user.get("login", "")
+    gh_display_name = gh_user.get("name") or gh_username
+
+    # Check if github_id already linked
+    creator = db.query(CreatorORM).filter(CreatorORM.github_id == gh_id).first()
+    if not creator and gh_email:
+        creator = db.query(CreatorORM).filter(CreatorORM.email == gh_email.lower()).first()
+        if creator:
+            creator.github_id = gh_id
+            creator.github_username = gh_username
+            db.commit()
+
+    is_new = False
+    api_key = None
+    if not creator:
+        # New account
+        is_new = True
+        display_name = gh_display_name[:50] if len(gh_display_name) >= 3 else gh_username[:50]
+        if len(display_name) < 3:
+            display_name = f"trader-{secrets.token_hex(2)}"
+
+        slug = _slugify(display_name)
+        if not slug:
+            slug = f"trader-{secrets.token_hex(2)}"
+        creator_id = f"{slug}-{secrets.token_hex(2)}"
+        if db.query(CreatorORM).filter(CreatorORM.id == creator_id).first():
+            creator_id = f"{slug}-{secrets.token_hex(2)}"
+
+        api_key = f"ta-{secrets.token_hex(16)}"
+        api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+        now = datetime.now(UTC)
+
+        creator = CreatorORM(
+            id=creator_id,
+            display_name=display_name,
+            division="crypto",
+            email=gh_email.lower() if gh_email else None,
+            api_key_hash=api_key_hash,
+            github_id=gh_id,
+            github_username=gh_username,
+            avatar_index=0,
+            created_at=now,
+        )
+        db.add(creator)
+        db.commit()
+    else:
+        if creator.github_username != gh_username:
+            creator.github_username = gh_username
+            db.commit()
+
+    token = create_jwt(creator.id)
+    score = creator.score
+    xp = score.xp if score else 0
+    level = score.level if score else 1
+
+    # Redirect to arena with auth data in fragment (not exposed to server logs)
+    params = urlencode(
+        {
+            "token": token,
+            "creator_id": creator.id,
+            "display_name": creator.display_name,
+            "division": creator.division,
+            "level": level,
+            "xp": xp,
+            "is_new": "1" if is_new else "0",
+            **({"api_key": api_key} if api_key else {}),
+        }
+    )
+    return RedirectResponse(f"/arena#oauth_callback&{params}")
 
 
 # ---------------------------------------------------------------------------
