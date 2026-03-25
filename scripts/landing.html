@@ -1093,13 +1093,16 @@ document.querySelectorAll('a[href^="#"]').forEach(a => {
 async function githubSignup(e) {
   e.preventDefault();
   try {
-    const res = await fetch('/auth/github/redirect');
+    const res = await fetch('/auth/github');
     const data = await res.json();
     if (data.authorization_url) {
       window.location.href = data.authorization_url;
+    } else {
+      alert(data.detail || 'GitHub signup is temporarily unavailable. Please try again later.');
     }
   } catch (err) {
     console.error('GitHub OAuth redirect failed:', err);
+    alert('GitHub signup is temporarily unavailable. Please try again later.');
   }
 }
 
@@ -1111,9 +1114,12 @@ async function twitterSignup(e) {
     const data = await res.json();
     if (data.authorization_url) {
       window.location.href = data.authorization_url;
+    } else {
+      alert(data.detail || 'X signup is temporarily unavailable. Please try again later.');
     }
   } catch (err) {
     console.error('Twitter OAuth redirect failed:', err);
+    alert('X signup is temporarily unavailable. Please try again later.');
   }
 }
 
