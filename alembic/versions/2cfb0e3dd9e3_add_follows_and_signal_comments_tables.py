@@ -8,6 +8,7 @@ Create Date: 2026-03-23 10:24:01.153041
 from typing import Sequence, Union
 
 from alembic import op
+from sqlalchemy import inspect
 import sqlalchemy as sa
 
 
@@ -50,10 +51,16 @@ def upgrade() -> None:
         batch_op.create_index('ix_signal_comments_creator_id', ['creator_id'], unique=False)
         batch_op.create_index('ix_signal_comments_signal_id', ['signal_id'], unique=False)
 
+    # Add columns to tournaments only if they don't already exist (idempotent)
+    conn = op.get_bind()
+    insp = inspect(conn)
+    existing_cols = {c['name'] for c in insp.get_columns('tournaments')}
     with op.batch_alter_table('tournaments', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('start_time', sa.DateTime(), nullable=True))
-        batch_op.add_column(sa.Column('created_by', sa.String(length=64), nullable=True))
-        batch_op.create_foreign_key(None, 'creators', ['created_by'], ['id'])
+        if 'start_time' not in existing_cols:
+            batch_op.add_column(sa.Column('start_time', sa.DateTime(), nullable=True))
+        if 'created_by' not in existing_cols:
+            batch_op.add_column(sa.Column('created_by', sa.String(length=64), nullable=True))
+            batch_op.create_foreign_key(None, 'creators', ['created_by'], ['id'])
 
     # ### end Alembic commands ###
 
