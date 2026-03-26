@@ -2791,9 +2791,11 @@ class GameScene extends Phaser.Scene {
       const px = ag.px * TS * S;
       const py = ag.py * TS * S;
 
-      // Idle bob
+      // Idle bob or walk bounce
       const isIdle = ag.state === 'idle' || ag.state === 'signal' || ag.path.length === 0;
-      const bob = isIdle ? Math.sin(ag.bobA * 1.4) * CHR_S : 0;
+      const bob = isIdle
+        ? Math.sin(ag.bobA * 1.4) * CHR_S
+        : (ag.frame === 0 || ag.frame === 2 ? -CHR_S * 0.8 : 0);
 
       // Sprite position + frame
       sprite.x = px;
@@ -3098,7 +3100,7 @@ function makeAgent(creator, idx) {
     py: desk.y + 3 + 0.5,
     path: [], pi: 0,
     state: 'to_desk',
-    dir: 0, frame: 1, frameT: 0,
+    dir: 0, frame: 1, frameT: 0, walkStep: 0,
     wanderT: 3000 + Math.random() * 12000,
     signalT: 0, bobA: Math.random() * Math.PI * 2,
     flashT: 0, popupT: 0, monitorGlowT: 0, prevScore: 0,
@@ -3109,6 +3111,9 @@ function makeAgent(creator, idx) {
 function startPath(ag, tx, ty) {
   ag.path = bfs(grid, Math.round(ag.px-0.5), Math.round(ag.py-0.5), tx, ty);
   ag.pi = 0;
+  ag.frameT = 0;
+  ag.walkStep = 0;
+  ag.frame = 1;
 }
 
 function updateAgent(ag, dt) {
@@ -3148,7 +3153,7 @@ function updateAgent(ag, dt) {
   }
 
   ag.frameT += dt;
-  if (ag.frameT > 120) { ag.frameT = 0; ag.frame = (ag.frame+1)%3; }
+  if (ag.frameT > 120) { ag.frameT = 0; ag.walkStep = ((ag.walkStep || 0)+1)%4; ag.frame = [1,0,1,2][ag.walkStep]; }
 
   const [tx,ty] = ag.path[ag.pi];
   const tpx = tx+0.5, tpy = ty+0.5;
