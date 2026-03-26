@@ -39,9 +39,11 @@ fi
 # ---- Normal deploy ----
 echo "==> Starting deploy at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-# 1. Pull latest code
-echo "==> Pulling latest from main..."
-git pull origin main
+# 1. Pull latest code (force-sync to match remote exactly)
+echo "==> Syncing to latest main..."
+git fetch origin main
+git reset --hard origin/main
+git clean -fd
 
 # 2. Tag current image for rollback
 echo "==> Tagging current image for rollback..."
