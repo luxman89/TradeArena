@@ -1044,6 +1044,12 @@ const observer = new IntersectionObserver((entries) => {
 
 document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 
+// Hero elements are always above the fold — trigger reveal on next frame
+// (fixes hero-badge not being detected by IntersectionObserver on initial load)
+requestAnimationFrame(() => {
+  document.querySelectorAll('.hero .reveal').forEach(el => el.classList.add('visible'));
+});
+
 // ── Counter Animation ──
 const counterObserver = new IntersectionObserver((entries) => {
   entries.forEach(e => {
