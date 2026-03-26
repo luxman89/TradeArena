@@ -47,7 +47,7 @@ git clean -fd
 
 # 2. Tag current image for rollback
 echo "==> Tagging current image for rollback..."
-CURRENT_IMAGE=$(docker compose -f "$COMPOSE_FILE" images app --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | head -1)
+CURRENT_IMAGE=$(docker compose -f "$COMPOSE_FILE" images app --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | head -1 || true)
 if [ -n "$CURRENT_IMAGE" ] && [ "$CURRENT_IMAGE" != ":" ]; then
     docker tag "$CURRENT_IMAGE" "$ROLLBACK_TAG:latest" 2>/dev/null || true
     echo "    Tagged $CURRENT_IMAGE as $ROLLBACK_TAG:latest"
