@@ -2795,8 +2795,8 @@ class GameScene extends Phaser.Scene {
       const isIdle = ag.state === 'idle' || ag.state === 'signal' || ag.path.length === 0;
       const walkPhase = (ag.walkStep || 0) * Math.PI * 0.5 + (ag.frameT || 0) / 100 * Math.PI * 0.5;
       const bob = isIdle
-        ? Math.sin(ag.bobA * 1.4) * CHR_S
-        : Math.abs(Math.sin(walkPhase)) * -CHR_S * 1.6;
+        ? Math.sin(ag.bobA * 1.4) * CHR_S * 0.5
+        : Math.abs(Math.sin(walkPhase)) * CHR_S * 1.4;
       const tilt = isIdle ? 0 : Math.sin(walkPhase) * 0.06;
 
       // Sprite position + frame
