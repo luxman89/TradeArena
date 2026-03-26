@@ -400,10 +400,10 @@ section {
 .steps-grid-3 {
   grid-template-columns: repeat(3, 1fr);
 }
-.btn-github, .btn-twitter {
+.btn-github, .btn-twitter, .btn-discord {
   gap: 0.625rem;
 }
-.btn-github svg, .btn-twitter svg {
+.btn-github svg, .btn-twitter svg, .btn-discord svg {
   flex-shrink: 0;
 }
 .step {
@@ -798,13 +798,17 @@ footer {
   </p>
 
   <div class="hero-actions reveal reveal-delay-3">
-    <a href="#" class="btn-primary btn-github" id="github-signup" onclick="githubSignup(event)">
+    <a href="#" class="btn-primary btn-github oauth-btn" data-provider="github" id="github-signup" onclick="githubSignup(event)">
       <svg viewBox="0 0 16 16" fill="currentColor" width="18" height="18"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
       Sign up with GitHub
     </a>
-    <a href="#" class="btn-primary btn-twitter" onclick="twitterSignup(event)">
+    <a href="#" class="btn-primary btn-twitter oauth-btn" data-provider="twitter" onclick="twitterSignup(event)" style="display:none">
       <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
       Sign up with X
+    </a>
+    <a href="#" class="btn-primary btn-discord oauth-btn" data-provider="discord" onclick="discordSignup(event)" style="display:none">
+      <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg>
+      Sign up with Discord
     </a>
     <a href="/quickstart" class="btn-secondary">Quickstart Guide</a>
   </div>
@@ -993,13 +997,17 @@ footer {
     <h2 class="reveal">Stop talking.<br>Start <em>proving.</em></h2>
     <p class="reveal reveal-delay-1">Sign up with GitHub or X, deploy your bot via the SDK, and let your track record do the talking. Every feature is free.</p>
     <div class="reveal reveal-delay-2" style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap;">
-      <a href="#" class="btn-primary btn-github" style="font-size:1rem; padding: 1rem 2.5rem;" onclick="githubSignup(event)">
+      <a href="#" class="btn-primary btn-github oauth-btn" data-provider="github" style="font-size:1rem; padding: 1rem 2.5rem;" onclick="githubSignup(event)">
         <svg viewBox="0 0 16 16" fill="currentColor" width="18" height="18"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
         Sign up with GitHub
       </a>
-      <a href="#" class="btn-primary btn-twitter" style="font-size:1rem; padding: 1rem 2.5rem;" onclick="twitterSignup(event)">
+      <a href="#" class="btn-primary btn-twitter oauth-btn" data-provider="twitter" style="font-size:1rem; padding: 1rem 2.5rem; display:none;" onclick="twitterSignup(event)">
         <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
         Sign up with X
+      </a>
+      <a href="#" class="btn-primary btn-discord oauth-btn" data-provider="discord" style="font-size:1rem; padding: 1rem 2.5rem; display:none;" onclick="discordSignup(event)">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg>
+        Sign up with Discord
       </a>
       <p class="cta-note" style="width:100%; text-align:center;">No credit card. No premium tiers. Just compete.</p>
     </div>
@@ -1132,6 +1140,40 @@ async function twitterSignup(e) {
     alert('X signup is temporarily unavailable. Please try again later.');
   }
 }
+
+// ── Discord OAuth Signup ──
+async function discordSignup(e) {
+  e.preventDefault();
+  try {
+    const res = await fetch('/auth/discord');
+    const data = await res.json();
+    if (data.authorization_url) {
+      window.location.href = data.authorization_url;
+    } else {
+      alert(data.detail || 'Discord signup is temporarily unavailable. Please try again later.');
+    }
+  } catch (err) {
+    console.error('Discord OAuth redirect failed:', err);
+    alert('Discord signup is temporarily unavailable. Please try again later.');
+  }
+}
+
+// ── Show/hide OAuth buttons based on configured providers ──
+(async function checkOAuthProviders() {
+  try {
+    const res = await fetch('/auth/providers');
+    if (!res.ok) return;
+    const providers = await res.json();
+    document.querySelectorAll('.oauth-btn[data-provider]').forEach(btn => {
+      const provider = btn.dataset.provider;
+      if (providers[provider]) {
+        btn.style.display = '';
+      }
+    });
+  } catch (err) {
+    // On error, GitHub buttons stay visible (no data-provider hide), others stay hidden
+  }
+})();
 
 // ── Live Stats from API ──
 (async function loadLiveStats() {

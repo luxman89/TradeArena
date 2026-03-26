@@ -76,6 +76,17 @@ _VALID_DIVISIONS = {"crypto", "polymarket", "multi"}
 _STARTER_AVATARS = {0, 1, 2, 3}
 
 
+@router.get("/providers")
+def list_providers():
+    """Return which OAuth providers are configured and available."""
+    return {
+        "github": bool(GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET),
+        "discord": bool(DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET),
+        "twitter": bool(TWITTER_CLIENT_ID and TWITTER_CLIENT_SECRET),
+        "google": bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET),
+    }
+
+
 def _slugify(text: str) -> str:
     text = text.lower()
     text = re.sub(r"[^a-z0-9\s-]", "", text)
