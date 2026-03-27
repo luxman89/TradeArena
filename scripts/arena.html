@@ -695,6 +695,7 @@ function connectWS() {
             creator_id: msg.data.creator_id || null,
           });
         }
+        trackSignalForMood();
         loadData();
       } else if (ev === 'signals_resolved' ||
           ev === 'leaderboard_updated' || ev === 'battle_created' ||
@@ -1093,11 +1094,16 @@ class GameScene extends Phaser.Scene {
     this._dayNightRect = this.add.rectangle(W / 2, H / 2, W, H, 0x141e50, 0);
     this._dayNightRect.setDepth(999);
 
-    // Scanlines
-    const scanG = this.add.graphics();
-    scanG.setDepth(997);
-    scanG.fillStyle(0x000000, 0.015);
-    for (let y = 0; y < H; y += 4) scanG.fillRect(0, y, W, 2);
+    // Scanlines (stored for chaos mode intensity changes)
+    this._scanG = this.add.graphics();
+    this._scanG.setDepth(997);
+    this._scanG.fillStyle(0x000000, 0.015);
+    for (let y = 0; y < H; y += 4) this._scanG.fillRect(0, y, W, 2);
+    this._scanBaseAlpha = 0.015;
+
+    // Market mood tint overlay (separate from day/night)
+    this._moodRect = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0);
+    this._moodRect.setDepth(998.5); // between vignette and day/night
 
     // Vignette (top/bottom only, reduced)
     const vigG = this.add.graphics();
@@ -2063,6 +2069,10 @@ class GameScene extends Phaser.Scene {
     g.lineStyle(1, 0xD4AF37, 0.5);
     g.lineBetween(wallLeft - 3, wallBot + 2, wallRight + 3, wallBot + 2);
 
+    // Store bell position for bell event effects
+    this._bellPos = { x: bellCx, y: bellCy, r: bellR };
+    this._bellGlow = bellGlow;
+
     console.log('[TradeArena/Phaser] Built bell podium');
   }
 
@@ -2616,6 +2626,8 @@ class GameScene extends Phaser.Scene {
   // Refresh all desk monitors based on current agent occupancy
   _refreshDeskMonitors() {
     if (!this._deskData) return;
+    // Dead mode: dim all monitors (screensaver effect)
+    const isDead = _moodTarget === 'dead' && _moodTransition > 0.5;
     for (let i = 0; i < DESKS.length; i++) {
       const dd = this._deskData[i];
       if (!dd) continue;
@@ -2627,6 +2639,12 @@ class GameScene extends Phaser.Scene {
       dd.occupied = isOccupied;
       dd.lastCreatorId = creatorId;
       this._drawDeskMonitor(i, ag ? ag.creator : null);
+    }
+    // Apply dead mode dimming to all desk graphics
+    for (let i = 0; i < DESKS.length; i++) {
+      const dd = this._deskData[i];
+      if (!dd || !dd.monG) continue;
+      dd.monG.setAlpha(isDead ? 0.3 : 1);
     }
   }
 
@@ -2951,6 +2969,12 @@ class GameScene extends Phaser.Scene {
     // Refresh desk monitors when agent occupancy changes
     this._refreshDeskMonitors();
 
+    // Update market mood lighting and bell events
+    updateMarketMood(dt);
+    checkBellEvent();
+    checkDemoBell(dt);
+    updateBellEvent(dt);
+
     // Update all agents (existing game logic)
     for (const ag of agents) updateAgent(ag, dt);
     updateAmbientLife(dt);
@@ -2970,7 +2994,7 @@ class GameScene extends Phaser.Scene {
       const py = ag.py * TS * S;
 
       // Idle bob or walk bounce + tilt
-      const isIdle = ag.state === 'idle' || ag.state === 'signal' || ag.path.length === 0;
+      const isIdle = ag.state === 'idle' || ag.state === 'signal' || ag.state === 'bell_react' || ag.path.length === 0;
       const atDesk = isIdle && ag.state === 'idle';
       const walkPhase = (ag.walkStep || 0) * Math.PI * 0.5 + (ag.frameT || 0) / 100 * Math.PI * 0.5;
       // Typing oscillation: subtle 0.3px Y movement when idle at desk
@@ -3309,6 +3333,21 @@ function updateAgent(ag, dt) {
   if (ag.popupT > 0) ag.popupT -= dt;
   if (ag.monitorGlowT > 0) ag.monitorGlowT -= dt;
 
+  // Bell reaction — agent faces podium, paused
+  if (ag.state === 'bell_react') {
+    ag.frame = 1; // standing still
+    if (ag._bellReactT !== undefined) {
+      ag._bellReactT -= dt;
+      if (ag._bellReactT <= 0) {
+        ag.state = ag._preBellState || 'idle';
+        ag.dir = ag._preBellDir || 0;
+        ag._preBellState = null;
+        ag._preBellDir = null;
+      }
+    }
+    return;
+  }
+
   // Signal phone state — agent at desk, phone ringing, about to walk to post
   if (ag.state === 'signal_phone') {
     ag.frame = [1,0,1,2][Math.floor(ag.bobA * 0.7) % 4];
@@ -3389,7 +3428,7 @@ function updateAgent(ag, dt) {
   const tpx = tx+0.5, tpy = ty+0.5;
   const dx = tpx-ag.px, dy = tpy-ag.py;
   const dist = Math.hypot(dx, dy);
-  const step = SPD * dt / 1000;
+  const step = SPD * (_moodSpeedMult || 1) * dt / 1000;
 
   if (dist <= step) { ag.px = tpx; ag.py = tpy; ag.pi++; }
   else {
@@ -4142,6 +4181,336 @@ function getDayNightOverlay() {
   // 6-8 sunrise
   const p = (t - 6) / 2;
   return { color: `rgba(255,${Math.round(180+p*60)},${Math.round(100+p*100)},${(0.12-p*0.09).toFixed(2)})`, alpha: 0.12 - p * 0.09 };
+}
+
+// ═════════════════════════════════════════════════
+// MARKET MOOD LIGHTING
+// ═════════════════════════════════════════════════
+// Mood states: 'bull', 'bear', 'chaos', 'dead', 'neutral'
+let _marketMood = 'neutral';
+let _moodTransition = 0; // 0-1 blend factor for smooth transitions
+let _moodTarget = 'neutral';
+let _lastSignalTime = Date.now();
+let _signalCountLastMin = 0;
+let _signalTimestamps = [];
+
+function trackSignalForMood() {
+  const now = Date.now();
+  _lastSignalTime = now;
+  _signalTimestamps.push(now);
+  // Keep only last 5 minutes of timestamps
+  _signalTimestamps = _signalTimestamps.filter(t => now - t < 300000);
+}
+
+function getMarketMood() {
+  if (!leaderboard || !leaderboard.length) return 'dead';
+
+  const now = Date.now();
+  const timeSinceSignal = now - _lastSignalTime;
+
+  // Dead mode: no signals in 10+ minutes
+  if (timeSinceSignal > 600000) return 'dead';
+
+  // Calculate average win rate from leaderboard
+  const avgWinRate = leaderboard.reduce((a, c) => a + (c.win_rate || 0), 0) / leaderboard.length;
+  const totalSignals = leaderboard.reduce((a, c) => a + (c.total_signals || 0), 0);
+  const recentVolume = _signalTimestamps.filter(t => now - t < 60000).length;
+
+  // Chaos mode: high recent volume (3+ signals/min) and mixed results (40-60% win rate)
+  if (recentVolume >= 3 && avgWinRate >= 0.35 && avgWinRate <= 0.65) return 'chaos';
+
+  // Bull mode: win rate > 60%
+  if (avgWinRate > 0.6) return 'bull';
+
+  // Bear mode: win rate < 40%
+  if (avgWinRate < 0.4) return 'bear';
+
+  return 'neutral';
+}
+
+// Mood color/alpha configs
+const MOOD_CONFIGS = {
+  bull:    { color: 0xFFA500, alpha: 0.06, scanAlpha: 0.012, speedMult: 1.0 },
+  bear:    { color: 0x1E3A5F, alpha: 0.10, scanAlpha: 0.020, speedMult: 0.85 },
+  chaos:   { color: 0x8B0000, alpha: 0.04, scanAlpha: 0.035, speedMult: 1.0 },
+  dead:    { color: 0x0A0A14, alpha: 0.15, scanAlpha: 0.025, speedMult: 1.0 },
+  neutral: { color: 0x000000, alpha: 0.00, scanAlpha: 0.015, speedMult: 1.0 },
+};
+
+let _moodSpeedMult = 1.0;
+let _chaosColorT = 0; // timer for chaos color cycling
+
+function updateMarketMood(dt) {
+  const newMood = getMarketMood();
+  if (newMood !== _moodTarget) {
+    _moodTarget = newMood;
+    _moodTransition = 0;
+  }
+
+  // Smooth transition (1.5s)
+  if (_moodTransition < 1) {
+    _moodTransition = Math.min(1, _moodTransition + dt / 1500);
+  }
+  if (_moodTransition >= 1 && _marketMood !== _moodTarget) {
+    _marketMood = _moodTarget;
+  }
+
+  const cfg = MOOD_CONFIGS[_moodTarget] || MOOD_CONFIGS.neutral;
+  const prevCfg = MOOD_CONFIGS[_marketMood] || MOOD_CONFIGS.neutral;
+  const t = _moodTransition;
+
+  // Interpolate alpha
+  const alpha = prevCfg.alpha + (cfg.alpha - prevCfg.alpha) * t;
+  _moodSpeedMult = prevCfg.speedMult + (cfg.speedMult - prevCfg.speedMult) * t;
+
+  if (!gameScene || !gameScene._moodRect) return;
+
+  // Chaos mode: rapid subtle color shifts
+  if (_moodTarget === 'chaos') {
+    _chaosColorT += dt * 0.003;
+    const r = Math.round(100 + Math.sin(_chaosColorT) * 40);
+    const g = Math.round(20 + Math.sin(_chaosColorT * 1.7) * 20);
+    const b = Math.round(10 + Math.sin(_chaosColorT * 2.3) * 20);
+    const chaosColor = Phaser.Display.Color.GetColor(r, g, b);
+    gameScene._moodRect.setFillStyle(chaosColor, alpha * t);
+  } else {
+    // Interpolate color
+    const pc = Phaser.Display.Color.IntegerToColor(prevCfg.color);
+    const tc = Phaser.Display.Color.IntegerToColor(cfg.color);
+    const r = Math.round(pc.red + (tc.red - pc.red) * t);
+    const g = Math.round(pc.green + (tc.green - pc.green) * t);
+    const b = Math.round(pc.blue + (tc.blue - pc.blue) * t);
+    gameScene._moodRect.setFillStyle(Phaser.Display.Color.GetColor(r, g, b), alpha);
+  }
+
+  // Update scanline intensity for chaos mode
+  if (gameScene._scanG && _moodTarget === 'chaos') {
+    const scanPulse = 0.025 + Math.sin(_chaosColorT * 3) * 0.015;
+    gameScene._scanG.setAlpha(scanPulse / gameScene._scanBaseAlpha);
+  } else if (gameScene._scanG) {
+    gameScene._scanG.setAlpha(1); // normal intensity
+  }
+}
+
+// ═════════════════════════════════════════════════
+// BELL EVENTS (Market Open/Close)
+// ═════════════════════════════════════════════════
+let _lastBellCheck = '';
+let _bellEventActive = false;
+let _bellEventT = 0;
+let _bellType = null; // 'open' or 'close'
+const BELL_PODIUM_TILE = { x: 18, y: 5 }; // center of bell podium
+
+function checkBellEvent() {
+  // Check current time in ET (UTC-4 or UTC-5 depending on DST)
+  const now = new Date();
+  // Use ET offset: try Intl for accuracy, fallback to UTC-5
+  let etH, etM;
+  try {
+    const etStr = now.toLocaleTimeString('en-US', {
+      timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit'
+    });
+    [etH, etM] = etStr.split(':').map(Number);
+  } catch (e) {
+    const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+    const et = new Date(utc - 18000000); // UTC-5
+    etH = et.getHours(); etM = et.getMinutes();
+  }
+
+  const timeKey = etH + ':' + etM;
+  if (timeKey === _lastBellCheck) return; // already checked this minute
+  _lastBellCheck = timeKey;
+
+  // Market open: 9:30 AM ET
+  if (etH === 9 && etM === 30) {
+    triggerBellEvent('open');
+  }
+  // Market close: 4:00 PM ET
+  if (etH === 16 && etM === 0) {
+    triggerBellEvent('close');
+  }
+}
+
+// Also allow demo trigger every 10 minutes (on :00, :10, :20, :30, :40, :50)
+let _demoBellT = 0;
+function checkDemoBell(dt) {
+  _demoBellT += dt;
+  if (_demoBellT >= 600000) { // 10 min cycle
+    _demoBellT = 0;
+    if (!_bellEventActive) {
+      triggerBellEvent(Math.random() > 0.5 ? 'open' : 'close');
+    }
+  }
+}
+
+function triggerBellEvent(type) {
+  if (_bellEventActive) return;
+  _bellEventActive = true;
+  _bellEventT = 4000; // 4 second event duration
+  _bellType = type;
+
+  // Camera shake
+  triggerScreenShake(8, 500);
+
+  // Play bell sound
+  playBellSound(type);
+
+  // Particle burst at bell position
+  if (gameScene && gameScene._bellPos) {
+    const bp = gameScene._bellPos;
+    const color = type === 'open' ? 0x10B981 : 0xF59E0B;
+    for (let i = 0; i < 12; i++) {
+      const angle = (Math.PI * 2 / 12) * i + Math.random() * 0.3;
+      const speed = 50 + Math.random() * 40;
+      const particle = gameScene.add.rectangle(
+        bp.x, bp.y, (3 + Math.random() * 2) * SCALE, (3 + Math.random() * 2) * SCALE, color
+      );
+      particle.setDepth(951);
+      gameScene.tweens.add({
+        targets: particle,
+        x: bp.x + Math.cos(angle) * speed * 3,
+        y: bp.y + Math.sin(angle) * speed * 3,
+        alpha: 0,
+        duration: 1200,
+        ease: 'Power2',
+        onComplete: () => particle.destroy(),
+      });
+    }
+  }
+
+  // Bell glow intensify
+  if (gameScene && gameScene._bellGlow) {
+    const glowColor = type === 'open' ? 0x10B981 : 0xF59E0B;
+    gameScene._bellGlow.setFillStyle(glowColor, 0.4);
+    gameScene.tweens.add({
+      targets: gameScene._bellGlow,
+      alpha: 0.08,
+      duration: 2000,
+      ease: 'Sine.easeOut',
+      onComplete: () => gameScene._bellGlow.setFillStyle(0xFFD700, 0.08),
+    });
+  }
+
+  // Flash desk monitors
+  flashDeskMonitors(type);
+
+  // All agents face podium briefly
+  agents.forEach(ag => {
+    if (ag.state === 'idle' || ag.state === 'wander') {
+      ag._preBellState = ag.state;
+      ag._preBellDir = ag.dir;
+      ag.state = 'bell_react';
+      ag._bellReactT = 2500 + Math.random() * 500; // 2.5-3s facing podium
+      // Face toward bell podium (tile 18, 5)
+      const dx = BELL_PODIUM_TILE.x - ag.px;
+      const dy = BELL_PODIUM_TILE.y - ag.py;
+      if (Math.abs(dx) > Math.abs(dy)) {
+        ag.dir = dx > 0 ? 2 : 1; // right or left
+      } else {
+        ag.dir = dy > 0 ? 0 : 3; // down or up
+      }
+    }
+  });
+
+  // Floating announcement
+  const msg = type === 'open' ? 'MARKET OPEN' : 'MARKET CLOSE';
+  const msgColor = type === 'open' ? '#10B981' : '#F59E0B';
+  if (gameScene) {
+    const W = ROOM_W * TS * SCALE;
+    const H = ROOM_H * TS * SCALE;
+    const ft = gameScene.add.text(W / 2, H * 0.35, msg, {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: 14 * SCALE + 'px',
+      color: msgColor,
+      align: 'center',
+      stroke: '#000000',
+      strokeThickness: 3,
+    });
+    ft.setOrigin(0.5, 0.5);
+    ft.setDepth(960);
+    ft.setShadow(0, 0, msgColor, 8);
+    gameScene.tweens.add({
+      targets: ft,
+      y: H * 0.28,
+      alpha: 0,
+      duration: 3000,
+      ease: 'Power2',
+      onComplete: () => ft.destroy(),
+    });
+  }
+
+  console.log('[TradeArena] Bell event:', type);
+}
+
+function playBellSound(type) {
+  if (soundMuted) return;
+  try {
+    const ac = ensureAudio();
+    const t = ac.currentTime;
+    // NYSE bell: resonant metallic ring
+    const freqs = type === 'open' ? [523, 659, 784] : [784, 659, 523];
+    freqs.forEach((f, i) => {
+      const osc = ac.createOscillator();
+      const gain = ac.createGain();
+      osc.connect(gain); gain.connect(ac.destination);
+      osc.type = 'sine';
+      osc.frequency.value = f;
+      gain.gain.setValueAtTime(0.15, t + i * 0.15);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.15 + 0.8);
+      osc.start(t + i * 0.15);
+      osc.stop(t + i * 0.15 + 0.8);
+      // Overtone for metallic ring
+      const osc2 = ac.createOscillator();
+      const g2 = ac.createGain();
+      osc2.connect(g2); g2.connect(ac.destination);
+      osc2.type = 'sine';
+      osc2.frequency.value = f * 2.5;
+      g2.gain.setValueAtTime(0.04, t + i * 0.15);
+      g2.gain.exponentialRampToValueAtTime(0.001, t + i * 0.15 + 0.5);
+      osc2.start(t + i * 0.15);
+      osc2.stop(t + i * 0.15 + 0.5);
+    });
+  } catch (e) {}
+}
+
+function flashDeskMonitors(type) {
+  if (!gameScene || !gameScene._deskData) return;
+  const flashColor = type === 'open' ? 0x10B981 : 0xF59E0B;
+  gameScene._deskData.forEach(desk => {
+    if (!desk.mw) return;
+    // Create temporary flash rectangles over each monitor
+    [desk.m1x, desk.m2x].forEach(mx => {
+      const flash = gameScene.add.rectangle(
+        mx + desk.mw / 2, desk.my + desk.mh / 2, desk.mw, desk.mh, flashColor, 0.7
+      );
+      flash.setDepth(desk.tileY + 0.15);
+      gameScene.tweens.add({
+        targets: flash,
+        alpha: 0,
+        duration: 1500,
+        ease: 'Power2',
+        onComplete: () => flash.destroy(),
+      });
+    });
+  });
+}
+
+function updateBellEvent(dt) {
+  if (!_bellEventActive) return;
+  _bellEventT -= dt;
+  if (_bellEventT <= 0) {
+    _bellEventActive = false;
+    _bellType = null;
+    // Agents return to previous state
+    agents.forEach(ag => {
+      if (ag.state === 'bell_react') {
+        ag.state = ag._preBellState || 'idle';
+        ag.dir = ag._preBellDir || 0;
+        ag._preBellState = null;
+        ag._preBellDir = null;
+      }
+    });
+  }
 }
 
 // ═════════════════════════════════════════════════
