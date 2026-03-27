@@ -686,7 +686,17 @@ function connectWS() {
         _ws.send('pong');
         return;
       }
-      if (ev === 'signal_new' || ev === 'signals_resolved' ||
+      if (ev === 'signal_new') {
+        // Queue signal data for agent walk-to-post narrative
+        if (msg.data && msg.data.asset && msg.data.action) {
+          _pendingSignals.push({
+            asset: msg.data.asset,
+            action: msg.data.action.toUpperCase(),
+            creator_id: msg.data.creator_id || null,
+          });
+        }
+        loadData();
+      } else if (ev === 'signals_resolved' ||
           ev === 'leaderboard_updated' || ev === 'battle_created' ||
           ev === 'battle_resolved' || ev === 'battles_resolved' ||
           ev === 'matchmaking_complete' || ev === 'bots_submitted') {
@@ -777,6 +787,16 @@ const DESKS = [
   // Right cluster (4 desks)
   {x:25, y:5}, {x:29, y:5}, {x:25, y:8}, {x:29, y:8},
 ];
+
+// Trading post tile positions (match Phaser postPositions)
+const TRADING_POSTS = [
+  {x: 5, y: 15},
+  {x: 16, y: 15},
+  {x: 27, y: 15},
+];
+
+// Pending signal data from WebSocket for agent walk-to-post narrative
+let _pendingSignals = [];
 
 // ═════════════════════════════════════════════════
 // IMAGE LOADING
@@ -3125,8 +3145,10 @@ function makeAgent(creator, idx) {
     state: 'to_desk',
     dir: 0, frame: 1, frameT: 0, walkStep: 0,
     wanderT: 3000 + Math.random() * 12000,
-    signalT: 0, bobA: Math.random() * Math.PI * 2,
+    signalT: 0, postT: 0, bobA: Math.random() * Math.PI * 2,
     flashT: 0, popupT: 0, monitorGlowT: 0, prevScore: 0,
+    signalInfo: null, // {asset, action} for trading post display
+    targetPost: null, // {x, y} tile coords of target trading post
     sheetIdx: cd[0], bCol: cd[1], bRow: cd[2],
   };
 }
@@ -3146,6 +3168,37 @@ function updateAgent(ag, dt) {
   if (ag.popupT > 0) ag.popupT -= dt;
   if (ag.monitorGlowT > 0) ag.monitorGlowT -= dt;
 
+  // Signal phone state — agent at desk, phone ringing, about to walk to post
+  if (ag.state === 'signal_phone') {
+    ag.frame = [1,0,1,2][Math.floor(ag.bobA * 0.7) % 4];
+    ag.signalT -= dt;
+    if (ag.signalT <= 0) {
+      // Find nearest trading post
+      let best = TRADING_POSTS[0], bestD = Infinity;
+      TRADING_POSTS.forEach(p => {
+        const d = Math.abs(p.x - ag.deskX) + Math.abs(p.y - ag.deskY);
+        if (d < bestD) { bestD = d; best = p; }
+      });
+      ag.targetPost = best;
+      ag.state = 'to_post';
+      startPath(ag, best.x, best.y + 1); // stand just below post
+    }
+    return;
+  }
+  // At trading post — show signal info, then return
+  if (ag.state === 'at_post') {
+    ag.frame = [1,0,1,2][Math.floor(ag.bobA * 0.7) % 4];
+    ag.dir = 3; // face up toward post
+    ag.postT -= dt;
+    if (ag.postT <= 0) {
+      ag.state = 'to_desk';
+      ag.signalInfo = null;
+      ag.targetPost = null;
+      startPath(ag, ag.deskX, ag.deskY);
+    }
+    return;
+  }
+  // Legacy signal state (keep for backwards compat with any in-flight)
   if (ag.state === 'signal') {
     ag.frame = [1,0,1,2][Math.floor(ag.bobA * 0.7) % 4];
     ag.signalT -= dt;
@@ -3170,6 +3223,19 @@ function updateAgent(ag, dt) {
   if (ag.state === 'to_desk' && ag.path.length === 0) startPath(ag, ag.deskX, ag.deskY);
   if (ag.pi >= ag.path.length) {
     ag.path = []; ag.pi = 0;
+    if (ag.state === 'to_post') {
+      // Arrived at trading post — show signal info
+      ag.state = 'at_post';
+      ag.postT = 3000;
+      ag.monitorGlowT = 3000;
+      if (ag.signalInfo) {
+        addFloatingText(ag, ag.signalInfo.asset + ' ' + ag.signalInfo.action,
+          ag.signalInfo.action === 'BUY' || ag.signalInfo.action === 'LONG' || ag.signalInfo.action === 'YES' ? '#10B981' : '#EF4444');
+        emitParticles(ag, ag.signalInfo.action === 'BUY' || ag.signalInfo.action === 'LONG' || ag.signalInfo.action === 'YES' ? '#10B981' : '#EF4444');
+        playSound('signal');
+      }
+      ag.frame = 1; return;
+    }
     ag.state = ag.state === 'wander' ? 'to_desk' : 'idle';
     if (ag.state === 'to_desk') startPath(ag, ag.deskX, ag.deskY);
     ag.frame = 1; return;
@@ -3575,15 +3641,24 @@ function loadData() {
         console.log('[TradeArena] New agent joined the floor:', c.display_name || c.creator_id);
       });
     }
-    // Random signal
+    // Signal-driven walk to trading post
     if (agents.length) {
-      const ag = agents[Math.floor(Math.random()*agents.length)];
-      if (ag.state === 'idle') {
-        ag.state = 'signal'; ag.signalT = 2500;
-        ag.flashT = 200; ag.popupT = 800; ag.monitorGlowT = 3000;
+      // Consume pending signal data or generate ambient signal
+      const sigData = _pendingSignals.shift() || null;
+      // Find the matching agent by creator_id, or pick a random idle one
+      let ag = null;
+      if (sigData && sigData.creator_id) {
+        ag = agents.find(a => a.creator && a.creator.creator_id === sigData.creator_id && a.state === 'idle');
+      }
+      if (!ag) ag = agents.filter(a => a.state === 'idle')[Math.floor(Math.random() * agents.filter(a => a.state === 'idle').length)] || null;
+      if (ag) {
+        ag.signalInfo = sigData || { asset: ag.creator.display_name || '???', action: 'SIGNAL' };
+        ag.state = 'signal_phone'; ag.signalT = 1500;
+        ag.flashT = 200; ag.popupT = 800;
+        // Trigger phone ring on this agent's desk
+        phoneRingAgent = ag; phoneRingT = 1500;
+        playSound('signal');
         const conf = ag.creator.composite_score || 0;
-        emitParticles(ag, conf > 0.5 ? '#F59E0B' : '#10B981');
-        playSound('signal'); playSound('particle');
         if (conf > 0.9) triggerScreenShake(6, 300);
       }
     }
