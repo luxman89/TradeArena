@@ -1221,7 +1221,8 @@ class GameScene extends Phaser.Scene {
     g.fillRect(0, 0, W, H);
 
     // ── 8 TRADING DESKS — positions from DESKS array ──
-    DESKS.forEach(d => this._buildDesk(T, d.x, d.y));
+    this._deskData = [];
+    DESKS.forEach((d, i) => this._buildDesk(T, d.x, d.y, i));
     console.log('[TradeArena/Phaser] Rendered', DESKS.length, 'trading desks');
 
     // ═══════════════════════════════════════════════════════
@@ -2387,7 +2388,7 @@ class GameScene extends Phaser.Scene {
     console.log('[TradeArena/Phaser] Built lounge area');
   }
 
-  _buildDesk(T, tileX, tileY) {
+  _buildDesk(T, tileX, tileY, deskIdx) {
     const dx = tileX * T;
     const dy = tileY * T;
 
@@ -2415,71 +2416,36 @@ class GameScene extends Phaser.Scene {
     deskG.fillRect(dLeft + 3, dTop + dd - 2, legW, legH);
     deskG.fillRect(dLeft + dw - legW - 3, dTop + dd - 2, legW, legH);
 
-    // === DUAL MONITORS ===
+    // === DUAL MONITORS (dynamic — redrawn by _refreshDeskMonitors) ===
     const monG = this.add.graphics();
     monG.setDepth(tileY - 0.5);
     const mw = T * 0.8;
     const mh = T * 0.55;
     const gap = 6;
     const my = dTop - mh + 6;
-
-    // Left monitor: CHART
     const m1x = dx - mw - gap / 2;
-    monG.fillStyle(0x1a1a22, 1);
-    monG.fillRect(m1x + mw / 2 - 10, dTop + 2, 20, 7);
-    monG.fillRect(m1x + mw / 2 - 2, my + mh, 4, dTop + 2 - (my + mh));
-    monG.fillStyle(0x0c0c14, 1);
-    monG.fillRect(m1x - 3, my - 3, mw + 6, mh + 6);
-    monG.fillStyle(0x0a1420, 1);
-    monG.fillRect(m1x, my, mw, mh);
-    monG.lineStyle(1, 0x152030, 0.8);
-    for (let gy = 0; gy < 4; gy++) {
-      monG.lineBetween(m1x + 3, my + 4 + gy * (mh / 4), m1x + mw - 3, my + 4 + gy * (mh / 4));
-    }
-    monG.lineStyle(2, 0x10B981, 0.7);
-    const pts = [0, 0.3, 0.2, 0.6, 0.5, 0.8, 0.55, 0.4, 0.7, 0.65, 0.9];
-    monG.beginPath();
-    for (let i = 0; i < pts.length; i++) {
-      const px = m1x + 5 + i * ((mw - 10) / (pts.length - 1));
-      const py = my + mh - 5 - pts[i] * (mh - 10);
-      if (i === 0) monG.moveTo(px, py); else monG.lineTo(px, py);
-    }
-    monG.strokePath();
-    monG.lineStyle(1, 0xEF4444, 0.4);
-    monG.lineBetween(m1x + 3, my + mh * 0.4, m1x + mw - 3, my + mh * 0.4);
-    monG.fillStyle(0x10B981, 0.8);
-    monG.fillCircle(m1x + mw / 2, my + mh + 2, 1.5);
-
-    // Right monitor: DATA TABLE
     const m2x = dx + gap / 2;
-    monG.fillStyle(0x1a1a22, 1);
-    monG.fillRect(m2x + mw / 2 - 10, dTop + 2, 20, 7);
-    monG.fillRect(m2x + mw / 2 - 2, my + mh, 4, dTop + 2 - (my + mh));
-    monG.fillStyle(0x0c0c14, 1);
-    monG.fillRect(m2x - 3, my - 3, mw + 6, mh + 6);
-    monG.fillStyle(0x0a1420, 1);
-    monG.fillRect(m2x, my, mw, mh);
-    monG.fillStyle(0x112030, 1);
-    monG.fillRect(m2x + 2, my + 2, mw - 4, 5);
-    monG.fillStyle(0x4090c0, 0.6);
-    monG.fillRect(m2x + 4, my + 4, 8, 1);
-    monG.fillRect(m2x + 16, my + 4, 12, 1);
-    monG.fillRect(m2x + 32, my + 4, 6, 1);
-    for (let row = 0; row < 6; row++) {
-      const ry = my + 10 + row * (mh / 8);
-      if (row % 2 === 0) {
-        monG.fillStyle(0x0c1820, 0.5);
-        monG.fillRect(m2x + 2, ry - 1, mw - 4, mh / 8);
-      }
-      monG.fillStyle(0x06B6D4, 0.5);
-      monG.fillRect(m2x + 4, ry + 1, 6 + Math.random() * 6, 1);
-      monG.fillStyle(0x8899aa, 0.5);
-      monG.fillRect(m2x + 18, ry + 1, 10, 1);
-      monG.fillStyle(row % 3 === 0 ? 0xEF4444 : 0x10B981, 0.5);
-      monG.fillRect(m2x + 34, ry + 1, 8, 1);
-    }
-    monG.fillStyle(0x10B981, 0.8);
-    monG.fillCircle(m2x + mw / 2, my + mh + 2, 1.5);
+
+    // Store desk data for dynamic monitor updates
+    this._deskData[deskIdx] = {
+      monG, tileX, tileY, dx, dTop, mw, mh, my, m1x, m2x, gap,
+      occupied: false, lastCreatorId: null,
+    };
+
+    // Empty desk click zone (invisible, interactive)
+    const clickZone = this.add.zone(dx, dTop + dd / 2, dw + 20, dd + mh + 20);
+    clickZone.setDepth(tileY + 0.2);
+    clickZone.setInteractive({ useHandCursor: true });
+    clickZone.on('pointerdown', () => {
+      const deskInfo = this._deskData[deskIdx];
+      if (deskInfo.occupied) return; // occupied desks handled by agent sprite click
+      // Show floating tooltip for empty desk
+      this._showEmptyDeskTooltip(dx, dTop - mh - 10);
+    });
+    this._deskData[deskIdx].clickZone = clickZone;
+
+    // Render monitors in initial empty/off state
+    this._drawDeskMonitor(deskIdx, null);
 
     // === KEYBOARD ===
     const kbG = this.add.graphics();
@@ -2517,6 +2483,175 @@ class GameScene extends Phaser.Scene {
     chG.fillRoundedRect(chx - 18, chy - 22, 36, 20, 4);
     chG.fillStyle(0x585870, 1);
     chG.fillRoundedRect(chx - 10, chy - 28, 20, 8, 3);
+  }
+
+  // Draw monitor content for a desk — null creator = empty/off, otherwise personalized
+  _drawDeskMonitor(deskIdx, creator) {
+    const d = this._deskData[deskIdx];
+    if (!d) return;
+    const { monG, dTop, mw, mh, my, m1x, m2x } = d;
+    monG.clear();
+
+    // Monitor stands + bezels (always drawn)
+    // Left stand
+    monG.fillStyle(0x1a1a22, 1);
+    monG.fillRect(m1x + mw / 2 - 10, dTop + 2, 20, 7);
+    monG.fillRect(m1x + mw / 2 - 2, my + mh, 4, dTop + 2 - (my + mh));
+    // Left bezel
+    monG.fillStyle(0x0c0c14, 1);
+    monG.fillRect(m1x - 3, my - 3, mw + 6, mh + 6);
+    // Right stand
+    monG.fillStyle(0x1a1a22, 1);
+    monG.fillRect(m2x + mw / 2 - 10, dTop + 2, 20, 7);
+    monG.fillRect(m2x + mw / 2 - 2, my + mh, 4, dTop + 2 - (my + mh));
+    // Right bezel
+    monG.fillStyle(0x0c0c14, 1);
+    monG.fillRect(m2x - 3, my - 3, mw + 6, mh + 6);
+
+    if (!creator) {
+      // === EMPTY DESK: monitors OFF (dark, no content) ===
+      monG.fillStyle(0x060608, 1);
+      monG.fillRect(m1x, my, mw, mh);
+      monG.fillStyle(0x060608, 1);
+      monG.fillRect(m2x, my, mw, mh);
+      // Dim power indicators (off)
+      monG.fillStyle(0x1a1a22, 0.4);
+      monG.fillCircle(m1x + mw / 2, my + mh + 2, 1.5);
+      monG.fillCircle(m2x + mw / 2, my + mh + 2, 1.5);
+      return;
+    }
+
+    // === OCCUPIED DESK: personalized monitors ===
+    const winRate = (creator.win_rate || 0);
+    const score = (creator.composite_score || 0);
+    const totalSig = (creator.total_signals || 0);
+
+    // ── Left monitor: SIGNAL HISTORY (colored dots for recent signals) ──
+    monG.fillStyle(0x0a1420, 1);
+    monG.fillRect(m1x, my, mw, mh);
+    // Grid lines
+    monG.lineStyle(1, 0x152030, 0.8);
+    for (let gy = 0; gy < 4; gy++) {
+      monG.lineBetween(m1x + 3, my + 4 + gy * (mh / 4), m1x + mw - 3, my + 4 + gy * (mh / 4));
+    }
+    // Personalized chart line based on win_rate (higher = more upward trend)
+    const seed = (creator.creator_id || '').length + totalSig;
+    monG.lineStyle(2, winRate > 0.5 ? 0x10B981 : 0xEF4444, 0.7);
+    const pts = [];
+    for (let i = 0; i < 11; i++) {
+      const base = winRate * 0.6 + 0.2;
+      const noise = Math.sin(seed + i * 1.7) * 0.2 + Math.cos(seed * 0.3 + i * 2.3) * 0.1;
+      const trend = (i / 10) * (winRate - 0.5) * 0.4;
+      pts.push(Math.max(0.05, Math.min(0.95, base + noise + trend)));
+    }
+    monG.beginPath();
+    for (let i = 0; i < pts.length; i++) {
+      const px = m1x + 5 + i * ((mw - 10) / (pts.length - 1));
+      const py = my + mh - 5 - pts[i] * (mh - 10);
+      if (i === 0) monG.moveTo(px, py); else monG.lineTo(px, py);
+    }
+    monG.strokePath();
+    // Signal count dots at bottom (last 5 signals as colored dots)
+    const dotCount = Math.min(5, totalSig);
+    for (let i = 0; i < dotCount; i++) {
+      const isWin = Math.sin(seed + i * 3.7) > (0.5 - winRate);
+      monG.fillStyle(isWin ? 0x10B981 : 0xEF4444, 0.8);
+      monG.fillCircle(m1x + 8 + i * 8, my + mh - 4, 2);
+    }
+    // Power LED
+    monG.fillStyle(0x10B981, 0.8);
+    monG.fillCircle(m1x + mw / 2, my + mh + 2, 1.5);
+
+    // ── Right monitor: WIN/LOSS STREAK bar + stats ──
+    monG.fillStyle(0x0a1420, 1);
+    monG.fillRect(m2x, my, mw, mh);
+    // Header bar
+    monG.fillStyle(0x112030, 1);
+    monG.fillRect(m2x + 2, my + 2, mw - 4, 5);
+    // "W/L" header text approximation (colored blocks)
+    monG.fillStyle(0x4090c0, 0.6);
+    monG.fillRect(m2x + 4, my + 4, 8, 1);
+    monG.fillRect(m2x + 16, my + 4, 12, 1);
+
+    // Win rate bar (horizontal bar chart)
+    const barTop = my + 10;
+    const barW = mw - 8;
+    // Background bar
+    monG.fillStyle(0x1a2030, 0.8);
+    monG.fillRect(m2x + 4, barTop, barW, 4);
+    // Fill based on win rate
+    monG.fillStyle(winRate > 0.5 ? 0x10B981 : winRate > 0.3 ? 0xF59E0B : 0xEF4444, 0.9);
+    monG.fillRect(m2x + 4, barTop, barW * winRate, 4);
+
+    // Score bar below
+    const scoreTop = barTop + 8;
+    monG.fillStyle(0x1a2030, 0.8);
+    monG.fillRect(m2x + 4, scoreTop, barW, 4);
+    monG.fillStyle(0x06B6D4, 0.9);
+    monG.fillRect(m2x + 4, scoreTop, barW * score, 4);
+
+    // Stats rows (signal count, division indicator)
+    const rowH = mh / 8;
+    for (let row = 0; row < 4; row++) {
+      const ry = scoreTop + 8 + row * rowH;
+      if (row % 2 === 0) {
+        monG.fillStyle(0x0c1820, 0.5);
+        monG.fillRect(m2x + 2, ry - 1, mw - 4, rowH);
+      }
+      // Simulated data rows with agent-specific variation
+      const rowSeed = seed + row * 7;
+      monG.fillStyle(0x06B6D4, 0.5);
+      monG.fillRect(m2x + 4, ry + 1, 4 + (rowSeed % 8), 1);
+      monG.fillStyle(0x8899aa, 0.5);
+      monG.fillRect(m2x + 18, ry + 1, 10, 1);
+      const rowUp = Math.sin(rowSeed) > 0;
+      monG.fillStyle(rowUp ? 0x10B981 : 0xEF4444, 0.5);
+      monG.fillRect(m2x + 34, ry + 1, 8, 1);
+    }
+    // Power LED
+    monG.fillStyle(0x10B981, 0.8);
+    monG.fillCircle(m2x + mw / 2, my + mh + 2, 1.5);
+  }
+
+  // Refresh all desk monitors based on current agent occupancy
+  _refreshDeskMonitors() {
+    if (!this._deskData) return;
+    for (let i = 0; i < DESKS.length; i++) {
+      const dd = this._deskData[i];
+      if (!dd) continue;
+      const ag = agents.find(a => a.idx === i);
+      const creatorId = ag ? (ag.creator.creator_id || null) : null;
+      const isOccupied = !!ag;
+      // Only redraw if occupancy or creator changed
+      if (dd.occupied === isOccupied && dd.lastCreatorId === creatorId) continue;
+      dd.occupied = isOccupied;
+      dd.lastCreatorId = creatorId;
+      this._drawDeskMonitor(i, ag ? ag.creator : null);
+    }
+  }
+
+  // Show tooltip for empty desk click
+  _showEmptyDeskTooltip(x, y) {
+    if (this._emptyDeskTooltip) this._emptyDeskTooltip.destroy();
+    const txt = this.add.text(x, y, 'Available — deploy a bot to claim this desk', {
+      fontFamily: '"JetBrains Mono", monospace',
+      fontSize: '9px',
+      color: '#94A3B8',
+      backgroundColor: '#0F172A',
+      padding: { x: 6, y: 4 },
+    });
+    txt.setOrigin(0.5, 1);
+    txt.setDepth(9000);
+    this._emptyDeskTooltip = txt;
+    // Fade out after 2.5s
+    this.tweens.add({
+      targets: txt,
+      alpha: 0,
+      y: y - 8,
+      duration: 2500,
+      ease: 'Quad.easeIn',
+      onComplete: () => txt.destroy(),
+    });
   }
 
   _buildTradingPost(S, W, H, T, cx, cy) {
@@ -2813,6 +2948,9 @@ class GameScene extends Phaser.Scene {
     // Create sprites for any agents that don't have them yet
     if (agents.length > 0) this._createSprites();
 
+    // Refresh desk monitors when agent occupancy changes
+    this._refreshDeskMonitors();
+
     // Update all agents (existing game logic)
     for (const ag of agents) updateAgent(ag, dt);
     updateAmbientLife(dt);
@@ -2833,9 +2971,12 @@ class GameScene extends Phaser.Scene {
 
       // Idle bob or walk bounce + tilt
       const isIdle = ag.state === 'idle' || ag.state === 'signal' || ag.path.length === 0;
+      const atDesk = isIdle && ag.state === 'idle';
       const walkPhase = (ag.walkStep || 0) * Math.PI * 0.5 + (ag.frameT || 0) / 100 * Math.PI * 0.5;
+      // Typing oscillation: subtle 0.3px Y movement when idle at desk
+      const typingBob = atDesk ? Math.sin(ag.bobA * 6) * 0.3 : 0;
       const bob = isIdle
-        ? Math.sin(ag.bobA * 1.4) * CHR_S * 0.5
+        ? Math.sin(ag.bobA * 1.4) * CHR_S * 0.5 + typingBob
         : Math.abs(Math.sin(walkPhase)) * CHR_S * 1.4;
       const tilt = isIdle ? 0 : Math.sin(walkPhase) * 0.06;
 
