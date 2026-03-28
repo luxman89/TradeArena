@@ -498,6 +498,7 @@ body{display:flex;flex-direction:column;padding-top:env(safe-area-inset-top);pad
   <button onclick="showProgression()" style="background:none;border:1px solid rgba(245,158,11,.35);color:var(--gold);font-family:'Press Start 2P',monospace;font-size:0.4rem;padding:4px 8px;cursor:pointer;border-radius:4px">🏆 CAREER</button>
   <div id="user-bar" style="display:none" onclick="openAuthModal()"><span id="user-bar-name"></span><span id="user-bar-level"></span></div>
   <button id="login-btn" onclick="openAuthModal()" style="background:none;border:1px solid var(--green);color:var(--green);font-family:'Press Start 2P',monospace;font-size:0.4rem;padding:4px 8px;cursor:pointer;border-radius:4px">LOGIN</button>
+  <button id="heatmap-btn" onclick="toggleHeatmap()" title="Toggle heatmap (H)" style="background:none;border:1px solid var(--border2);color:var(--muted);font-family:'Press Start 2P',monospace;font-size:0.4rem;padding:4px 8px;cursor:pointer;border-radius:4px">🔥 HEATMAP</button>
   <div class="live"><span class="dot"></span>LIVE</div>
   <button id="mute-btn" onclick="toggleMute()" title="Toggle sound" style="background:none;border:1px solid var(--border2);color:var(--muted);font-family:'Press Start 2P',monospace;font-size:0.5rem;padding:4px 8px;cursor:pointer;border-radius:4px">♪ ON</button>
 </div>
@@ -820,6 +821,27 @@ const COOLER_SPOTS = [{x: 17, y: 8}, {x: 18, y: 8}];
 const LOUNGE_SPOTS = [
   {x: 16, y: 7}, {x: 17, y: 7}, {x: 18, y: 7}, {x: 19, y: 7},
 ];
+
+// ═════════════════════════════════════════════════
+// HEATMAP — zone definitions and time-tracking
+// ═════════════════════════════════════════════════
+const HEATMAP_ZONES = [
+  { id: 'desk_L1', label: 'Desk', x1: 1, y1: 4, x2: 5, y2: 10 },
+  { id: 'desk_L2', label: 'Desk', x1: 5, y1: 4, x2: 10, y2: 10 },
+  { id: 'desk_R1', label: 'Desk', x1: 23, y1: 4, x2: 27, y2: 10 },
+  { id: 'desk_R2', label: 'Desk', x1: 27, y1: 4, x2: 31, y2: 10 },
+  { id: 'post_crypto', label: 'Crypto Post', x1: 1, y1: 11, x2: 10, y2: 18 },
+  { id: 'post_multi', label: 'Multi Post', x1: 12, y1: 11, x2: 21, y2: 18 },
+  { id: 'post_predict', label: 'Prediction Post', x1: 23, y1: 11, x2: 32, y2: 18 },
+  { id: 'coffee', label: 'Coffee', x1: 31, y1: 3, x2: 36, y2: 8 },
+  { id: 'cooler', label: 'Cooler', x1: 15, y1: 7, x2: 20, y2: 10 },
+  { id: 'lounge', label: 'Lounge', x1: 14, y1: 4, x2: 22, y2: 8 },
+  { id: 'bell', label: 'Bell', x1: 14, y1: 1, x2: 23, y2: 5 },
+];
+// Cumulative time (ms) agents have spent in each zone (reset on page load)
+const _zoneTime = {};
+HEATMAP_ZONES.forEach(z => { _zoneTime[z.id] = 0; });
+let _heatmapEnabled = false;
 
 // Pending signal data from WebSocket for agent walk-to-post narrative
 let _pendingSignals = [];
@@ -1154,6 +1176,12 @@ class GameScene extends Phaser.Scene {
     this._scanG.fillStyle(0x000000, 0.015);
     for (let y = 0; y < H; y += 4) this._scanG.fillRect(0, y, W, 2);
     this._scanBaseAlpha = 0.015;
+
+    // Heatmap overlay (drawn per-zone, hidden by default)
+    this._heatmapG = this.add.graphics();
+    this._heatmapG.setDepth(996);
+    this._heatmapG.setAlpha(0);
+    this._heatmapLabels = [];
 
     // Market mood tint overlay (separate from day/night)
     this._moodRect = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0);
@@ -3186,6 +3214,16 @@ class GameScene extends Phaser.Scene {
     for (const ag of agents) updateAgent(ag, dt);
     updateAmbientLife(dt);
 
+    // Heatmap: accumulate zone time + redraw overlay (throttled to every 500ms)
+    updateZoneTime(dt);
+    if (_heatmapEnabled) {
+      this._heatmapTimer = (this._heatmapTimer || 0) + dt;
+      if (this._heatmapTimer > 500) {
+        this._heatmapTimer = 0;
+        renderHeatmap(this);
+      }
+    }
+
     // Sync Phaser sprites with agent state
     const FPR = this._FRAMES_PER_ROW;
     const D2R = this._DIR_TO_ROW;
@@ -3630,6 +3668,20 @@ function startPath(ag, tx, ty) {
   ag.frameT = 0;
   ag.walkStep = 0;
   ag.frame = 1;
+}
+
+// ── Heatmap zone tracking ──
+function updateZoneTime(dt) {
+  if (!_heatmapEnabled) return;
+  for (const ag of agents) {
+    const tx = Math.round(ag.px), ty = Math.round(ag.py);
+    for (const z of HEATMAP_ZONES) {
+      if (tx >= z.x1 && tx <= z.x2 && ty >= z.y1 && ty <= z.y2) {
+        _zoneTime[z.id] += dt;
+        break; // agent counted in first matching zone only
+      }
+    }
+  }
 }
 
 function updateAgent(ag, dt) {
@@ -4300,6 +4352,7 @@ function closeLbModal() { document.getElementById('lb-modal').classList.remove('
 let focusedIdx = -1;
 document.addEventListener('keydown', e => {
   if (document.querySelector('.modal-overlay.show')) return;
+  if (e.key === 'h' || e.key === 'H') { toggleHeatmap(); return; }
   if (e.key === 'Escape') {
     if (followedAgent) { stopFollowing(); return; }
     if (document.getElementById('auth-modal').classList.contains('show')) { closeAuthModal(); return; }
@@ -4319,6 +4372,89 @@ document.addEventListener('keydown', e => {
     playSound('keyNav');
   }
 });
+
+// ═════════════════════════════════════════════════
+// HEATMAP TOGGLE & RENDERING
+// ═════════════════════════════════════════════════
+function toggleHeatmap() {
+  _heatmapEnabled = !_heatmapEnabled;
+  const btn = document.getElementById('heatmap-btn');
+  if (btn) {
+    btn.style.borderColor = _heatmapEnabled ? '#EF4444' : 'var(--border2)';
+    btn.style.color = _heatmapEnabled ? '#EF4444' : 'var(--muted)';
+  }
+  if (gameScene && gameScene._heatmapG) {
+    if (_heatmapEnabled) {
+      gameScene._heatmapG.setAlpha(1);
+    } else {
+      gameScene._heatmapG.setAlpha(0);
+      // Also hide labels
+      gameScene._heatmapLabels.forEach(l => l.setAlpha(0));
+    }
+  }
+}
+
+function renderHeatmap(scene) {
+  if (!scene._heatmapG || !_heatmapEnabled) return;
+  const g = scene._heatmapG;
+  const S = SCALE;
+  const T = TS * S;
+  g.clear();
+
+  // Find max zone time for normalization
+  let maxTime = 0;
+  for (const z of HEATMAP_ZONES) {
+    if (_zoneTime[z.id] > maxTime) maxTime = _zoneTime[z.id];
+  }
+  if (maxTime < 1) maxTime = 1; // avoid div by zero
+
+  // Remove old labels
+  scene._heatmapLabels.forEach(l => l.destroy());
+  scene._heatmapLabels = [];
+
+  for (const z of HEATMAP_ZONES) {
+    const intensity = _zoneTime[z.id] / maxTime; // 0..1
+    // Lerp cold (blue 0x3B82F6) → warm (amber 0xF59E0B) → hot (red 0xEF4444)
+    let r, gr, b;
+    if (intensity < 0.5) {
+      const t = intensity * 2; // 0..1
+      r = Math.round(0x3B + (0xF5 - 0x3B) * t);
+      gr = Math.round(0x82 + (0x9E - 0x82) * t);
+      b = Math.round(0xF6 + (0x0B - 0xF6) * t);
+    } else {
+      const t = (intensity - 0.5) * 2; // 0..1
+      r = Math.round(0xF5 + (0xEF - 0xF5) * t);
+      gr = Math.round(0x9E + (0x44 - 0x9E) * t);
+      b = Math.round(0x0B + (0x44 - 0x0B) * t);
+    }
+    const color = (r << 16) | (gr << 8) | b;
+    const alpha = 0.08 + intensity * 0.22; // 0.08 min, 0.30 max
+
+    const px = z.x1 * T;
+    const py = z.y1 * T;
+    const pw = (z.x2 - z.x1) * T;
+    const ph = (z.y2 - z.y1) * T;
+
+    // Rounded rect fill
+    g.fillStyle(color, alpha);
+    g.fillRoundedRect(px, py, pw, ph, 6);
+    // Border glow
+    g.lineStyle(1.5, color, alpha + 0.1);
+    g.strokeRoundedRect(px, py, pw, ph, 6);
+
+    // Zone label
+    const pct = (intensity * 100).toFixed(0);
+    const label = scene.add.text(px + pw / 2, py + ph / 2, z.label + '\n' + pct + '%', {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: Math.max(7, 8 * S) + 'px',
+      color: '#ffffff',
+      align: 'center',
+      stroke: '#000000',
+      strokeThickness: 2,
+    }).setOrigin(0.5).setDepth(996.5).setAlpha(0.7 + intensity * 0.3);
+    scene._heatmapLabels.push(label);
+  }
+}
 
 // ═════════════════════════════════════════════════
 // PANEL
