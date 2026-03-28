@@ -86,10 +86,13 @@ body{display:flex;flex-direction:column;padding-top:env(safe-area-inset-top);pad
 }
 #tk-wrap{display:flex;width:max-content;animation:marquee 60s linear infinite;font-size:.6rem;font-family:'JetBrains Mono',monospace}
 @keyframes marquee{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
-.tk-item{padding:0 32px;white-space:nowrap;color:var(--muted)}
+.tk-item{padding:0 32px;white-space:nowrap;color:var(--muted);transition:color .3s,text-shadow .3s}
+.tk-item.tk-flash{color:#FCD34D;text-shadow:0 0 8px rgba(252,211,77,0.6)}
 .tk-name{color:var(--text);font-weight:700}
 .tk-up{color:var(--green)}
 .tk-dn{color:var(--red)}
+.tk-outcome-win{color:var(--green);font-weight:700;font-size:.55rem}
+.tk-outcome-loss{color:var(--red);font-weight:700;font-size:.55rem}
 .sig-txt{font-size:.63rem;color:var(--muted)}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:300}
 .modal-overlay.show{display:flex}
@@ -694,11 +697,22 @@ function connectWS() {
             action: msg.data.action.toUpperCase(),
             creator_id: msg.data.creator_id || null,
           });
+          // Flash ticker for matching creator
+          if (msg.data.creator_id) flashTickerForSignal(msg.data.creator_id);
         }
         trackSignalForMood();
         loadData();
-      } else if (ev === 'signals_resolved' ||
-          ev === 'leaderboard_updated' || ev === 'battle_created' ||
+      } else if (ev === 'signals_resolved') {
+        // Flash ticker with outcome for resolved signals
+        if (msg.data && Array.isArray(msg.data)) {
+          msg.data.forEach(sig => {
+            if (sig.creator_id && sig.outcome) flashTickerForSignal(sig.creator_id, sig.outcome.toUpperCase());
+          });
+        } else if (msg.data && msg.data.creator_id && msg.data.outcome) {
+          flashTickerForSignal(msg.data.creator_id, msg.data.outcome.toUpperCase());
+        }
+        loadData();
+      } else if (ev === 'leaderboard_updated' || ev === 'battle_created' ||
           ev === 'battle_resolved' || ev === 'battles_resolved' ||
           ev === 'matchmaking_complete' || ev === 'bots_submitted') {
         loadData();
@@ -1064,6 +1078,8 @@ class GameScene extends Phaser.Scene {
       // If no sprite was hit, close panel
       const hitSprite = agents.some(ag => ag.phaserSprite && ag.phaserSprite.getBounds().contains(ptr.worldX, ptr.worldY));
       if (!hitSprite) {
+        // Stop following if active
+        if (followedAgent) { stopFollowing(); return; }
         // Check leaderboard screen zones
         const mx = ptr.worldX / S / TS;
         const my = ptr.worldY / S / TS;
@@ -2880,7 +2896,20 @@ class GameScene extends Phaser.Scene {
 
       // Make sprite interactive
       sprite.setInteractive({ pixelPerfect: false, useHandCursor: true });
+      sprite._lastClickTime = 0;
       sprite.on('pointerdown', () => {
+        const now = Date.now();
+        if (now - sprite._lastClickTime < 400) {
+          // Double-click → follow mode
+          if (followedAgent === ag) {
+            stopFollowing();
+          } else {
+            startFollowing(ag);
+          }
+          sprite._lastClickTime = 0;
+          return;
+        }
+        sprite._lastClickTime = now;
         selected = ag;
         openPanel(ag);
         playSound('panelOpen');
@@ -3010,9 +3039,26 @@ class GameScene extends Phaser.Scene {
         : Math.abs(Math.sin(walkPhase)) * CHR_S * 1.4;
       const tilt = isIdle ? 0 : Math.sin(walkPhase) * 0.06;
 
+      // Score reaction visuals
+      let reactBob = 0;
+      if (ag._scoreReactT > 0 && (ag._scoreReactType === 'up' || ag._scoreReactType === 'big')) {
+        // Fist pump: rapid Y bounce + scale pulse
+        const t = ag._scoreReactT;
+        reactBob = -Math.abs(Math.sin(t * 0.012)) * 6 * S;
+        const pulse = 1 + Math.sin(t * 0.015) * 0.08;
+        sprite.setScale(CHR_S * pulse);
+      } else {
+        sprite.setScale(CHR_S);
+      }
+      if (ag._slumpTintT > 0) {
+        // Slump: drop Y 2px + gray tint
+        reactBob = 2 * S;
+        sprite.setTint(0x888888);
+      }
+
       // Sprite position + frame
       sprite.x = px;
-      sprite.y = py + bob;
+      sprite.y = py + bob + reactBob;
       sprite.rotation = tilt;
       sprite.setDepth(ag.py);
       const sheetRow = D2R[ag.dir];
@@ -3089,11 +3135,13 @@ class GameScene extends Phaser.Scene {
         ag.phaserFocusRing.setDepth(ag.py - 0.004);
       }
 
-      // Signal glow tint
-      if (ag.state === 'signal') {
-        sprite.setTint(0x10B981);
-      } else {
-        sprite.clearTint();
+      // Signal glow tint (slump tint applied above takes priority)
+      if (ag._slumpTintT <= 0) {
+        if (ag.state === 'signal') {
+          sprite.setTint(0x10B981);
+        } else if (!(ag._scoreReactT > 0 && (ag._scoreReactType === 'up' || ag._scoreReactType === 'big'))) {
+          sprite.clearTint();
+        }
       }
 
       // Popup "!"
@@ -3110,6 +3158,14 @@ class GameScene extends Phaser.Scene {
           ag.phaserPopup.setVisible(false);
         }
       }
+    }
+
+    // ── Camera follow mode ──
+    if (followedAgent && followedAgent.phaserSprite) {
+      const fx = followedAgent.px * TS * S;
+      const fy = followedAgent.py * TS * S;
+      this.cameras.main.pan(fx, fy, 200, 'Power2');
+      updateThoughtBubble(followedAgent);
     }
 
     // ── Day/night overlay ──
@@ -3303,6 +3359,7 @@ function bfs(g, sx, sy, ex, ey) {
 // AGENTS
 // ═════════════════════════════════════════════════
 let agents = [], selected = null, leaderboard = [], lastT = 0, booted = false, agentsSpawned = false;
+let followedAgent = null; // Double-click to follow an agent with camera
 
 function makeAgent(creator, idx) {
   const desk = DESKS[idx % DESKS.length];
@@ -3327,6 +3384,12 @@ function makeAgent(creator, idx) {
     lossStreak: 0,
     lastCoffeeAt: 0, // timestamp of last coffee visit
     _speechBubble: null, // Phaser text object for chat dots
+    _thoughtBubble: null, // Phaser text for follow-mode thought
+    // Score reaction state
+    _scoreReactT: 0, // timer for score reaction animation
+    _scoreReactType: null, // 'up', 'down', or 'big'
+    _scoreReactBounce: 0, // Y bounce offset for celebration
+    _slumpTintT: 0, // gray tint timer for score down
   };
 }
 
@@ -3344,6 +3407,8 @@ function updateAgent(ag, dt) {
   if (ag.flashT > 0) ag.flashT -= dt;
   if (ag.popupT > 0) ag.popupT -= dt;
   if (ag.monitorGlowT > 0) ag.monitorGlowT -= dt;
+  if (ag._scoreReactT > 0) ag._scoreReactT -= dt;
+  if (ag._slumpTintT > 0) ag._slumpTintT -= dt;
 
   // Bell reaction — agent faces podium, paused
   if (ag.state === 'bell_react') {
@@ -3632,6 +3697,95 @@ function hideSpeechBubble(ag) {
   ag._speechBubble = null;
 }
 
+// ── Follow mode (double-click agent) ──
+function startFollowing(ag) {
+  if (followedAgent) stopFollowing();
+  followedAgent = ag;
+  selected = ag;
+  openPanel(ag);
+  playSound('panelOpen');
+  showThoughtBubble(ag);
+  // Zoom in slightly
+  _cameraZoom = Math.min(ZOOM_MAX, 1.3);
+  if (gameScene) gameScene.cameras.main.setZoom(_cameraZoom);
+}
+
+function stopFollowing() {
+  if (followedAgent) {
+    hideThoughtBubble(followedAgent);
+    followedAgent = null;
+  }
+  // Reset camera to center
+  if (gameScene) {
+    const W = ROOM_W * TS * SCALE;
+    const H = ROOM_H * TS * SCALE;
+    gameScene.cameras.main.pan(W / 2, H / 2, 400, 'Power2');
+    _cameraZoom = ZOOM_DEFAULT;
+    gameScene.cameras.main.zoomTo(ZOOM_DEFAULT, 400, 'Power2');
+  }
+}
+
+// ── Thought bubbles (follow mode) ──
+function getAgentIntent(ag) {
+  switch (ag.state) {
+    case 'to_post': return 'Heading to post...';
+    case 'at_post': return 'Posting signal!';
+    case 'signal_phone': return 'Incoming call...';
+    case 'to_coffee': return 'Need coffee...';
+    case 'at_coffee': return 'Coffee break ☕';
+    case 'to_cooler': return 'Water cooler chat';
+    case 'at_cooler': return 'Catching up...';
+    case 'to_desk': return 'Back to work';
+    case 'idle': return ag.lossStreak >= 3 ? 'Rough day...' : 'Analyzing...';
+    case 'bell_react': return 'Market bell!';
+    case 'wander': return 'Stretching legs';
+    default: return 'Thinking...';
+  }
+}
+
+function showThoughtBubble(ag) {
+  if (!gameScene) return;
+  hideThoughtBubble(ag);
+  const bx = ag.px * TS * SCALE;
+  const by = ag.py * TS * SCALE - CFH * CHR_S * 0.95;
+  const bg = gameScene.add.graphics();
+  bg.fillStyle(0x1a1a2e, 0.92);
+  bg.fillRoundedRect(-40 * SCALE, -7 * SCALE, 80 * SCALE, 14 * SCALE, 4 * SCALE);
+  bg.lineStyle(1, 0x60A5FA, 0.4);
+  bg.strokeRoundedRect(-40 * SCALE, -7 * SCALE, 80 * SCALE, 14 * SCALE, 4 * SCALE);
+  bg.setPosition(bx, by);
+  bg.setDepth(955);
+  const txt = gameScene.add.text(bx, by, getAgentIntent(ag), {
+    fontFamily: '"Press Start 2P", monospace',
+    fontSize: 5 * SCALE + 'px',
+    color: '#A5B4FC',
+    align: 'center',
+  });
+  txt.setOrigin(0.5, 0.5);
+  txt.setDepth(956);
+  ag._thoughtBubble = { bg, txt, lastState: ag.state };
+}
+
+function updateThoughtBubble(ag) {
+  if (!ag._thoughtBubble) return;
+  const bx = ag.px * TS * SCALE;
+  const by = ag.py * TS * SCALE - CFH * CHR_S * 0.95;
+  ag._thoughtBubble.bg.setPosition(bx, by);
+  ag._thoughtBubble.txt.setPosition(bx, by);
+  // Update text if state changed
+  if (ag.state !== ag._thoughtBubble.lastState) {
+    ag._thoughtBubble.txt.setText(getAgentIntent(ag));
+    ag._thoughtBubble.lastState = ag.state;
+  }
+}
+
+function hideThoughtBubble(ag) {
+  if (!ag._thoughtBubble) return;
+  ag._thoughtBubble.bg.destroy();
+  ag._thoughtBubble.txt.destroy();
+  ag._thoughtBubble = null;
+}
+
 // ── Particle system (Phaser-native) ──
 function emitParticles(ag, color) {
   if (!gameScene) return;
@@ -3808,6 +3962,7 @@ let focusedIdx = -1;
 document.addEventListener('keydown', e => {
   if (document.querySelector('.modal-overlay.show')) return;
   if (e.key === 'Escape') {
+    if (followedAgent) { stopFollowing(); return; }
     if (document.getElementById('auth-modal').classList.contains('show')) { closeAuthModal(); return; }
     if (document.getElementById('prog-modal').classList.contains('show')) { closeProgression(); return; }
     closePanel(); focusedIdx = -1; return;
@@ -3919,11 +4074,29 @@ function buildTicker(list) {
   const all = [...list,...list,...list,...list];
   all.forEach(c => {
     const s = document.createElement('span'); s.className = 'tk-item';
+    s.setAttribute('data-creator-id', c.creator_id || '');
     const up = (c.win_rate||0) > 0.5;
     const div = (c.division||'multi').toLowerCase();
     const dc = div==='crypto'?'#60A5FA':div==='polymarket'?'#34D399':'#FCD34D';
     s.innerHTML = `<span class="tk-name" style="color:${dc}">${c.display_name||c.creator_id}</span> · SCORE <span class="${up?'tk-up':'tk-dn'}">${((c.composite_score||0)*100).toFixed(1)}</span> · WIN ${((c.win_rate||0)*100).toFixed(0)}%`;
     wrap.appendChild(s);
+  });
+}
+
+// Flash ticker items when a new signal matches a creator
+function flashTickerForSignal(creatorId, outcome) {
+  const items = document.querySelectorAll(`.tk-item[data-creator-id="${creatorId}"]`);
+  items.forEach(el => {
+    el.classList.add('tk-flash');
+    // Add outcome indicator if resolved
+    if (outcome && (outcome === 'WIN' || outcome === 'LOSS')) {
+      const badge = document.createElement('span');
+      badge.className = outcome === 'WIN' ? 'tk-outcome-win' : 'tk-outcome-loss';
+      badge.textContent = ' ' + outcome;
+      el.appendChild(badge);
+      setTimeout(() => badge.remove(), 4000);
+    }
+    setTimeout(() => el.classList.remove('tk-flash'), 3000);
   });
 }
 
@@ -3963,8 +4136,51 @@ function loadData() {
           ag._division = (leaderboard[i].division || 'multi').toLowerCase();
           const newScore = (ag.creator.composite_score||0)*100;
           const diff = newScore - oldScore;
-          if (diff > 0.1) { addFloatingText(ag, '+'+diff.toFixed(1), '#10B981'); playSound('scoreUp'); if (diff > 5) triggerScreenShake(4, 200); ag.lossStreak = 0; }
-          else if (diff < -0.1) { addFloatingText(ag, diff.toFixed(1), '#EF4444'); playSound('scoreDown'); if (diff < -5) triggerScreenShake(4, 200); ag.lossStreak++; }
+          if (diff > 0.1) {
+            addFloatingText(ag, '+'+diff.toFixed(1), '#10B981');
+            playSound('scoreUp');
+            emitParticles(ag, '#10B981');
+            ag.lossStreak = 0;
+            // Celebration: fist pump bounce
+            ag._scoreReactT = 1200;
+            ag._scoreReactType = 'up';
+            ag._scoreReactBounce = 0;
+            // Nearby agents turn to look
+            agents.forEach(other => {
+              if (other !== ag && Math.hypot(other.px - ag.px, other.py - ag.py) < 5) {
+                const dx = ag.px - other.px, dy = ag.py - other.py;
+                other.dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 2 : 1) : (dy > 0 ? 0 : 3);
+              }
+            });
+            if (diff > 5) {
+              // Big move — walk toward bell podium, camera shake, cluster
+              triggerScreenShake(6, 300);
+              ag._scoreReactType = 'big';
+              if (ag.state === 'idle') {
+                const bp = BELL_PODIUM_TILE || {x:18, y:5};
+                startPath(ag, bp.x, bp.y);
+                ag.state = 'to_desk'; // will idle once path completes near podium
+              }
+            }
+          }
+          else if (diff < -0.1) {
+            addFloatingText(ag, diff.toFixed(1), '#EF4444');
+            playSound('scoreDown');
+            ag.lossStreak++;
+            // Slump animation
+            ag._scoreReactT = 3000;
+            ag._scoreReactType = 'down';
+            ag._slumpTintT = 3000;
+            // Nearby agents look away
+            agents.forEach(other => {
+              if (other !== ag && Math.hypot(other.px - ag.px, other.py - ag.py) < 5) {
+                const dx = ag.px - other.px, dy = ag.py - other.py;
+                // Face away from the slumping agent
+                other.dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 2) : (dy > 0 ? 3 : 0);
+              }
+            });
+            if (diff < -5) triggerScreenShake(4, 200);
+          }
         }
       });
       // Spawn sprites for any new creators not yet on the floor
