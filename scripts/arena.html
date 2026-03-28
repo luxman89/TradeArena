@@ -796,6 +796,12 @@ const TRADING_POSTS = [
   {x: 27, y: 15},
 ];
 
+// Coffee station standing spots (just left of the station, facing right)
+const COFFEE_SPOTS = [{x: 32, y: 5}, {x: 32, y: 6}];
+
+// Water cooler meeting spots (below lounge area, agents face each other)
+const COOLER_SPOTS = [{x: 17, y: 8}, {x: 18, y: 8}];
+
 // Pending signal data from WebSocket for agent walk-to-post narrative
 let _pendingSignals = [];
 
@@ -2994,7 +3000,7 @@ class GameScene extends Phaser.Scene {
       const py = ag.py * TS * S;
 
       // Idle bob or walk bounce + tilt
-      const isIdle = ag.state === 'idle' || ag.state === 'signal' || ag.state === 'bell_react' || ag.path.length === 0;
+      const isIdle = ag.state === 'idle' || ag.state === 'signal' || ag.state === 'bell_react' || ag.state === 'at_coffee' || ag.state === 'at_cooler' || ag.path.length === 0;
       const atDesk = isIdle && ag.state === 'idle';
       const walkPhase = (ag.walkStep || 0) * Math.PI * 0.5 + (ag.frameT || 0) / 100 * Math.PI * 0.5;
       // Typing oscillation: subtle 0.3px Y movement when idle at desk
@@ -3315,6 +3321,12 @@ function makeAgent(creator, idx) {
     signalInfo: null, // {asset, action} for trading post display
     targetPost: null, // {x, y} tile coords of target trading post
     sheetIdx: cd[0], bCol: cd[1], bRow: cd[2],
+    // Social behavior state
+    coffeeT: 0, coolerT: 0,
+    coolerPartner: null,
+    lossStreak: 0,
+    lastCoffeeAt: 0, // timestamp of last coffee visit
+    _speechBubble: null, // Phaser text object for chat dots
   };
 }
 
@@ -3385,17 +3397,98 @@ function updateAgent(ag, dt) {
     if (ag.signalT <= 0) { ag.state = 'to_desk'; startPath(ag, ag.deskX, ag.deskY); }
     return;
   }
+  // At coffee station — sip, then return
+  if (ag.state === 'at_coffee') {
+    ag.frame = [1,0,1,2][Math.floor(ag.bobA * 0.7) % 4];
+    ag.dir = 2; // face right toward machine
+    ag.coffeeT -= dt;
+    // Check if another agent is also at coffee — trigger chat
+    if (!ag._speechBubble) {
+      const neighbor = agents.find(o => o !== ag && o.state === 'at_coffee' && !o._speechBubble);
+      if (neighbor) {
+        showSpeechBubble(ag);
+        showSpeechBubble(neighbor);
+      }
+    }
+    if (ag._speechBubble) updateSpeechBubblePosition(ag);
+    if (ag.coffeeT <= 0) {
+      hideSpeechBubble(ag);
+      ag.state = 'to_desk';
+      ag.lastCoffeeAt = Date.now();
+      startPath(ag, ag.deskX, ag.deskY);
+    }
+    return;
+  }
+  // At water cooler — chat with partner, then return
+  if (ag.state === 'at_cooler') {
+    ag.frame = [1,0,1,2][Math.floor(ag.bobA * 0.7) % 4];
+    ag.coolerT -= dt;
+    if (ag._speechBubble) updateSpeechBubblePosition(ag);
+    if (ag.coolerT <= 0) {
+      hideSpeechBubble(ag);
+      if (ag.coolerPartner) {
+        hideSpeechBubble(ag.coolerPartner);
+        ag.coolerPartner.coolerPartner = null;
+        // Partner also returns to desk
+        if (ag.coolerPartner.state === 'at_cooler') {
+          ag.coolerPartner.state = 'to_desk';
+          startPath(ag.coolerPartner, ag.coolerPartner.deskX, ag.coolerPartner.deskY);
+        }
+      }
+      ag.coolerPartner = null;
+      ag.state = 'to_desk';
+      startPath(ag, ag.deskX, ag.deskY);
+    }
+    return;
+  }
   if (ag.state === 'idle') {
     ag.frame = [1,0,1,2][Math.floor(ag.bobA * 0.7) % 4];
     ag.wanderT -= dt;
     if (ag.wanderT <= 0) {
-      for (let i = 0; i < 30; i++) {
-        const wx = 2+Math.floor(Math.random()*(ROOM_W-4));
-        const wy = 3+Math.floor(Math.random()*(ROOM_H-5));
-        if (grid[wy]?.[wx]) {
-          startPath(ag, wx, wy);
-          if (ag.path.length > 1) { ag.state = 'wander'; ag.wanderT = 8000+Math.random()*14000; break; }
+      const now = Date.now();
+      const coffeeCooldown = ag.lossStreak >= 3 ? 8000 : 20000;
+      const canCoffee = (now - ag.lastCoffeeAt) > coffeeCooldown;
+      // Losing streak increases coffee probability
+      const coffeeWeight = canCoffee ? (ag.lossStreak >= 3 ? 50 : 30) : 0;
+      // Try to find an idle partner for water cooler chat
+      const coolerPartner = agents.find(o =>
+        o !== ag && o.state === 'idle' && !o.coolerPartner &&
+        o.wanderT <= 2000 // about to wander too
+      );
+      const coolerWeight = coolerPartner ? 30 : 0;
+      const deskLookWeight = 100 - coffeeWeight - coolerWeight;
+      const roll = Math.random() * 100;
+
+      if (roll < coffeeWeight) {
+        // ── Coffee station visit ──
+        const spot = COFFEE_SPOTS[Math.floor(Math.random() * COFFEE_SPOTS.length)];
+        startPath(ag, spot.x, spot.y);
+        if (ag.path.length > 1) {
+          ag.state = 'to_coffee';
+          ag.wanderT = 10000 + Math.random() * 15000;
         }
+      } else if (roll < coffeeWeight + coolerWeight && coolerPartner) {
+        // ── Water cooler chat ──
+        ag.coolerPartner = coolerPartner;
+        coolerPartner.coolerPartner = ag;
+        startPath(ag, COOLER_SPOTS[0].x, COOLER_SPOTS[0].y);
+        startPath(coolerPartner, COOLER_SPOTS[1].x, COOLER_SPOTS[1].y);
+        if (ag.path.length > 1 && coolerPartner.path.length > 1) {
+          ag.state = 'to_cooler';
+          coolerPartner.state = 'to_cooler';
+          ag.wanderT = 12000 + Math.random() * 10000;
+          coolerPartner.wanderT = 12000 + Math.random() * 10000;
+        } else {
+          // Path failed — clear partnership
+          ag.coolerPartner = null;
+          coolerPartner.coolerPartner = null;
+          coolerPartner.state = 'idle';
+          ag.wanderT = 3000 + Math.random() * 5000;
+        }
+      } else {
+        // ── Desk look-around (replaces aimless wandering) ──
+        // Agent just resets timer, stays at desk — looks busy
+        ag.wanderT = 5000 + Math.random() * 10000;
       }
     }
     return;
@@ -3414,6 +3507,25 @@ function updateAgent(ag, dt) {
         emitParticles(ag, ag.signalInfo.action === 'BUY' || ag.signalInfo.action === 'LONG' || ag.signalInfo.action === 'YES' ? '#10B981' : '#EF4444');
         playSound('signal');
       }
+      ag.frame = 1; return;
+    }
+    if (ag.state === 'to_coffee') {
+      // Arrived at coffee station — sip for 3s
+      ag.state = 'at_coffee';
+      ag.coffeeT = 3000;
+      ag.dir = 2; // face right toward machine
+      addFloatingText(ag, '☕', '#D4A574');
+      ag.frame = 1; return;
+    }
+    if (ag.state === 'to_cooler') {
+      // Arrived at water cooler spot — start chatting
+      ag.state = 'at_cooler';
+      ag.coolerT = 4000 + Math.random() * 2000; // 4-6s chat
+      // Face toward partner
+      if (ag.coolerPartner) {
+        ag.dir = ag.px < ag.coolerPartner.px ? 2 : 1;
+      }
+      showSpeechBubble(ag);
       ag.frame = 1; return;
     }
     ag.state = ag.state === 'wander' ? 'to_desk' : 'idle';
@@ -3471,6 +3583,53 @@ function addFloatingText(ag, text, color) {
     ease: 'Power2',
     onComplete: () => ft.destroy(),
   });
+}
+
+// ── Speech bubble system (persistent dots above agent) ──
+function showSpeechBubble(ag) {
+  if (!gameScene || ag._speechBubble) return;
+  const bx = ag.px * TS * S;
+  const by = ag.py * TS * S - CFH * CHR_S * 0.75;
+  // Background pill
+  const bg = gameScene.add.graphics();
+  bg.fillStyle(0xffffff, 0.9);
+  bg.fillRoundedRect(-14 * S, -6 * S, 28 * S, 12 * S, 4 * S);
+  bg.setPosition(bx, by);
+  bg.setDepth(952);
+  // Animated dots
+  const dots = gameScene.add.text(bx, by, '...', {
+    fontFamily: '"Press Start 2P", monospace',
+    fontSize: 6 * S + 'px',
+    color: '#333333',
+    align: 'center',
+  });
+  dots.setOrigin(0.5, 0.5);
+  dots.setDepth(953);
+  // Pulse the dots
+  gameScene.tweens.add({
+    targets: dots,
+    alpha: { from: 1, to: 0.3 },
+    duration: 600,
+    yoyo: true,
+    repeat: -1,
+    ease: 'Sine.easeInOut',
+  });
+  ag._speechBubble = { bg, dots };
+}
+
+function updateSpeechBubblePosition(ag) {
+  if (!ag._speechBubble) return;
+  const bx = ag.px * TS * S;
+  const by = ag.py * TS * S - CFH * CHR_S * 0.75;
+  ag._speechBubble.bg.setPosition(bx, by);
+  ag._speechBubble.dots.setPosition(bx, by);
+}
+
+function hideSpeechBubble(ag) {
+  if (!ag._speechBubble) return;
+  ag._speechBubble.bg.destroy();
+  ag._speechBubble.dots.destroy();
+  ag._speechBubble = null;
 }
 
 // ── Particle system (Phaser-native) ──
@@ -3804,8 +3963,8 @@ function loadData() {
           ag._division = (leaderboard[i].division || 'multi').toLowerCase();
           const newScore = (ag.creator.composite_score||0)*100;
           const diff = newScore - oldScore;
-          if (diff > 0.1) { addFloatingText(ag, '+'+diff.toFixed(1), '#10B981'); playSound('scoreUp'); if (diff > 5) triggerScreenShake(4, 200); }
-          else if (diff < -0.1) { addFloatingText(ag, diff.toFixed(1), '#EF4444'); playSound('scoreDown'); if (diff < -5) triggerScreenShake(4, 200); }
+          if (diff > 0.1) { addFloatingText(ag, '+'+diff.toFixed(1), '#10B981'); playSound('scoreUp'); if (diff > 5) triggerScreenShake(4, 200); ag.lossStreak = 0; }
+          else if (diff < -0.1) { addFloatingText(ag, diff.toFixed(1), '#EF4444'); playSound('scoreDown'); if (diff < -5) triggerScreenShake(4, 200); ag.lossStreak++; }
         }
       });
       // Spawn sprites for any new creators not yet on the floor
@@ -4396,8 +4555,11 @@ function triggerBellEvent(type) {
 
   // All agents face podium briefly
   agents.forEach(ag => {
-    if (ag.state === 'idle' || ag.state === 'wander') {
-      ag._preBellState = ag.state;
+    if (ag.state === 'idle' || ag.state === 'wander' || ag.state === 'at_coffee' || ag.state === 'at_cooler' || ag.state === 'to_coffee' || ag.state === 'to_cooler') {
+      // Clean up social state before bell reaction
+      hideSpeechBubble(ag);
+      if (ag.coolerPartner) { ag.coolerPartner.coolerPartner = null; ag.coolerPartner = null; }
+      ag._preBellState = 'idle'; // always return to idle after bell
       ag._preBellDir = ag.dir;
       ag.state = 'bell_react';
       ag._bellReactT = 2500 + Math.random() * 500; // 2.5-3s facing podium
