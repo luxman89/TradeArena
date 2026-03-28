@@ -824,6 +824,27 @@ const LOUNGE_SPOTS = [
 // Pending signal data from WebSocket for agent walk-to-post narrative
 let _pendingSignals = [];
 
+// Battle history for rivalry/alliance system
+// Maps "creatorId1:creatorId2" (sorted) → { count, lastBattleAt }
+const _battleHistory = {};
+function recordBattlePair(c1id, c2id) {
+  const key = [c1id, c2id].sort().join(':');
+  if (!_battleHistory[key]) _battleHistory[key] = { count: 0, lastBattleAt: 0 };
+  _battleHistory[key].count++;
+  _battleHistory[key].lastBattleAt = Date.now();
+}
+function isRival(ag1, ag2) {
+  if (!ag1.creator || !ag2.creator) return false;
+  const key = [ag1.creator.creator_id, ag2.creator.creator_id].sort().join(':');
+  const h = _battleHistory[key];
+  // Rivals if battled in last 10 minutes
+  return h && h.count > 0 && (Date.now() - h.lastBattleAt) < 600000;
+}
+
+// Power Hour state
+let _isPowerHour = false;
+let _powerHourSpeedMult = 1.0; // extra multiplier during power hour
+
 // ═════════════════════════════════════════════════
 // IMAGE LOADING
 // ═════════════════════════════════════════════════
@@ -3154,8 +3175,9 @@ class GameScene extends Phaser.Scene {
     // Refresh desk monitors when agent occupancy changes
     this._refreshDeskMonitors();
 
-    // Update market mood lighting and bell events
+    // Update market mood lighting, power hour, and bell events
     updateMarketMood(dt);
+    checkPowerHour();
     checkBellEvent();
     checkDemoBell(dt);
     updateBellEvent(dt);
@@ -3179,7 +3201,7 @@ class GameScene extends Phaser.Scene {
       const py = ag.py * TS * S;
 
       // Idle bob or walk bounce + tilt
-      const isIdle = ag.state === 'idle' || ag.state === 'signal' || ag.state === 'bell_react' || ag.state === 'at_coffee' || ag.state === 'at_cooler' || ag.state === 'lounge_idle' || ag.path.length === 0;
+      const isIdle = ag.state === 'idle' || ag.state === 'signal' || ag.state === 'bell_react' || ag.state === 'at_coffee' || ag.state === 'at_cooler' || ag.state === 'lounge_idle' || ag.state === 'to_bell' || ag.path.length === 0;
       const atDesk = isIdle && ag.state === 'idle';
       const walkPhase = (ag.walkStep || 0) * Math.PI * 0.5 + (ag.frameT || 0) / 100 * Math.PI * 0.5;
       // Typing oscillation: subtle 0.3px Y movement when idle at desk
@@ -3306,6 +3328,43 @@ class GameScene extends Phaser.Scene {
           ag.phaserPopup.setDepth(ag.py + 0.05);
         } else {
           ag.phaserPopup.setVisible(false);
+        }
+      }
+    }
+
+    // ── Rivalry tension lines between nearby rivals ──
+    if (!this._rivalryGraphics) {
+      this._rivalryGraphics = this.add.graphics();
+      this._rivalryGraphics.setDepth(995);
+    }
+    this._rivalryGraphics.clear();
+    for (let i = 0; i < agents.length; i++) {
+      for (let j = i + 1; j < agents.length; j++) {
+        if (!isRival(agents[i], agents[j])) continue;
+        const dist = Math.hypot(agents[i].px - agents[j].px, agents[i].py - agents[j].py);
+        if (dist > 6) continue; // only show when close
+        const alpha = Math.max(0, 0.25 * (1 - dist / 6));
+        const x1 = agents[i].px * TS * SCALE;
+        const y1 = agents[i].py * TS * SCALE;
+        const x2 = agents[j].px * TS * SCALE;
+        const y2 = agents[j].py * TS * SCALE;
+        // Pulsing red tension line
+        const pulse = 0.5 + Math.sin(Date.now() * 0.004) * 0.5;
+        this._rivalryGraphics.lineStyle(1.5 * SCALE, 0xEF4444, alpha * pulse);
+        this._rivalryGraphics.lineBetween(x1, y1, x2, y2);
+        // Small lightning bolt particles at midpoint (occasional)
+        if (Math.random() < 0.005 && dist < 4) {
+          const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+          const spark = this.add.text(mx, my, '⚡', {
+            fontSize: 8 * SCALE + 'px',
+          });
+          spark.setOrigin(0.5, 0.5);
+          spark.setDepth(996);
+          this.tweens.add({
+            targets: spark, alpha: 0, y: my - 10 * SCALE,
+            duration: 600, ease: 'Power2',
+            onComplete: () => spark.destroy(),
+          });
         }
       }
     }
@@ -3582,18 +3641,9 @@ function updateAgent(ag, dt) {
   if (ag._scoreReactT > 0) ag._scoreReactT -= dt;
   if (ag._slumpTintT > 0) ag._slumpTintT -= dt;
 
-  // Bell reaction — agent faces podium, paused
+  // Bell reaction — agent faces podium, paused (managed by updateBellEvent phases)
   if (ag.state === 'bell_react') {
     ag.frame = 1; // standing still
-    if (ag._bellReactT !== undefined) {
-      ag._bellReactT -= dt;
-      if (ag._bellReactT <= 0) {
-        ag.state = ag._preBellState || 'idle';
-        ag.dir = ag._preBellDir || 0;
-        ag._preBellState = null;
-        ag._preBellDir = null;
-      }
-    }
     return;
   }
 
@@ -3706,17 +3756,32 @@ function updateAgent(ag, dt) {
       // Losing streak increases coffee probability
       const coffeeWeight = canCoffee ? (ag.lossStreak >= 3 ? 50 : 30) : 0;
       // Try to find an idle partner for water cooler chat
-      const coolerPartner = agents.find(o =>
+      // Prefer same-division agents (alliance clustering)
+      const idlePartners = agents.filter(o =>
         o !== ag && o.state === 'idle' && !o.coolerPartner &&
-        o.wanderT <= 2000 // about to wander too
+        o.wanderT <= 2000 && !isRival(ag, o) // exclude rivals
       );
+      // Sort: same division first, then random
+      idlePartners.sort((a, b) => {
+        const aSame = a._division === ag._division ? 0 : 1;
+        const bSame = b._division === ag._division ? 0 : 1;
+        return aSame - bSame || (Math.random() - 0.5);
+      });
+      const coolerPartner = idlePartners[0] || null;
       const coolerWeight = coolerPartner ? 30 : 0;
       const deskLookWeight = 100 - coffeeWeight - coolerWeight;
       const roll = Math.random() * 100;
 
       if (roll < coffeeWeight) {
         // ── Coffee station visit ──
-        const spot = COFFEE_SPOTS[Math.floor(Math.random() * COFFEE_SPOTS.length)];
+        // Avoid coffee spots if a rival is there or heading there
+        let availSpots = COFFEE_SPOTS.filter(spot =>
+          !agents.some(o => o !== ag && isRival(ag, o) &&
+            (o.state === 'at_coffee' || o.state === 'to_coffee') &&
+            Math.abs(o.px - spot.x) < 3 && Math.abs(o.py - spot.y) < 3)
+        );
+        if (availSpots.length === 0) availSpots = COFFEE_SPOTS;
+        const spot = availSpots[Math.floor(Math.random() * availSpots.length)];
         startPath(ag, spot.x, spot.y);
         if (ag.path.length > 1) {
           ag.state = 'to_coffee';
@@ -3751,6 +3816,15 @@ function updateAgent(ag, dt) {
   if (ag.state === 'to_desk' && ag.path.length === 0) startPath(ag, ag.deskX, ag.deskY);
   if (ag.pi >= ag.path.length) {
     ag.path = []; ag.pi = 0;
+    if (ag.state === 'to_bell') {
+      // Arrived at bell gather spot — face podium and wait
+      ag.state = 'bell_react';
+      const dx = BELL_PODIUM_TILE.x - ag.px;
+      const dy = BELL_PODIUM_TILE.y - ag.py;
+      if (Math.abs(dx) > Math.abs(dy)) ag.dir = dx > 0 ? 2 : 1;
+      else ag.dir = dy > 0 ? 0 : 3;
+      ag.frame = 1; return;
+    }
     if (ag.state === 'to_post') {
       // Arrived at trading post — show signal info
       ag.state = 'at_post';
@@ -3809,7 +3883,7 @@ function updateAgent(ag, dt) {
   const tpx = tx+0.5, tpy = ty+0.5;
   const dx = tpx-ag.px, dy = tpy-ag.py;
   const dist = Math.hypot(dx, dy);
-  const step = SPD * (_moodSpeedMult || 1) * dt / 1000;
+  const step = SPD * (_moodSpeedMult || 1) * (_powerHourSpeedMult || 1) * dt / 1000;
 
   if (dist <= step) { ag.px = tpx; ag.py = tpy; ag.pi++; }
   else {
@@ -4619,6 +4693,7 @@ function startBattle() {
   // Create battle on backend, then animate
   const c1id = fighter1.creator.creator_id;
   const c2id = fighter2.creator.creator_id;
+  recordBattlePair(c1id, c2id);
   fetch(API+'/battle/create', {
     method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({creator1_id: c1id, creator2_id: c2id, window_days: 7})
@@ -4955,28 +5030,50 @@ function updateMarketMood(dt) {
     gameScene._moodRect.setFillStyle(Phaser.Display.Color.GetColor(r, g, b), alpha);
   }
 
-  // Update scanline intensity for chaos mode
+  // Update scanline intensity
   if (gameScene._scanG && _moodTarget === 'chaos') {
     const scanPulse = 0.025 + Math.sin(_chaosColorT * 3) * 0.015;
     gameScene._scanG.setAlpha(scanPulse / gameScene._scanBaseAlpha);
+  } else if (gameScene._scanG && _isPowerHour) {
+    // Power Hour: faster pulsing scanlines, higher intensity
+    const phPulse = 0.03 + Math.sin(Date.now() * 0.005) * 0.02;
+    gameScene._scanG.setAlpha(phPulse / gameScene._scanBaseAlpha);
   } else if (gameScene._scanG) {
     gameScene._scanG.setAlpha(1); // normal intensity
+  }
+
+  // Power Hour: overlay a warm golden tint
+  if (_isPowerHour && gameScene._moodRect) {
+    const phT = Date.now() * 0.002;
+    const phAlpha = 0.03 + Math.sin(phT) * 0.015;
+    // Blend golden tint over existing mood
+    if (_moodTarget === 'neutral' || _moodTarget === 'dead') {
+      gameScene._moodRect.setFillStyle(0xFFD700, phAlpha);
+    }
   }
 }
 
 // ═════════════════════════════════════════════════
-// BELL EVENTS (Market Open/Close)
+// BELL EVENTS (Market Open/Close Ceremonies)
 // ═════════════════════════════════════════════════
 let _lastBellCheck = '';
 let _bellEventActive = false;
 let _bellEventT = 0;
 let _bellType = null; // 'open' or 'close'
+let _bellPhase = null; // 'gather', 'ring', 'disperse'
+let _bellRingCount = 0; // track 3x bell rings
+let _bellRingTimer = 0; // timer between rings
 const BELL_PODIUM_TILE = { x: 18, y: 5 }; // center of bell podium
+// Gather spots around podium (semicircle for agents to stand)
+const BELL_GATHER_SPOTS = [
+  {x:16,y:3},{x:17,y:3},{x:18,y:3},{x:19,y:3},{x:20,y:3},
+  {x:15,y:4},{x:16,y:4},{x:20,y:4},{x:21,y:4},
+  {x:15,y:5},{x:21,y:5},
+  {x:16,y:6},{x:17,y:6},{x:19,y:6},{x:20,y:6},
+];
 
-function checkBellEvent() {
-  // Check current time in ET (UTC-4 or UTC-5 depending on DST)
+function getETTime() {
   const now = new Date();
-  // Use ET offset: try Intl for accuracy, fallback to UTC-5
   let etH, etM;
   try {
     const etStr = now.toLocaleTimeString('en-US', {
@@ -4988,18 +5085,63 @@ function checkBellEvent() {
     const et = new Date(utc - 18000000); // UTC-5
     etH = et.getHours(); etM = et.getMinutes();
   }
+  return { h: etH, m: etM };
+}
 
+function checkBellEvent() {
+  const { h: etH, m: etM } = getETTime();
   const timeKey = etH + ':' + etM;
-  if (timeKey === _lastBellCheck) return; // already checked this minute
+  if (timeKey === _lastBellCheck) return;
   _lastBellCheck = timeKey;
 
   // Market open: 9:30 AM ET
-  if (etH === 9 && etM === 30) {
-    triggerBellEvent('open');
-  }
+  if (etH === 9 && etM === 30) triggerBellEvent('open');
   // Market close: 4:00 PM ET
-  if (etH === 16 && etM === 0) {
-    triggerBellEvent('close');
+  if (etH === 16 && etM === 0) triggerBellEvent('close');
+}
+
+// Check and update Power Hour state (3-4 PM ET)
+let _lastPowerHourCheck = '';
+function checkPowerHour() {
+  const { h: etH, m: etM } = getETTime();
+  const timeKey = etH + ':' + etM;
+  if (timeKey === _lastPowerHourCheck) return;
+  _lastPowerHourCheck = timeKey;
+
+  const wasPowerHour = _isPowerHour;
+  _isPowerHour = (etH === 15); // 3:00-3:59 PM ET
+
+  if (_isPowerHour && !wasPowerHour) {
+    // Entering power hour
+    _powerHourSpeedMult = 1.3; // +30% speed
+    console.log('[TradeArena] ⚡ Power Hour begins');
+    // Floating announcement
+    if (gameScene) {
+      const W = ROOM_W * TS * SCALE;
+      const H = ROOM_H * TS * SCALE;
+      const ft = gameScene.add.text(W / 2, H * 0.4, '⚡ POWER HOUR ⚡', {
+        fontFamily: '"Press Start 2P", monospace',
+        fontSize: 12 * SCALE + 'px',
+        color: '#FFD700',
+        align: 'center',
+        stroke: '#000000',
+        strokeThickness: 3,
+      });
+      ft.setOrigin(0.5, 0.5);
+      ft.setDepth(960);
+      ft.setShadow(0, 0, '#FFD700', 10);
+      gameScene.tweens.add({
+        targets: ft,
+        y: H * 0.32,
+        alpha: 0,
+        duration: 4000,
+        ease: 'Power2',
+        onComplete: () => ft.destroy(),
+      });
+    }
+  } else if (!_isPowerHour && wasPowerHour) {
+    _powerHourSpeedMult = 1.0;
+    console.log('[TradeArena] Power Hour ends');
   }
 }
 
@@ -5018,22 +5160,44 @@ function checkDemoBell(dt) {
 function triggerBellEvent(type) {
   if (_bellEventActive) return;
   _bellEventActive = true;
-  _bellEventT = 4000; // 4 second event duration
   _bellType = type;
+  _bellPhase = 'gather';
+  _bellEventT = 8000; // 8s gather phase
+  _bellRingCount = 0;
+  _bellRingTimer = 0;
 
-  // Camera shake
-  triggerScreenShake(8, 500);
+  console.log('[TradeArena] Bell ceremony:', type, '— agents gathering');
 
+  // All agents walk toward podium gather spots
+  agents.forEach((ag, i) => {
+    if (ag.state === 'bell_react' || ag._isLounging) return;
+    // Clean up social state
+    hideSpeechBubble(ag);
+    if (ag.coolerPartner) { ag.coolerPartner.coolerPartner = null; ag.coolerPartner = null; }
+    ag._preBellState = ag.state;
+    ag._preBellDir = ag.dir;
+    ag._preBellDeskX = ag.deskX;
+    ag._preBellDeskY = ag.deskY;
+    ag.state = 'to_bell';
+    // Assign a gather spot (cycle through available spots)
+    const spot = BELL_GATHER_SPOTS[i % BELL_GATHER_SPOTS.length];
+    startPath(ag, spot.x, spot.y);
+  });
+}
+
+function fireBellRing(type, ringIdx) {
+  // Camera shake (increasing intensity each ring)
+  triggerScreenShake(6 + ringIdx * 2, 400 + ringIdx * 100);
   // Play bell sound
   playBellSound(type);
-
   // Particle burst at bell position
   if (gameScene && gameScene._bellPos) {
     const bp = gameScene._bellPos;
     const color = type === 'open' ? 0x10B981 : 0xF59E0B;
-    for (let i = 0; i < 12; i++) {
-      const angle = (Math.PI * 2 / 12) * i + Math.random() * 0.3;
-      const speed = 50 + Math.random() * 40;
+    const count = 10 + ringIdx * 4; // more particles each ring
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 / count) * i + Math.random() * 0.3;
+      const speed = 40 + Math.random() * 50 + ringIdx * 15;
       const particle = gameScene.add.rectangle(
         bp.x, bp.y, (3 + Math.random() * 2) * SCALE, (3 + Math.random() * 2) * SCALE, color
       );
@@ -5043,78 +5207,158 @@ function triggerBellEvent(type) {
         x: bp.x + Math.cos(angle) * speed * 3,
         y: bp.y + Math.sin(angle) * speed * 3,
         alpha: 0,
-        duration: 1200,
+        duration: 1200 + ringIdx * 200,
         ease: 'Power2',
         onComplete: () => particle.destroy(),
       });
     }
   }
-
   // Bell glow intensify
   if (gameScene && gameScene._bellGlow) {
     const glowColor = type === 'open' ? 0x10B981 : 0xF59E0B;
-    gameScene._bellGlow.setFillStyle(glowColor, 0.4);
+    const glowAlpha = 0.3 + ringIdx * 0.15;
+    gameScene._bellGlow.setFillStyle(glowColor, glowAlpha);
     gameScene.tweens.add({
       targets: gameScene._bellGlow,
       alpha: 0.08,
-      duration: 2000,
+      duration: 1500,
       ease: 'Sine.easeOut',
-      onComplete: () => gameScene._bellGlow.setFillStyle(0xFFD700, 0.08),
+      onComplete: () => { if (ringIdx === 2) gameScene._bellGlow.setFillStyle(0xFFD700, 0.08); },
     });
   }
+}
 
-  // Flash desk monitors
-  flashDeskMonitors(type);
+function updateBellEvent(dt) {
+  if (!_bellEventActive) return;
 
-  // All agents face podium briefly
-  agents.forEach(ag => {
-    if (ag.state === 'idle' || ag.state === 'wander' || ag.state === 'at_coffee' || ag.state === 'at_cooler' || ag.state === 'to_coffee' || ag.state === 'to_cooler') {
-      // Clean up social state before bell reaction
-      hideSpeechBubble(ag);
-      if (ag.coolerPartner) { ag.coolerPartner.coolerPartner = null; ag.coolerPartner = null; }
-      ag._preBellState = 'idle'; // always return to idle after bell
-      ag._preBellDir = ag.dir;
-      ag.state = 'bell_react';
-      ag._bellReactT = 2500 + Math.random() * 500; // 2.5-3s facing podium
-      // Face toward bell podium (tile 18, 5)
-      const dx = BELL_PODIUM_TILE.x - ag.px;
-      const dy = BELL_PODIUM_TILE.y - ag.py;
-      if (Math.abs(dx) > Math.abs(dy)) {
-        ag.dir = dx > 0 ? 2 : 1; // right or left
-      } else {
-        ag.dir = dy > 0 ? 0 : 3; // down or up
+  if (_bellPhase === 'gather') {
+    _bellEventT -= dt;
+    // Check if most agents arrived or time expired
+    const arrivedCount = agents.filter(ag => ag.state === 'bell_react').length;
+    const walkingCount = agents.filter(ag => ag.state === 'to_bell').length;
+    if (_bellEventT <= 0 || (walkingCount === 0 && arrivedCount > 0)) {
+      // Force any still-walking agents to bell_react
+      agents.forEach(ag => {
+        if (ag.state === 'to_bell') {
+          ag.state = 'bell_react';
+          ag.path = []; ag.pi = 0;
+          // Face podium
+          const dx = BELL_PODIUM_TILE.x - ag.px;
+          const dy = BELL_PODIUM_TILE.y - ag.py;
+          if (Math.abs(dx) > Math.abs(dy)) ag.dir = dx > 0 ? 2 : 1;
+          else ag.dir = dy > 0 ? 0 : 3;
+          ag.frame = 1;
+        }
+      });
+      _bellPhase = 'ring';
+      _bellEventT = 6000; // 6s ring phase (3 rings at ~1.5s intervals)
+      _bellRingCount = 0;
+      _bellRingTimer = 0;
+      // Fire first ring immediately
+      fireBellRing(_bellType, 0);
+      _bellRingCount = 1;
+      // Flash desk monitors
+      flashDeskMonitors(_bellType);
+      // Floating announcement
+      const msg = _bellType === 'open' ? '🔔 MARKET OPEN 🔔' : '🔔 MARKET CLOSE 🔔';
+      const msgColor = _bellType === 'open' ? '#10B981' : '#F59E0B';
+      if (gameScene) {
+        const W = ROOM_W * TS * SCALE;
+        const H = ROOM_H * TS * SCALE;
+        const ft = gameScene.add.text(W / 2, H * 0.35, msg, {
+          fontFamily: '"Press Start 2P", monospace',
+          fontSize: 14 * SCALE + 'px',
+          color: msgColor,
+          align: 'center',
+          stroke: '#000000',
+          strokeThickness: 3,
+        });
+        ft.setOrigin(0.5, 0.5);
+        ft.setDepth(960);
+        ft.setShadow(0, 0, msgColor, 8);
+        gameScene.tweens.add({
+          targets: ft, y: H * 0.28, alpha: 0,
+          duration: 4000, ease: 'Power2',
+          onComplete: () => ft.destroy(),
+        });
       }
+      console.log('[TradeArena] Bell ceremony: ringing');
     }
-  });
-
-  // Floating announcement
-  const msg = type === 'open' ? 'MARKET OPEN' : 'MARKET CLOSE';
-  const msgColor = type === 'open' ? '#10B981' : '#F59E0B';
-  if (gameScene) {
-    const W = ROOM_W * TS * SCALE;
-    const H = ROOM_H * TS * SCALE;
-    const ft = gameScene.add.text(W / 2, H * 0.35, msg, {
-      fontFamily: '"Press Start 2P", monospace',
-      fontSize: 14 * SCALE + 'px',
-      color: msgColor,
-      align: 'center',
-      stroke: '#000000',
-      strokeThickness: 3,
-    });
-    ft.setOrigin(0.5, 0.5);
-    ft.setDepth(960);
-    ft.setShadow(0, 0, msgColor, 8);
-    gameScene.tweens.add({
-      targets: ft,
-      y: H * 0.28,
-      alpha: 0,
-      duration: 3000,
-      ease: 'Power2',
-      onComplete: () => ft.destroy(),
-    });
+    return;
   }
 
-  console.log('[TradeArena] Bell event:', type);
+  if (_bellPhase === 'ring') {
+    _bellEventT -= dt;
+    _bellRingTimer += dt;
+    // Fire additional rings at 1.5s intervals
+    if (_bellRingCount < 3 && _bellRingTimer >= 1500) {
+      fireBellRing(_bellType, _bellRingCount);
+      _bellRingCount++;
+      _bellRingTimer = 0;
+    }
+    if (_bellEventT <= 0) {
+      _bellPhase = 'disperse';
+      _bellEventT = 6000; // 6s disperse phase
+      console.log('[TradeArena] Bell ceremony: dispersing');
+      // Agents walk back — close ceremony sends them to lounge/coffee
+      agents.forEach(ag => {
+        if (ag.state !== 'bell_react') return;
+        if (_bellType === 'close') {
+          // Closing bell: agents drift to lounge or coffee (wind-down)
+          const roll = Math.random();
+          if (roll < 0.4 && !ag._isLounging) {
+            // Head to coffee
+            const spot = COFFEE_SPOTS[Math.floor(Math.random() * COFFEE_SPOTS.length)];
+            startPath(ag, spot.x, spot.y);
+            ag.state = 'to_coffee';
+            ag.wanderT = 10000 + Math.random() * 15000;
+          } else if (roll < 0.7) {
+            // Head to lounge area
+            const spot = LOUNGE_SPOTS[Math.floor(Math.random() * LOUNGE_SPOTS.length)];
+            startPath(ag, spot.x, spot.y);
+            ag.state = 'to_lounge';
+          } else {
+            // Walk back to desk
+            startPath(ag, ag._preBellDeskX || ag.deskX, ag._preBellDeskY || ag.deskY);
+            ag.state = 'to_desk';
+          }
+        } else {
+          // Opening bell: disperse back to desks
+          startPath(ag, ag._preBellDeskX || ag.deskX, ag._preBellDeskY || ag.deskY);
+          ag.state = 'to_desk';
+        }
+        ag._preBellState = null;
+        ag._preBellDir = null;
+        ag._preBellDeskX = null;
+        ag._preBellDeskY = null;
+      });
+      // Close bell: flash monitors amber
+      if (_bellType === 'close') flashDeskMonitors('close');
+    }
+    return;
+  }
+
+  if (_bellPhase === 'disperse') {
+    _bellEventT -= dt;
+    if (_bellEventT <= 0) {
+      _bellEventActive = false;
+      _bellType = null;
+      _bellPhase = null;
+      // Any agents still in bell_react return to idle
+      agents.forEach(ag => {
+        if (ag.state === 'bell_react') {
+          ag.state = ag._isLounging ? 'to_lounge' : 'idle';
+          ag.dir = ag._preBellDir || 0;
+          ag._preBellState = null;
+          ag._preBellDir = null;
+          ag._preBellDeskX = null;
+          ag._preBellDeskY = null;
+          if (ag.state === 'to_lounge') startPath(ag, ag.deskX, ag.deskY);
+        }
+      });
+      console.log('[TradeArena] Bell ceremony complete');
+    }
+  }
 }
 
 function playBellSound(type) {
@@ -5168,24 +5412,6 @@ function flashDeskMonitors(type) {
       });
     });
   });
-}
-
-function updateBellEvent(dt) {
-  if (!_bellEventActive) return;
-  _bellEventT -= dt;
-  if (_bellEventT <= 0) {
-    _bellEventActive = false;
-    _bellType = null;
-    // Agents return to previous state
-    agents.forEach(ag => {
-      if (ag.state === 'bell_react') {
-        ag.state = ag._preBellState || 'idle';
-        ag.dir = ag._preBellDir || 0;
-        ag._preBellState = null;
-        ag._preBellDir = null;
-      }
-    });
-  }
 }
 
 // ═════════════════════════════════════════════════
