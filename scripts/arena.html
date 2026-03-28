@@ -816,6 +816,11 @@ const COFFEE_SPOTS = [{x: 32, y: 5}, {x: 32, y: 6}];
 // Water cooler meeting spots (below lounge area, agents face each other)
 const COOLER_SPOTS = [{x: 17, y: 8}, {x: 18, y: 8}];
 
+// Lounge seating spots (for displaced/new agents sitting on couch)
+const LOUNGE_SPOTS = [
+  {x: 16, y: 7}, {x: 17, y: 7}, {x: 18, y: 7}, {x: 19, y: 7},
+];
+
 // Pending signal data from WebSocket for agent walk-to-post narrative
 let _pendingSignals = [];
 
@@ -1107,6 +1112,12 @@ class GameScene extends Phaser.Scene {
             if (nearest) { openPanel(nearest); playSound('panelOpen'); return; }
           }
         }
+        // Check lounge area click — show bench roster tooltip
+        if (this._loungeArea && mx >= this._loungeArea.x1 && mx <= this._loungeArea.x2 &&
+            my >= this._loungeArea.y1 && my <= this._loungeArea.y2) {
+          showLoungeRoster();
+          return;
+        }
         closePanel();
       }
     });
@@ -1257,11 +1268,12 @@ class GameScene extends Phaser.Scene {
     // NYSE-STYLE CIRCULAR TRADING POSTS — triangle layout
     // ═══════════════════════════════════════════════════════
     const postPositions = [
-      { x: 5 * T,  y: 15 * T },
-      { x: 16 * T, y: 15 * T },
-      { x: 27 * T, y: 15 * T },
+      { x: 5 * T,  y: 15 * T, market: 'crypto' },
+      { x: 16 * T, y: 15 * T, market: 'multi' },
+      { x: 27 * T, y: 15 * T, market: 'polymarket' },
     ];
-    postPositions.forEach(p => this._buildTradingPost(S, W, H, T, p.x, p.y));
+    this._postGlows = [];
+    postPositions.forEach((p, i) => this._buildTradingPost(S, W, H, T, p.x, p.y, p.market, i));
 
     // ── Wall elements: Digital Clock + World Map + Bell Podium ──
     this._buildDigitalClock(S, W, H, T);
@@ -2384,40 +2396,116 @@ class GameScene extends Phaser.Scene {
     g.lineStyle(1, 0x3a3a50, 0.3);
     g.strokeRect(ox + T * 0.5, oy + T * 0.5, lw - T, lh - T);
 
-    // Low coffee table (center)
-    const tw = T * 1.8;
-    const th = T * 0.8;
-    const tx = ox + (lw - tw) / 2;
-    const ty = oy + (lh - th) / 2;
+    // ── L-shaped couch (left + bottom of lounge) ──
+    const couchColor = 0x2a2a42;
+    const couchHighlight = 0x353550;
+    const cushionColor = 0x33334a;
+    // Left section (vertical)
+    g.fillStyle(couchColor, 1);
+    g.fillRect(ox + T * 0.4, oy + T * 0.5, T * 1.0, lh - T * 1.0);
+    g.fillStyle(couchHighlight, 1);
+    g.fillRect(ox + T * 0.4, oy + T * 0.5, T * 1.0, 3);
+    // Cushions on left couch
+    g.fillStyle(cushionColor, 1);
+    g.fillRect(ox + T * 0.55, oy + T * 0.7, T * 0.7, T * 0.6);
+    g.fillRect(ox + T * 0.55, oy + T * 1.5, T * 0.7, T * 0.6);
+    // Bottom section (horizontal)
+    g.fillStyle(couchColor, 1);
+    g.fillRect(ox + T * 0.4, oy + lh - T * 1.0, lw * 0.6, T * 0.9);
+    g.fillStyle(couchHighlight, 1);
+    g.fillRect(ox + T * 0.4, oy + lh - T * 1.0, lw * 0.6, 3);
+    // Cushions on bottom couch
+    for (let i = 0; i < 3; i++) {
+      g.fillStyle(cushionColor, 1);
+      g.fillRect(ox + T * 0.6 + i * T * 1.1, oy + lh - T * 0.8, T * 0.85, T * 0.55);
+    }
+    // Armrest accents
+    g.fillStyle(0x222238, 1);
+    g.fillRect(ox + T * 0.35, oy + T * 0.4, T * 0.12, T * 0.3);
+    g.fillRect(ox + T * 0.4 + lw * 0.6 - T * 0.1, oy + lh - T * 1.05, T * 0.15, T * 1.0);
+
+    // ── Low coffee table (center-right area) ──
+    const tw = T * 1.4;
+    const th = T * 0.7;
+    const tx = ox + lw * 0.5;
+    const ty = oy + lh * 0.35;
     g.fillStyle(0x4a3a28, 1);
     g.fillRect(tx, ty, tw, th);
     g.fillStyle(0x5a4a38, 1);
     g.fillRect(tx, ty, tw, 2);
-    // Table legs (dark dots at corners)
     g.fillStyle(0x2a2018, 1);
     g.fillCircle(tx + 4, ty + th - 2, 2);
     g.fillCircle(tx + tw - 4, ty + th - 2, 2);
 
-    // Armchairs (4 chairs around table, reusing desk chair pattern)
-    const chairPositions = [
-      { x: tx - T * 0.5, y: ty + th / 2 },        // left
-      { x: tx + tw + T * 0.5, y: ty + th / 2 },    // right
-      { x: tx + tw / 2, y: ty - T * 0.4 },          // top
-      { x: tx + tw / 2, y: ty + th + T * 0.4 },     // bottom
-    ];
-    chairPositions.forEach(cp => {
-      // Chair base
-      g.fillStyle(0x28283a, 1);
-      g.fillCircle(cp.x, cp.y, T * 0.3);
-      // Chair seat
-      g.fillStyle(0x333344, 1);
-      g.fillCircle(cp.x, cp.y, T * 0.2);
-      // Highlight
-      g.fillStyle(0x3e3e55, 0.5);
-      g.fillCircle(cp.x - 1, cp.y - 1, T * 0.1);
-    });
+    // ── Wall-mounted TV (top edge of lounge, showing mini leaderboard) ──
+    const tvW = T * 2.5;
+    const tvH = T * 1.2;
+    const tvX = ox + (lw - tvW) / 2;
+    const tvY = oy - T * 0.1;
+    // TV bezel
+    g.fillStyle(0x111118, 1);
+    g.fillRect(tvX - 3, tvY - 3, tvW + 6, tvH + 6);
+    // TV screen
+    g.fillStyle(0x080812, 1);
+    g.fillRect(tvX, tvY, tvW, tvH);
+    // Screen content: mini leaderboard header
+    g.fillStyle(0x06B6D4, 0.4);
+    g.fillRect(tvX + 4, tvY + 3, tvW - 8, 5);
+    // Screen content: leaderboard rows (static placeholder, updated dynamically)
+    for (let r = 0; r < 4; r++) {
+      const ry = tvY + 12 + r * 7;
+      g.fillStyle(r % 2 === 0 ? 0x10B981 : 0xF59E0B, 0.35);
+      g.fillRect(tvX + 4, ry, tvW * 0.4, 3);
+      g.fillStyle(0x06B6D4, 0.25);
+      g.fillRect(tvX + tvW * 0.55, ry, tvW * 0.35, 3);
+    }
+    // Scanlines on TV
+    g.fillStyle(0x000000, 0.06);
+    for (let ly = tvY; ly < tvY + tvH; ly += 3) g.fillRect(tvX, ly, tvW, 1);
+    // TV wall mount bracket
+    g.fillStyle(0x3a3a50, 1);
+    g.fillRect(tvX + tvW * 0.45, tvY - 6, tvW * 0.1, 4);
+    // TV glow effect
+    g.lineStyle(1, 0x06B6D4, 0.15);
+    g.strokeRect(tvX - 1, tvY - 1, tvW + 2, tvH + 2);
 
-    console.log('[TradeArena/Phaser] Built lounge area');
+    // Animated TV leaderboard text (updated in _updateLoungeTV)
+    this._loungeTVTexts = [];
+    const tvTitleText = this.add.text(tvX + tvW / 2, tvY + 4, 'BENCH', {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: (3.5 * S) + 'px',
+      color: '#06B6D4',
+      align: 'center',
+    });
+    tvTitleText.setOrigin(0.5, 0);
+    tvTitleText.setDepth(6);
+    this._loungeTVTitle = tvTitleText;
+    for (let r = 0; r < 4; r++) {
+      const rowText = this.add.text(tvX + 6, tvY + 14 + r * 7, '', {
+        fontFamily: '"Press Start 2P", monospace',
+        fontSize: (2.5 * S) + 'px',
+        color: '#8888aa',
+        align: 'left',
+      });
+      rowText.setDepth(6);
+      this._loungeTVTexts.push(rowText);
+    }
+
+    // ── "LOUNGE" label ──
+    const loungeLabel = this.add.text(ox + lw / 2, oy + lh + 4, 'LOUNGE', {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: (3 * S) + 'px',
+      color: '#6366F1',
+      align: 'center',
+    });
+    loungeLabel.setOrigin(0.5, 0);
+    loungeLabel.setDepth(6);
+    loungeLabel.setAlpha(0.6);
+
+    // Store lounge bounds for click detection
+    this._loungeArea = { x1: 15, y1: 5, x2: 21, y2: 8 };
+
+    console.log('[TradeArena/Phaser] Built lounge area with couch + TV');
   }
 
   _buildDesk(T, tileX, tileY, deskIdx) {
@@ -2694,7 +2782,8 @@ class GameScene extends Phaser.Scene {
     });
   }
 
-  _buildTradingPost(S, W, H, T, cx, cy) {
+  _buildTradingPost(S, W, H, T, cx, cy, market, postIdx) {
+    market = market || 'multi';
 
     // Isometric squash factor (top-down perspective)
     const sq = 0.55;
@@ -2762,13 +2851,27 @@ class GameScene extends Phaser.Scene {
     upG.lineStyle(2, 0x101018, 0.8);
     upG.strokeEllipse(cx, upBot, upR * 2, upR * sq * 2);
 
-    // ── SCREEN BAND on upper cylinder ──
+    // ── SCREEN BAND on upper cylinder — market-specific tickers ──
     const numScreens = 6;
     const bandTop = upTop + 6;
     const bandH = upH * 0.75;
     const bandLeft = cx - upR + 6;
     const bandW = upR * 2 - 12;
     const scrW = (bandW - (numScreens - 1) * 3) / numScreens;
+
+    // Market-specific tickers and colors
+    const marketTickers = {
+      crypto: ['BTC', 'ETH', 'SOL', 'AVAX', 'LINK', 'DOT'],
+      multi: ['SPY', 'QQQ', 'BTC', 'EUR', 'GOLD', 'OIL'],
+      polymarket: ['ELEC', 'FED', 'AI', 'WAR', 'GDP', 'IPO'],
+    };
+    const marketColors = {
+      crypto: { accent: 0x2563EB, glow: 0x3B82F6 },
+      multi: { accent: 0xF59E0B, glow: 0xFBBF24 },
+      polymarket: { accent: 0x10B981, glow: 0x34D399 },
+    };
+    const tickers = marketTickers[market] || marketTickers.multi;
+    const mColor = marketColors[market] || marketColors.multi;
 
     for (let i = 0; i < numScreens; i++) {
       const sx = bandLeft + i * (scrW + 3);
@@ -2782,25 +2885,37 @@ class GameScene extends Phaser.Scene {
       upG.fillRect(sx, sy, scrW, bandH);
 
       if (i % 2 === 0) {
-        // Ticker rows
+        // Ticker rows with market-specific symbols
+        const tickerIdx = Math.floor(i / 2) % tickers.length;
         for (let r = 0; r < 6; r++) {
           const ry = sy + 3 + r * (bandH / 7);
-          upG.fillStyle(0x06B6D4, 0.6);
+          upG.fillStyle(mColor.accent, 0.6);
           upG.fillRect(sx + 2, ry, scrW * 0.35, 1.5);
           upG.fillStyle(r % 3 === 1 ? 0xEF4444 : 0x10B981, 0.5);
           upG.fillRect(sx + scrW * 0.5, ry, scrW * 0.4, 1.5);
         }
       } else {
-        // Mini chart
-        upG.lineStyle(1, 0x10B981, 0.6);
+        // Sparkline chart (last 5 signals as dots) with market color
+        const sparkColor = mColor.glow;
+        upG.lineStyle(1, sparkColor, 0.6);
         upG.beginPath();
-        const pts = [0.3, 0.5, 0.4, 0.7, 0.6, 0.8, 0.5, 0.65];
+        // Generate deterministic sparkline based on post index + screen
+        const seed = postIdx * 10 + i;
+        const pts = [];
+        for (let p = 0; p < 8; p++) pts.push(0.2 + 0.6 * Math.abs(Math.sin(seed * 0.7 + p * 1.3)));
         for (let p = 0; p < pts.length; p++) {
-          const px = sx + 2 + p * ((scrW - 4) / (pts.length - 1));
-          const py = sy + bandH - 3 - pts[p] * (bandH - 6);
-          if (p === 0) upG.moveTo(px, py); else upG.lineTo(px, py);
+          const ppx = sx + 2 + p * ((scrW - 4) / (pts.length - 1));
+          const ppy = sy + bandH - 3 - pts[p] * (bandH - 6);
+          if (p === 0) upG.moveTo(ppx, ppy); else upG.lineTo(ppx, ppy);
         }
         upG.strokePath();
+        // Signal dots on sparkline
+        upG.fillStyle(sparkColor, 0.8);
+        for (let p = 3; p < pts.length; p++) {
+          const ppx = sx + 2 + p * ((scrW - 4) / (pts.length - 1));
+          const ppy = sy + bandH - 3 - pts[p] * (bandH - 6);
+          upG.fillCircle(ppx, ppy, 1.5);
+        }
         // Grid
         upG.lineStyle(1, 0x152030, 0.4);
         for (let h = 0; h < 3; h++) {
@@ -2810,10 +2925,10 @@ class GameScene extends Phaser.Scene {
       }
     }
 
-    // Blue accent glow — top and bottom of screen band
-    upG.lineStyle(2, 0x2563EB, 0.4);
+    // Market-colored accent glow — top and bottom of screen band
+    upG.lineStyle(2, mColor.accent, 0.4);
     upG.lineBetween(bandLeft - 2, bandTop - 2, bandLeft + bandW + 2, bandTop - 2);
-    upG.lineStyle(2, 0x2563EB, 0.25);
+    upG.lineStyle(2, mColor.accent, 0.25);
     upG.lineBetween(bandLeft - 2, bandTop + bandH + 1, bandLeft + bandW + 2, bandTop + bandH + 1);
 
     // ── TOP CAP of upper cylinder (half-moon — back half only, so screens stay visible) ──
@@ -2852,7 +2967,42 @@ class GameScene extends Phaser.Scene {
       postG.fillRect(px - 3, upBot - 1, 6, 3);
     });
 
-    console.log('[TradeArena/Phaser] NYSE trading post rendered (2-layer)');
+    // ── Market label under post ──
+    const marketLabels = { crypto: 'CRYPTO', multi: 'MULTI-ASSET', polymarket: 'PREDICTION' };
+    const labelColors = { crypto: '#60A5FA', multi: '#FCD34D', polymarket: '#34D399' };
+    const mLabel = this.add.text(cx, cy + lowR * sq + 18, marketLabels[market] || 'MARKET', {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: (3 * S) + 'px',
+      color: labelColors[market] || '#888',
+      align: 'center',
+    });
+    mLabel.setOrigin(0.5, 0);
+    mLabel.setDepth(5);
+    mLabel.setAlpha(0.6);
+
+    // ── Ticker symbols above screens ──
+    const topTickers = (marketTickers[market] || []).slice(0, 3);
+    topTickers.forEach((tk, ti) => {
+      const tkText = this.add.text(
+        cx - upR + upR * 0.5 + ti * upR * 0.7, upTop - 4, tk,
+        {
+          fontFamily: '"Press Start 2P", monospace',
+          fontSize: (2.5 * S) + 'px',
+          color: labelColors[market] || '#888',
+          align: 'center',
+        }
+      );
+      tkText.setOrigin(0.5, 1);
+      tkText.setDepth(6);
+      tkText.setAlpha(0.5);
+    });
+
+    // ── Post glow circle (hidden, activated on signal execution) ──
+    const glowCircle = this.add.circle(cx, cy, lowR + 8, mColor.glow, 0);
+    glowCircle.setDepth(3);
+    this._postGlows[postIdx] = glowCircle;
+
+    console.log('[TradeArena/Phaser] NYSE trading post rendered (2-layer):', market);
   }
 
   _createSprites() {
@@ -3029,7 +3179,7 @@ class GameScene extends Phaser.Scene {
       const py = ag.py * TS * S;
 
       // Idle bob or walk bounce + tilt
-      const isIdle = ag.state === 'idle' || ag.state === 'signal' || ag.state === 'bell_react' || ag.state === 'at_coffee' || ag.state === 'at_cooler' || ag.path.length === 0;
+      const isIdle = ag.state === 'idle' || ag.state === 'signal' || ag.state === 'bell_react' || ag.state === 'at_coffee' || ag.state === 'at_cooler' || ag.state === 'lounge_idle' || ag.path.length === 0;
       const atDesk = isIdle && ag.state === 'idle';
       const walkPhase = (ag.walkStep || 0) * Math.PI * 0.5 + (ag.frameT || 0) / 100 * Math.PI * 0.5;
       // Typing oscillation: subtle 0.3px Y movement when idle at desk
@@ -3158,6 +3308,22 @@ class GameScene extends Phaser.Scene {
           ag.phaserPopup.setVisible(false);
         }
       }
+    }
+
+    // ── Update lounge TV with bench roster ──
+    if (this._loungeTVTexts) {
+      const loungeAgs = getLoungeAgents();
+      this._loungeTVTexts.forEach((txt, i) => {
+        if (i < loungeAgs.length) {
+          const c = loungeAgs[i].creator;
+          const name = (c.display_name || '?').slice(0, 8);
+          const score = ((c.composite_score || 0) * 100).toFixed(0);
+          txt.setText(name + ' ' + score);
+          txt.setColor(loungeAgs[i]._nameColor || '#8888aa');
+        } else {
+          txt.setText('');
+        }
+      });
     }
 
     // ── Camera follow mode ──
@@ -3361,16 +3527,20 @@ function bfs(g, sx, sy, ex, ey) {
 let agents = [], selected = null, leaderboard = [], lastT = 0, booted = false, agentsSpawned = false;
 let followedAgent = null; // Double-click to follow an agent with camera
 
-function makeAgent(creator, idx) {
-  const desk = DESKS[idx % DESKS.length];
+function makeAgent(creator, idx, isLounging) {
+  const desk = isLounging
+    ? LOUNGE_SPOTS[idx % LOUNGE_SPOTS.length]
+    : DESKS[idx % DESKS.length];
   const cd = CHAR_DEFS[idx % CHAR_DEFS.length];
+  const homeX = isLounging ? desk.x : desk.x;
+  const homeY = isLounging ? desk.y : desk.y + 1;
   return {
     creator, idx,
-    deskX: desk.x, deskY: desk.y + 1,
-    px: desk.x + (Math.random()>0.5?3:-3) + 0.5,
-    py: desk.y + 3 + 0.5,
+    deskX: homeX, deskY: homeY,
+    px: homeX + (Math.random() > 0.5 ? 3 : -3) + 0.5,
+    py: homeY + 3 + 0.5,
     path: [], pi: 0,
-    state: 'to_desk',
+    state: isLounging ? 'to_lounge' : 'to_desk',
     dir: 0, frame: 1, frameT: 0, walkStep: 0,
     wanderT: 3000 + Math.random() * 12000,
     signalT: 0, postT: 0, bobA: Math.random() * Math.PI * 2,
@@ -3390,6 +3560,8 @@ function makeAgent(creator, idx) {
     _scoreReactType: null, // 'up', 'down', or 'big'
     _scoreReactBounce: 0, // Y bounce offset for celebration
     _slumpTintT: 0, // gray tint timer for score down
+    // Lounge state
+    _isLounging: !!isLounging,
   };
 }
 
@@ -3430,12 +3602,17 @@ function updateAgent(ag, dt) {
     ag.frame = [1,0,1,2][Math.floor(ag.bobA * 0.7) % 4];
     ag.signalT -= dt;
     if (ag.signalT <= 0) {
-      // Find nearest trading post
-      let best = TRADING_POSTS[0], bestD = Infinity;
-      TRADING_POSTS.forEach(p => {
-        const d = Math.abs(p.x - ag.deskX) + Math.abs(p.y - ag.deskY);
-        if (d < bestD) { bestD = d; best = p; }
-      });
+      // Pick trading post matching agent's division, fallback to nearest
+      const divPostMap = { crypto: 0, multi: 1, polymarket: 2 };
+      const divIdx = divPostMap[(ag._division || 'multi').toLowerCase()];
+      let best = divIdx !== undefined ? TRADING_POSTS[divIdx] : TRADING_POSTS[0];
+      if (!best) {
+        let bestD = Infinity;
+        TRADING_POSTS.forEach(p => {
+          const d = Math.abs(p.x - ag.deskX) + Math.abs(p.y - ag.deskY);
+          if (d < bestD) { bestD = d; best = p; }
+        });
+      }
       ag.targetPost = best;
       ag.state = 'to_post';
       startPath(ag, best.x, best.y + 1); // stand just below post
@@ -3506,6 +3683,19 @@ function updateAgent(ag, dt) {
     }
     return;
   }
+  // Lounge idle — agents sit on couch, occasionally look around
+  if (ag.state === 'lounge_idle') {
+    ag.frame = [1,0,1,2][Math.floor(ag.bobA * 0.7) % 4];
+    ag.dir = 3; // face up toward TV
+    ag.wanderT -= dt;
+    if (ag.wanderT <= 0) {
+      // Occasionally glance around
+      ag.dir = [0, 1, 2, 3][Math.floor(Math.random() * 4)];
+      ag.wanderT = 4000 + Math.random() * 8000;
+      setTimeout(() => { if (ag.state === 'lounge_idle') ag.dir = 3; }, 1500);
+    }
+    return;
+  }
   if (ag.state === 'idle') {
     ag.frame = [1,0,1,2][Math.floor(ag.bobA * 0.7) % 4];
     ag.wanderT -= dt;
@@ -3572,6 +3762,13 @@ function updateAgent(ag, dt) {
         emitParticles(ag, ag.signalInfo.action === 'BUY' || ag.signalInfo.action === 'LONG' || ag.signalInfo.action === 'YES' ? '#10B981' : '#EF4444');
         playSound('signal');
       }
+      // Trigger post glow with agent's division color
+      if (ag.targetPost && gameScene && gameScene._postGlows) {
+        const postIdx = TRADING_POSTS.findIndex(p => p.x === ag.targetPost.x && p.y === ag.targetPost.y);
+        if (postIdx >= 0 && gameScene._postGlows[postIdx]) {
+          triggerPostGlow(postIdx, ag._division || 'multi');
+        }
+      }
       ag.frame = 1; return;
     }
     if (ag.state === 'to_coffee') {
@@ -3593,8 +3790,15 @@ function updateAgent(ag, dt) {
       showSpeechBubble(ag);
       ag.frame = 1; return;
     }
-    ag.state = ag.state === 'wander' ? 'to_desk' : 'idle';
+    if (ag.state === 'to_lounge') {
+      ag.state = 'lounge_idle';
+      ag.dir = 3; // face up toward TV
+      ag.wanderT = 5000 + Math.random() * 8000;
+      ag.frame = 1; return;
+    }
+    ag.state = ag.state === 'wander' ? 'to_desk' : (ag._isLounging ? 'to_lounge' : 'idle');
     if (ag.state === 'to_desk') startPath(ag, ag.deskX, ag.deskY);
+    if (ag.state === 'to_lounge') startPath(ag, ag.deskX, ag.deskY);
     ag.frame = 1; return;
   }
 
@@ -3813,6 +4017,32 @@ function emitParticles(ag, color) {
   }
 }
 
+// ── Post glow on signal execution ──
+function triggerPostGlow(postIdx, division) {
+  if (!gameScene || !gameScene._postGlows || !gameScene._postGlows[postIdx]) return;
+  const glow = gameScene._postGlows[postIdx];
+  const divColors = {
+    crypto: 0x3B82F6,
+    polymarket: 0x10B981,
+    multi: 0xF59E0B,
+  };
+  const color = divColors[division] || divColors.multi;
+  glow.setFillStyle(color, 0.25);
+  glow.setAlpha(0.25);
+  gameScene.tweens.add({
+    targets: glow,
+    alpha: 0,
+    scaleX: 1.3,
+    scaleY: 1.3,
+    duration: 1500,
+    ease: 'Power2',
+    onComplete: () => {
+      glow.setScale(1);
+      glow.setAlpha(0);
+    },
+  });
+}
+
 // ── Web Audio sound effects ──
 let audioCtx;
 let soundMuted = false;
@@ -3919,6 +4149,41 @@ function playSound(type) {
 }
 
 // ── Leaderboard modal ──
+// ═════════════════════════════════════════════════
+// LOUNGE ROSTER — bench tooltip for displaced/new agents
+// ═════════════════════════════════════════════════
+function getLoungeAgents() {
+  // Agents in the lounge: those with isLounging flag, or new agents (<10 signals)
+  return agents.filter(ag => ag._isLounging);
+}
+
+function showLoungeRoster() {
+  const loungeAgents = getLoungeAgents();
+  const modal = document.getElementById('lb-modal');
+  const body = document.getElementById('lb-body');
+  const titleEl = modal.querySelector('.section-title');
+  body.innerHTML = '';
+  titleEl.textContent = 'BENCH ROSTER';
+
+  if (loungeAgents.length === 0) {
+    body.innerHTML = '<div style="color:#666;text-align:center;padding:16px;font-size:.7rem">No traders on the bench right now.</div>';
+  } else {
+    loungeAgents.forEach((ag) => {
+      const c = ag.creator;
+      const reason = (c.total_signals || 0) < 10 ? 'Rookie — earning desk' : 'Displaced';
+      const row = document.createElement('div'); row.className = 'lb-row';
+      const div = (c.division || 'multi').toLowerCase();
+      const divColor = div === 'crypto' ? '#60A5FA' : div === 'polymarket' ? '#34D399' : '#FCD34D';
+      row.innerHTML = `<span class="lb-rank" style="color:${divColor}">&bull;</span><span class="lb-name">${c.display_name || c.creator_id}</span><span class="lb-score" style="color:#888;font-size:.6rem">${reason}</span>`;
+      row.style.cursor = 'pointer';
+      row.onclick = () => { closeLbModal(); openPanel(ag); };
+      body.appendChild(row);
+    });
+  }
+  modal.classList.add('show');
+  playSound('panelOpen');
+}
+
 function showLeaderboardModal(type) {
   if (panel.classList.contains('open')) closePanel();
   const modal = document.getElementById('lb-modal');
@@ -4119,14 +4384,25 @@ function loadData() {
       agentsSpawned = true;
       agents = [];
       const seen = new Set();
-      leaderboard.slice(0, Math.min(8, DESKS.length)).forEach((c, i) => {
+      const maxDesks = DESKS.length;
+      const maxTotal = maxDesks + LOUNGE_SPOTS.length;
+      let deskCount = 0, loungeCount = 0;
+      leaderboard.slice(0, maxTotal).forEach((c, i) => {
         const id = c.creator_id || ('agent-'+i);
         if (seen.has(id)) return;
         seen.add(id);
-        agents.push(makeAgent(c, i));
+        // New agents (<10 signals) go to lounge; otherwise fill desks first
+        const isNew = (c.total_signals || 0) < 10;
+        const isLounging = isNew || deskCount >= maxDesks;
+        if (isLounging) {
+          agents.push(makeAgent(c, loungeCount, true));
+          loungeCount++;
+        } else {
+          agents.push(makeAgent(c, deskCount, false));
+          deskCount++;
+        }
       });
-      console.log('[TradeArena] Spawned', agents.length, 'agents (max', DESKS.length, 'desks, no duplicates)');
-      if (agents.length > DESKS.length) { agents.length = DESKS.length; console.warn('[TradeArena] Clamped agents to desk count'); }
+      console.log('[TradeArena] Spawned', agents.length, 'agents (' + deskCount + ' desks, ' + loungeCount + ' lounge)');
       agents.forEach(ag => startPath(ag, ag.deskX, ag.deskY));
     } else if (agentsSpawned) {
       agents.forEach((ag, i) => {
@@ -4185,15 +4461,36 @@ function loadData() {
       });
       // Spawn sprites for any new creators not yet on the floor
       const existingIds = new Set(agents.map(ag => ag.creator.creator_id));
-      const maxAgents = Math.min(8, DESKS.length);
+      const deskAgents = agents.filter(a => !a._isLounging).length;
+      const loungeAgents = agents.filter(a => a._isLounging).length;
+      const maxTotal = DESKS.length + LOUNGE_SPOTS.length;
       leaderboard.forEach((c) => {
-        if (agents.length >= maxAgents) return;
+        if (agents.length >= maxTotal) return;
         if (existingIds.has(c.creator_id)) return;
-        const newAg = makeAgent(c, agents.length);
+        const isNew = (c.total_signals || 0) < 10;
+        const curDesks = agents.filter(a => !a._isLounging).length;
+        const curLounge = agents.filter(a => a._isLounging).length;
+        const isLounging = isNew || curDesks >= DESKS.length;
+        const slotIdx = isLounging ? curLounge : curDesks;
+        const newAg = makeAgent(c, slotIdx, isLounging);
         agents.push(newAg);
         startPath(newAg, newAg.deskX, newAg.deskY);
-        addFloatingText(newAg, 'NEW!', '#06B6D4');
-        console.log('[TradeArena] New agent joined the floor:', c.display_name || c.creator_id);
+        addFloatingText(newAg, isLounging ? 'BENCH' : 'NEW!', isLounging ? '#6366F1' : '#06B6D4');
+        console.log('[TradeArena] New agent joined ' + (isLounging ? 'lounge' : 'floor') + ':', c.display_name || c.creator_id);
+      });
+      // Promote lounge agents to desk if they've earned it (>= 10 signals and desk available)
+      agents.filter(a => a._isLounging && (a.creator.total_signals || 0) >= 10).forEach(ag => {
+        const curDesks = agents.filter(a => !a._isLounging).length;
+        if (curDesks < DESKS.length) {
+          const newDesk = DESKS[curDesks % DESKS.length];
+          ag._isLounging = false;
+          ag.deskX = newDesk.x;
+          ag.deskY = newDesk.y + 1;
+          ag.state = 'to_desk';
+          startPath(ag, ag.deskX, ag.deskY);
+          addFloatingText(ag, 'PROMOTED!', '#10B981');
+          playSound('scoreUp');
+        }
       });
     }
     // Signal-driven walk to trading post
