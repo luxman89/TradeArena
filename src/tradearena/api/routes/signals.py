@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -96,6 +96,17 @@ async def emit_signal(
         )
     db.commit()
 
+    # Maintain daily streak
+    today = datetime.now(UTC).date()
+    prev_day = creator.last_signal_day
+    if prev_day != today:
+        if prev_day == today - timedelta(days=1):
+            creator.streak_days = (creator.streak_days or 0) + 1
+        else:
+            creator.streak_days = 1
+        creator.last_signal_day = today
+        db.commit()
+
     result = {
         "signal_id": signal_orm.signal_id,
         "committed_at": signal_orm.committed_at.isoformat(),
@@ -103,6 +114,7 @@ async def emit_signal(
         "creator_id": signal_orm.creator_id,
         "asset": signal_orm.asset,
         "action": signal_orm.action,
+        "streak_days": creator.streak_days,
     }
     await manager.broadcast("signal_new", result)
     return result

@@ -1,8 +1,11 @@
-"""In-memory sliding-window rate limiter middleware for FastAPI."""
+"""Rate limiter middleware — Redis-backed sliding window, in-memory fallback."""
 
 from __future__ import annotations
 
 import hashlib
+import logging
+import os
+import secrets
 import time
 from collections import defaultdict
 
@@ -10,11 +13,13 @@ from fastapi import HTTPException, Request, Response, status
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
+logger = logging.getLogger(__name__)
+
 # Defaults: 200 requests per 60-second window (global, per-IP)
 DEFAULT_RATE = 200
 DEFAULT_WINDOW = 60  # seconds
 
-# Per-API-key limits (prevents individual key abuse across IPs)
+# Per-API-key limits
 KEY_RATE = 60
 KEY_WINDOW = 60  # 60 requests per minute per key
 
@@ -29,6 +34,48 @@ SIGNAL_WINDOW = 3600  # 10 signals per hour
 _AUTH_PATHS = {"/auth/register", "/auth/login", "/auth/github/callback"}
 _SKIP_PATHS = {"/ws"}
 
+# ---------------------------------------------------------------------------
+# Redis backend — optional, with in-memory fallback
+# ---------------------------------------------------------------------------
+
+_redis_client = None
+_redis_available = False
+
+
+def _init_redis() -> None:
+    global _redis_client, _redis_available  # noqa: PLW0603
+    redis_url = os.getenv("REDIS_URL", "")
+    if not redis_url:
+        return
+    try:
+        import redis as _redis
+
+        client = _redis.from_url(redis_url, socket_connect_timeout=2, socket_timeout=2)
+        client.ping()
+        _redis_client = client
+        _redis_available = True
+        logger.info("Rate limiter: Redis backend active (%s)", redis_url)
+    except Exception as exc:
+        logger.warning("Rate limiter: Redis unavailable (%s) — using in-memory fallback", exc)
+
+
+_init_redis()
+
+
+def _redis_check(key: str, rate: int, window: int, now: float) -> tuple[bool, int]:
+    """Sliding-window check using Redis sorted set. Returns (allowed, remaining)."""
+    cutoff = now - window
+    pipe = _redis_client.pipeline()
+    pipe.zremrangebyscore(key, 0, cutoff)
+    pipe.zcard(key)
+    pipe.expire(key, window + 1)
+    results = pipe.execute()
+    current_count: int = results[1]
+    if current_count >= rate:
+        return False, 0
+    _redis_client.zadd(key, {f"{now}:{secrets.token_hex(4)}": now})
+    return True, rate - current_count - 1
+
 
 def _client_ip(request: Request) -> str:
     forwarded = request.headers.get("x-forwarded-for")
@@ -38,7 +85,6 @@ def _client_ip(request: Request) -> str:
 
 
 def _hash_api_key(raw_key: str) -> str:
-    """Hash API key for use as rate-limit tracking key (never store raw keys)."""
     return hashlib.sha256(raw_key.encode()).hexdigest()
 
 
@@ -48,14 +94,12 @@ def _prune(hits: list[float], cutoff: float) -> None:
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    """Sliding-window rate limiter keyed by client IP and API key.
+    """Sliding-window rate limiter — Redis-backed when available, in-memory otherwise.
 
     Three layers:
-    1. Per-IP global limit (200/min default) — catches broad abuse.
-    2. Per-API-key limit (60/min default) — prevents individual key abuse.
+    1. Per-IP global limit (200/min) — catches broad abuse.
+    2. Per-API-key limit (60/min) — prevents individual key abuse.
     3. Auth endpoint limit (10/min per IP) — mitigates credential brute-forcing.
-
-    Skips WebSocket and health checks.
     """
 
     def __init__(
@@ -75,9 +119,33 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.key_window = key_window
         self.auth_rate = auth_rate
         self.auth_window = auth_window
+        # In-memory fallback state
         self._hits: dict[str, list[float]] = defaultdict(list)
         self._key_hits: dict[str, list[float]] = defaultdict(list)
         self._auth_hits: dict[str, list[float]] = defaultdict(list)
+
+    def _check(
+        self,
+        namespace: str,
+        key: str,
+        rate: int,
+        window: int,
+        mem_store: dict[str, list[float]],
+        now: float,
+    ) -> tuple[bool, int]:
+        """Check rate limit; returns (allowed, remaining)."""
+        if _redis_available:
+            try:
+                return _redis_check(f"rl:{namespace}:{key}", rate, window, now)
+            except Exception as exc:
+                logger.warning("Redis rate-limit check failed (%s), using in-memory", exc)
+
+        hits = mem_store[key]
+        _prune(hits, now - window)
+        if len(hits) >= rate:
+            return False, 0
+        hits.append(now)
+        return True, rate - len(hits)
 
     async def dispatch(self, request: Request, call_next) -> Response:
         if request.url.path in _SKIP_PATHS:
@@ -86,26 +154,27 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         ip = _client_ip(request)
         now = time.monotonic()
 
-        # --- auth-specific rate limit (tighter) ---
+        # --- auth-specific rate limit ---
         if request.url.path in _AUTH_PATHS and request.method == "POST":
-            auth_hits = self._auth_hits[ip]
-            _prune(auth_hits, now - self.auth_window)
-            if len(auth_hits) >= self.auth_rate:
+            allowed, _ = self._check(
+                "auth", ip, self.auth_rate, self.auth_window, self._auth_hits, now
+            )
+            if not allowed:
                 return JSONResponse(
                     status_code=429,
                     content={"detail": "Too many auth attempts. Try again later."},
                     headers={"Retry-After": str(self.auth_window)},
                 )
-            auth_hits.append(now)
 
         # --- per-API-key rate limit ---
         api_key = request.headers.get("x-api-key")
         key_remaining = None
         if api_key:
             key_id = _hash_api_key(api_key)
-            key_hits = self._key_hits[key_id]
-            _prune(key_hits, now - self.key_window)
-            if len(key_hits) >= self.key_rate:
+            allowed, key_remaining = self._check(
+                "key", key_id, self.key_rate, self.key_window, self._key_hits, now
+            )
+            if not allowed:
                 return JSONResponse(
                     status_code=429,
                     content={"detail": "API key rate limit exceeded. Try again later."},
@@ -115,23 +184,19 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                         "X-RateLimit-Key-Remaining": "0",
                     },
                 )
-            key_hits.append(now)
-            key_remaining = max(0, self.key_rate - len(key_hits))
 
         # --- global per-IP rate limit ---
-        hits = self._hits[ip]
-        _prune(hits, now - self.window)
-        if len(hits) >= self.rate:
+        allowed, remaining = self._check("ip", ip, self.rate, self.window, self._hits, now)
+        if not allowed:
             return JSONResponse(
                 status_code=429,
                 content={"detail": "Rate limit exceeded. Try again later."},
                 headers={"Retry-After": str(self.window)},
             )
 
-        hits.append(now)
         response = await call_next(request)
         response.headers["X-RateLimit-Limit"] = str(self.rate)
-        response.headers["X-RateLimit-Remaining"] = str(max(0, self.rate - len(hits)))
+        response.headers["X-RateLimit-Remaining"] = str(remaining)
         if key_remaining is not None:
             response.headers["X-RateLimit-Key-Limit"] = str(self.key_rate)
             response.headers["X-RateLimit-Key-Remaining"] = str(key_remaining)
@@ -139,24 +204,35 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
 
 class SignalRateLimiter:
-    """Per-creator sliding-window rate limiter for signal submissions.
+    """Per-creator sliding-window rate limiter for signal submissions."""
 
-    Keyed by creator_id (resolved after auth), not IP. This prevents a single
-    creator from flooding the append-only signal store.
-    """
-
-    def __init__(
-        self,
-        rate: int = SIGNAL_RATE,
-        window: int = SIGNAL_WINDOW,
-    ):
+    def __init__(self, rate: int = SIGNAL_RATE, window: int = SIGNAL_WINDOW):
         self.rate = rate
         self.window = window
         self._hits: dict[str, list[float]] = defaultdict(list)
 
     def check(self, creator_id: str) -> None:
-        """Raise HTTP 429 if the creator has exceeded the signal submission limit."""
         now = time.monotonic()
+        if _redis_available:
+            try:
+                allowed, _ = _redis_check(
+                    f"rl:signal:{creator_id}", self.rate, self.window, now
+                )
+                if not allowed:
+                    raise HTTPException(
+                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                        detail=(
+                            f"Signal rate limit exceeded: {self.rate} signals per "
+                            f"{self.window // 60} minute(s). Try again later."
+                        ),
+                        headers={"Retry-After": str(self.window)},
+                    )
+                return
+            except HTTPException:
+                raise
+            except Exception as exc:
+                logger.warning("Redis signal rate-limit check failed (%s), using in-memory", exc)
+
         hits = self._hits[creator_id]
         _prune(hits, now - self.window)
         if len(hits) >= self.rate:
@@ -172,7 +248,6 @@ class SignalRateLimiter:
 
     @property
     def remaining(self) -> dict[str, int]:
-        """Return remaining quota per creator (for debugging/monitoring)."""
         now = time.monotonic()
         result = {}
         for cid, hits in self._hits.items():

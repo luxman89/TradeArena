@@ -13,12 +13,20 @@ from urllib.parse import quote, urlencode
 
 import bcrypt as _bcrypt
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+import jwt as _jwt
+from fastapi import APIRouter, Depends, HTTPException, Query, Security, status
 from fastapi.responses import RedirectResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
 
-from tradearena.api.deps import create_jwt, require_jwt_token
+from tradearena.api.deps import (
+    JWT_ALGORITHM,
+    SECRET_KEY,
+    blacklist_jti,
+    create_jwt,
+    require_jwt_token,
+)
 from tradearena.core.email import generate_unsubscribe_token
 from tradearena.core.leveling import (
     glow_for_level,
@@ -39,6 +47,8 @@ from tradearena.models.responses import (
     ProfileUpdateResponse,
     TwitterCallbackResponse,
 )
+
+_BEARER = HTTPBearer(auto_error=False)
 
 _logger = logging.getLogger(__name__)
 
@@ -307,6 +317,60 @@ async def login(body: LoginRequest, db: Session = Depends(get_db)) -> dict:
         "xp": xp,
         "title": title_for_level(level),
     }
+
+
+@router.post(
+    "/logout",
+    status_code=200,
+    summary="Logout — revoke current JWT",
+    tags=["auth"],
+)
+async def logout(
+    credentials: HTTPAuthorizationCredentials | None = Security(_BEARER),
+) -> dict:
+    """Revoke the current JWT by adding its jti to the blacklist.
+
+    The token is invalid immediately; the client should discard it.
+    """
+    from datetime import UTC, datetime
+
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authorization header with Bearer token is required",
+        )
+    try:
+        payload = _jwt.decode(
+            credentials.credentials, SECRET_KEY, algorithms=[JWT_ALGORITHM]
+        )
+        jti = payload.get("jti", "")
+        exp = payload.get("exp", 0)
+        if jti:
+            remaining_ttl = max(1, int(exp - datetime.now(UTC).timestamp()))
+            blacklist_jti(jti, remaining_ttl)
+    except _jwt.ExpiredSignatureError:
+        pass  # Already expired — nothing to revoke
+    except _jwt.InvalidTokenError:
+        pass
+
+    return {"detail": "Logged out successfully"}
+
+
+@router.post(
+    "/refresh",
+    status_code=200,
+    summary="Refresh JWT — exchange a valid token for a fresh one",
+    tags=["auth"],
+)
+async def refresh_token(
+    creator_id: str = Depends(require_jwt_token),
+) -> dict:
+    """Return a fresh JWT with a new expiry, revoking the old one is the client's responsibility.
+
+    Use this before the 1-hour expiry to maintain an active session.
+    """
+    token = create_jwt(creator_id)
+    return {"token": token}
 
 
 @router.get(

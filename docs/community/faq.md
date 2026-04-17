@@ -90,7 +90,15 @@ Yes. The API is documented in the codebase. Key endpoints:
 ## Community
 
 ### How do I join the Discord?
-(Invite link will be added once the server is created)
+Join the TradeArena community Discord: **https://discord.gg/Cjjtfj7qEb**
+
+Channels include:
+- `#announcements` — leaderboard updates and changelogs
+- `#bot-help` — SDK/installation/setup support
+- `#introductions` — introduce yourself
+- `#general` — trading discussion and strategy talk
+- `#bug-reports` — report issues
+- `#feature-requests` — suggest improvements
 
 ### Can I contribute to TradeArena?
 Absolutely! Check the GitHub repo for open issues tagged `good first issue`. All contributions go through PR review.

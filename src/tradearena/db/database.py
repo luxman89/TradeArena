@@ -9,6 +9,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Column,
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -81,6 +82,8 @@ class CreatorORM(Base):
     unsubscribe_token = Column(String(64), nullable=True, unique=True, index=True)
     email_opted_out = Column(Boolean, nullable=False, default=False)
     webhook_url = Column(String(512), nullable=True)
+    streak_days = Column(Integer, nullable=False, default=0)
+    last_signal_day = Column(Date, nullable=True)
 
     signals = relationship("SignalORM", back_populates="creator", lazy="select")
     score = relationship("CreatorScoreORM", back_populates="creator", uselist=False)

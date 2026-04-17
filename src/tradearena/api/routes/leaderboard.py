@@ -5,9 +5,10 @@ from __future__ import annotations
 import base64
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, func, or_
+from sqlalchemy import Float, Integer, and_, func, or_
 from sqlalchemy.orm import Session
 
+from tradearena.core.seasons import current_season_bounds, season_label
 from tradearena.db.database import CreatorORM, CreatorScoreORM, SignalORM, get_db
 from tradearena.models.responses import LeaderboardDivisionResponse, LeaderboardResponse
 
@@ -30,6 +31,9 @@ def _format_entry(creator: CreatorORM) -> dict:
         "consistency": round(score.consistency, 4) if score else 0.0,
         "confidence_calibration": round(score.confidence_calibration, 4) if score else 0.0,
         "total_signals": score.total_signals if score else 0,
+        "xp": score.xp if score else 0,
+        "level": score.level if score else 1,
+        "streak_days": creator.streak_days or 0,
     }
 
 
@@ -128,6 +132,78 @@ async def get_leaderboard(
         "limit": limit,
         "next_cursor": next_cursor,
         "entries": [_format_entry(c) for c in creators],
+    }
+
+
+@router.get(
+    "/leaderboard/season",
+    summary="Get weekly season leaderboard",
+)
+async def get_season_leaderboard(
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Return top creators ranked by win rate of signals submitted this week.
+
+    Only creators with at least one resolved signal this week are included.
+    """
+    season_start, season_end = current_season_bounds()
+
+    # Aggregate per-creator wins and resolved count for signals committed this week
+    season_subq = (
+        db.query(
+            SignalORM.creator_id,
+            func.count(SignalORM.signal_id).label("resolved"),
+            func.sum(
+                func.cast(SignalORM.outcome == "WIN", Integer)
+            ).label("wins"),
+        )
+        .filter(
+            SignalORM.committed_at >= season_start,
+            SignalORM.committed_at < season_end,
+            SignalORM.outcome.isnot(None),
+        )
+        .group_by(SignalORM.creator_id)
+        .subquery()
+    )
+
+    rows = (
+        db.query(
+            CreatorORM,
+            season_subq.c.wins,
+            season_subq.c.resolved,
+        )
+        .join(season_subq, CreatorORM.id == season_subq.c.creator_id)
+        .order_by(
+            (season_subq.c.wins.cast(Float) / season_subq.c.resolved).desc(),
+            season_subq.c.wins.desc(),
+        )
+        .limit(limit)
+        .all()
+    )
+
+    entries = []
+    for creator, wins, resolved in rows:
+        score = creator.score
+        entries.append({
+            "creator_id": creator.id,
+            "display_name": creator.display_name,
+            "division": creator.division,
+            "discord_id": creator.discord_id,
+            "season_wins": int(wins or 0),
+            "season_resolved": int(resolved or 0),
+            "season_win_rate": round((wins or 0) / resolved, 4) if resolved else 0.0,
+            "composite_score": round(score.composite_score, 4) if score else 0.0,
+            "level": score.level if score else 1,
+            "streak_days": creator.streak_days or 0,
+        })
+
+    return {
+        "season_label": season_label(season_start),
+        "season_start": season_start.isoformat(),
+        "season_end": season_end.isoformat(),
+        "total": len(entries),
+        "entries": entries,
     }
 
 

@@ -548,6 +548,9 @@ if os.getenv("ENFORCE_HTTPS", "").strip() == "1":
 
     class _HTTPSRedirectMiddleware(BaseHTTPMiddleware):
         async def dispatch(self, request: Request, call_next):
+            # Exempt health/readiness endpoints from redirect so Docker healthchecks work
+            if request.url.path in ("/health", "/ready"):
+                return await call_next(request)
             proto = request.headers.get("x-forwarded-proto", request.url.scheme)
             if proto == "http":
                 url = request.url.replace(scheme="https")
@@ -866,18 +869,17 @@ async def websocket_endpoint(ws: WebSocket) -> None:
 
 @app.get("/health", tags=["meta"], summary="Health check")
 async def health() -> dict:
-    """Returns service health status, version, and DB connectivity."""
+    """Returns service health status, version, DB and Redis connectivity."""
     from importlib.metadata import version as pkg_version
 
     from sqlalchemy import text
 
-    # Read version from installed package metadata (falls back to hardcoded)
     try:
         app_version = pkg_version("tradearena")
     except Exception:
         app_version = "0.1.0"
 
-    # Verify database connectivity
+    # DB check
     db_ok = False
     try:
         db = SessionLocal()
@@ -889,12 +891,26 @@ async def health() -> dict:
     except Exception:
         logger.exception("Health check: DB connection failed")
 
+    # Redis check
+    redis_status = "unavailable"
+    try:
+        from tradearena.api.rate_limit import _redis_available, _redis_client
+
+        if _redis_available and _redis_client:
+            _redis_client.ping()
+            redis_status = "ok"
+    except Exception:
+        redis_status = "error"
+
     status_val = "ok" if db_ok else "degraded"
     response = {
         "status": status_val,
         "version": app_version,
+        "database": "ok" if db_ok else "error",
+        "redis": redis_status,
         "checks": {
             "database": "connected" if db_ok else "unreachable",
+            "redis": redis_status,
         },
     }
 
@@ -904,3 +920,13 @@ async def health() -> dict:
         return _JSONResponse(content=response, status_code=503)
 
     return response
+
+
+_STATUS_HTML = _SCRIPTS_DIR / "status.html"
+
+
+@app.get("/status", include_in_schema=False)
+async def status_page() -> FileResponse:
+    """Serve the public status page."""
+    return FileResponse(_STATUS_HTML, media_type="text/html",
+                        headers={"Cache-Control": "no-cache, must-revalidate"})

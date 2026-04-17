@@ -94,6 +94,7 @@ async def get_user_profile(
         "created_at": creator.created_at.isoformat(),
         "level": level,
         "xp": xp,
+        "streak_days": creator.streak_days or 0,
         "title": title_for_level(level),
         "glow": glow_for_level(level),
         "scores": {

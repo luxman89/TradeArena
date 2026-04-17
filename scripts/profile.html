@@ -82,8 +82,13 @@
   .badge-polymarket { background: rgba(150,100,255,0.15); color: #9664ff; }
   .badge-multi { background: rgba(255,180,0,0.15); color: #ffb400; }
 
-  .share-btn {
+  .profile-actions {
+    display: flex;
+    gap: 10px;
     margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  .share-btn, .follow-btn {
     background: var(--accent);
     color: #000;
     border: none;
@@ -93,7 +98,71 @@
     font-size: 14px;
     font-weight: 600;
   }
-  .share-btn:hover { opacity: 0.85; }
+  .share-btn:hover, .follow-btn:hover { opacity: 0.85; }
+  .follow-btn.following {
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+  }
+  .follow-btn.following:hover { background: rgba(0,200,150,0.08); }
+  .follow-counts {
+    display: flex;
+    gap: 16px;
+    font-size: 14px;
+    margin-top: 6px;
+    color: var(--text-muted);
+  }
+  .follow-counts span strong { color: var(--text); }
+
+  .comment-section { margin-top: 30px; }
+  .signal-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+  .signal-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .signal-card-asset { font-weight: 600; font-size: 15px; }
+  .signal-card-action {
+    padding: 2px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .signal-card-action.buy,.signal-card-action.long { background: rgba(34,197,94,0.15); color: #22c55e; }
+  .signal-card-action.sell,.signal-card-action.short { background: rgba(239,68,68,0.15); color: #ef4444; }
+  .signal-card-action.yes { background: rgba(0,200,150,0.15); color: #00c896; }
+  .signal-card-action.no { background: rgba(239,68,68,0.15); color: #ef4444; }
+  .signal-outcome { font-size: 12px; font-weight: 700; text-transform: uppercase; }
+  .signal-outcome.WIN { color: #22c55e; }
+  .signal-outcome.LOSS { color: #ef4444; }
+  .signal-outcome.NEUTRAL { color: #eab308; }
+  .signal-outcome.pending { color: var(--text-muted); }
+  .signal-reasoning {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+    line-height: 1.5;
+  }
+  .signal-meta { font-size: 12px; color: var(--text-muted); margin-bottom: 10px; }
+  .comments-list { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 6px; }
+  .comment-item {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+  .comment-author { font-weight: 600; color: var(--accent); flex-shrink: 0; }
+  .comment-body { color: var(--text); line-height: 1.4; }
+  .comment-time { font-size: 11px; color: var(--text-muted); margin-left: auto; flex-shrink: 0; }
+  .no-comments { font-size: 12px; color: var(--text-muted); font-style: italic; }
 
   .stats-section {
     max-width: 900px;
@@ -236,8 +305,22 @@
             <span id="level-text"></span>
             <span id="joined-text"></span>
             <span id="rank-text"></span>
+            <span id="streak-badge" style="display:none;color:#F59E0B;font-size:.75rem"></span>
           </div>
-          <button class="share-btn" id="share-btn" onclick="shareProfile()">Share Profile</button>
+          <div id="xp-bar-section" style="display:none;margin-top:8px;max-width:320px">
+            <div style="height:6px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden;margin-bottom:4px">
+              <div id="xp-bar-fill" style="height:100%;background:#F59E0B;border-radius:3px;transition:width .4s ease-out;width:0%"></div>
+            </div>
+            <div id="xp-bar-label" style="font-size:.7rem;color:#888"></div>
+          </div>
+          <div class="follow-counts" id="follow-counts" style="display:none">
+            <span><strong id="follower-count">0</strong> followers</span>
+            <span><strong id="following-count">0</strong> following</span>
+          </div>
+          <div class="profile-actions">
+            <button class="share-btn" id="share-btn" onclick="shareProfile()">Share Profile</button>
+            <button class="follow-btn" id="follow-btn" style="display:none" onclick="toggleFollow()">Follow</button>
+          </div>
         </div>
       </div>
     </header>
@@ -254,6 +337,11 @@
       <div id="strategy-section" style="display:none;margin-top:30px">
         <div class="section-title">Strategy</div>
         <div class="strategy-text" id="strategy-text"></div>
+      </div>
+
+      <div class="comment-section" id="signals-section" style="display:none">
+        <div class="section-title">Recent Predictions</div>
+        <div id="signals-list"></div>
       </div>
     </section>
   </div>
@@ -301,6 +389,27 @@ async function loadProfile() {
     const divClass = 'badge badge-' + profile.division;
     document.getElementById('division-badge').innerHTML = '<span class="' + divClass + '">' + profile.division + '</span>';
     document.getElementById('level-text').textContent = 'Level ' + profile.level;
+
+    // XP bar
+    const XP_T = [0,20,60,120,200,300,420,560,720,900,1100,1320,1560,1820,2100,2400,2720,3060,3420,3800];
+    const xp = profile.xp || 0;
+    const lv = profile.level || 1;
+    const ct = XP_T[lv-1]||0, nt = XP_T[lv]||XP_T[19];
+    const pct = lv >= 20 ? 100 : nt > ct ? ((xp-ct)/(nt-ct)*100) : 100;
+    const xpBarEl = document.getElementById('xp-bar-section');
+    if (xpBarEl) {
+      document.getElementById('xp-bar-fill').style.width = pct.toFixed(1) + '%';
+      document.getElementById('xp-bar-label').textContent = lv >= 20 ? 'MAX LEVEL' : (xp-ct) + ' / ' + (nt-ct) + ' XP to Level ' + (lv+1);
+      xpBarEl.style.display = '';
+    }
+
+    // Streak
+    const streak = profile.streak_days || 0;
+    const streakEl = document.getElementById('streak-badge');
+    if (streakEl && streak > 0) {
+      streakEl.textContent = '🔥 ' + streak + ' day streak';
+      streakEl.style.display = '';
+    }
 
     const joined = new Date(profile.created_at);
     document.getElementById('joined-text').textContent = 'Joined ' + joined.toLocaleDateString('en-US', {month:'short',year:'numeric'});
@@ -354,6 +463,11 @@ async function loadProfile() {
     document.getElementById('loading').style.display = 'none';
     document.getElementById('content').style.display = 'block';
 
+    // Load follow state + signals+comments (non-blocking)
+    var cid = profile.creator_id || username;
+    loadFollowState(cid);
+    loadSignals(cid);
+
   } catch (err) {
     document.getElementById('loading').style.display = 'none';
     document.getElementById('error').style.display = 'block';
@@ -372,6 +486,153 @@ function shareProfile() {
       setTimeout(function() { btn.textContent = 'Share Profile'; }, 2000);
     });
   }
+}
+
+// ── Follow system ─────────────────────────────────────────────────────────
+
+var _profileCreatorId = null;
+var _isFollowing = false;
+
+function _jwt() {
+  return localStorage.getItem('ta_token') || sessionStorage.getItem('ta_token') || '';
+}
+
+async function loadFollowState(creatorId) {
+  _profileCreatorId = creatorId;
+
+  // Always load follower/following counts (no auth required)
+  try {
+    var [fwRes, fgRes] = await Promise.all([
+      fetch('/creator/' + encodeURIComponent(creatorId) + '/followers?limit=1'),
+      fetch('/creator/' + encodeURIComponent(creatorId) + '/following?limit=1'),
+    ]);
+    if (fwRes.ok && fgRes.ok) {
+      var fw = await fwRes.json();
+      var fg = await fgRes.json();
+      document.getElementById('follower-count').textContent = fw.total || 0;
+      document.getElementById('following-count').textContent = fg.total || 0;
+      document.getElementById('follow-counts').style.display = '';
+    }
+  } catch (e) { /* counts are best-effort */ }
+
+  // Only show follow button if logged-in and viewing someone else's profile
+  var token = _jwt();
+  if (!token) return;
+  try {
+    var meRes = await fetch('/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
+    if (!meRes.ok) return;
+    var me = await meRes.json();
+    if (me.creator_id === creatorId) return; // viewing own profile
+
+    // Check if already following by checking followers list
+    var checkRes = await fetch('/creator/' + encodeURIComponent(creatorId) + '/followers?limit=100');
+    if (checkRes.ok) {
+      var data = await checkRes.json();
+      _isFollowing = data.followers.some(function(f) { return f.creator_id === me.creator_id; });
+    }
+    var btn = document.getElementById('follow-btn');
+    btn.style.display = '';
+    btn.textContent = _isFollowing ? 'Following' : 'Follow';
+    if (_isFollowing) btn.classList.add('following');
+  } catch (e) { /* follow button is best-effort */ }
+}
+
+async function toggleFollow() {
+  var token = _jwt();
+  if (!token || !_profileCreatorId) return;
+  var btn = document.getElementById('follow-btn');
+  btn.disabled = true;
+  try {
+    var method = _isFollowing ? 'DELETE' : 'POST';
+    var res = await fetch('/creator/' + encodeURIComponent(_profileCreatorId) + '/follow', {
+      method: method,
+      headers: { 'Authorization': 'Bearer ' + token },
+    });
+    if (res.ok || res.status === 409) {
+      _isFollowing = !_isFollowing;
+      btn.textContent = _isFollowing ? 'Following' : 'Follow';
+      btn.classList.toggle('following', _isFollowing);
+      // Update count
+      var countEl = document.getElementById('follower-count');
+      var c = parseInt(countEl.textContent) || 0;
+      countEl.textContent = _isFollowing ? c + 1 : Math.max(0, c - 1);
+    }
+  } catch (e) { /* ignore */ }
+  btn.disabled = false;
+}
+
+// ── Signals + comments ────────────────────────────────────────────────────
+
+function _relTime(iso) {
+  var d = new Date(iso), now = Date.now();
+  var s = Math.floor((now - d) / 1000);
+  if (s < 60) return s + 's ago';
+  if (s < 3600) return Math.floor(s/60) + 'm ago';
+  if (s < 86400) return Math.floor(s/3600) + 'h ago';
+  return Math.floor(s/86400) + 'd ago';
+}
+
+async function loadSignals(creatorId) {
+  try {
+    var res = await fetch('/creator/' + encodeURIComponent(creatorId) + '/signals?limit=10');
+    if (!res.ok) return;
+    var data = await res.json();
+    var signals = data.signals || data;
+    if (!signals.length) return;
+
+    var container = document.getElementById('signals-list');
+    var html = '';
+    for (var i = 0; i < signals.length; i++) {
+      var s = signals[i];
+      var outcome = s.outcome || 'pending';
+      var actionCls = s.action ? s.action.toLowerCase() : '';
+      html += '<div class="signal-card">';
+      html += '<div class="signal-card-header">';
+      html += '<span class="signal-card-asset">' + escHtml(s.asset) + '</span>';
+      html += '<span class="signal-card-action ' + actionCls + '">' + escHtml(s.action) + '</span>';
+      html += '<span class="signal-outcome ' + outcome + '">' + (outcome === 'pending' ? 'PENDING' : outcome) + '</span>';
+      html += '</div>';
+      html += '<div class="signal-meta">' + _relTime(s.committed_at) + ' · ' + (s.confidence * 100).toFixed(0) + '% confidence</div>';
+      if (s.reasoning) {
+        html += '<div class="signal-reasoning">' + escHtml(s.reasoning.slice(0, 160)) + (s.reasoning.length > 160 ? '…' : '') + '</div>';
+      }
+      html += '<div class="comments-list" id="comments-' + escHtml(s.signal_id) + '">';
+      html += '<span class="no-comments">Loading comments…</span>';
+      html += '</div>';
+      html += '</div>';
+    }
+    container.innerHTML = html;
+    document.getElementById('signals-section').style.display = '';
+
+    // Load comments for each signal
+    for (var j = 0; j < signals.length; j++) {
+      loadCommentsFor(signals[j].signal_id);
+    }
+  } catch (e) { /* signals section is best-effort */ }
+}
+
+async function loadCommentsFor(signalId) {
+  try {
+    var res = await fetch('/signal/' + encodeURIComponent(signalId) + '/comments?limit=5');
+    var el = document.getElementById('comments-' + signalId);
+    if (!el) return;
+    if (!res.ok) { el.innerHTML = ''; return; }
+    var data = await res.json();
+    if (!data.comments || !data.comments.length) { el.innerHTML = ''; return; }
+    var html = data.comments.map(function(c) {
+      return '<div class="comment-item"><span class="comment-author">' + escHtml(c.display_name) + '</span>' +
+        '<span class="comment-body">' + escHtml(c.body) + '</span>' +
+        '<span class="comment-time">' + _relTime(c.created_at) + '</span></div>';
+    }).join('');
+    el.innerHTML = html;
+  } catch (e) {
+    var el2 = document.getElementById('comments-' + signalId);
+    if (el2) el2.innerHTML = '';
+  }
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 if (username) loadProfile();

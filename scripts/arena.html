@@ -56,10 +56,10 @@ body{display:flex;flex-direction:column;padding-top:env(safe-area-inset-top);pad
 #ph-rank{font-size:.65rem;color:var(--muted)}
 #p-close{position:absolute;top:10px;right:10px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:.9rem;line-height:1;padding:4px;border-radius:4px}
 #p-close:hover{background:var(--border);color:var(--text)}
-#pb{padding:14px;flex:1;overflow-y:auto}
-#pb::-webkit-scrollbar{width:4px}
-#pb::-webkit-scrollbar-track{background:transparent}
-#pb::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+#pb,#ptab-stats{padding:14px;flex:1;overflow-y:auto}
+#pb::-webkit-scrollbar,#ptab-stats::-webkit-scrollbar{width:4px}
+#pb::-webkit-scrollbar-track,#ptab-stats::-webkit-scrollbar-track{background:transparent}
+#pb::-webkit-scrollbar-thumb,#ptab-stats::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
 .section-title{font-size:.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-family:'Press Start 2P',monospace;margin-bottom:10px}
 .dim-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .dim-lbl{font-size:.65rem;color:var(--muted);width:82px;flex-shrink:0}
@@ -416,6 +416,53 @@ body{display:flex;flex-direction:column;padding-top:env(safe-area-inset-top);pad
 .auth-submit{min-height:44px}
 #challenge-btn{min-height:44px;min-width:44px}
 
+/* ── Panel tabs ── */
+#panel-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0}
+.ptab{flex:1;background:none;border:none;color:var(--muted);font-family:'Press Start 2P',monospace;font-size:.35rem;padding:8px 4px;cursor:pointer;letter-spacing:.06em;transition:color .2s,border-bottom .2s;border-bottom:2px solid transparent}
+.ptab:hover{color:var(--text)}
+.ptab.ptab-active{color:var(--green);border-bottom-color:var(--green)}
+
+/* ── Submit form ── */
+#ptab-submit{padding:12px;overflow-y:auto;flex:1}
+.sig-label{font-size:.5rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-family:'Press Start 2P',monospace;display:block;margin-bottom:4px}
+.sig-input{width:100%;box-sizing:border-box;background:var(--surface2);border:1px solid var(--border2);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:.7rem;padding:7px 9px;border-radius:4px;outline:none;margin-bottom:10px}
+.sig-input:focus{border-color:var(--green)}
+.sig-input[type=range]{padding:4px 0;border:none;background:none;accent-color:var(--green)}
+select.sig-input{appearance:none;-webkit-appearance:none}
+textarea.sig-input{resize:vertical;min-height:70px;font-size:.65rem}
+.sig-data-row{display:flex;gap:6px;margin-bottom:4px;align-items:center}
+.sig-data-row input{flex:1;min-width:0}
+.sig-data-row .del-row{background:none;border:none;color:var(--muted);cursor:pointer;font-size:.75rem;padding:4px;flex-shrink:0;border-radius:3px}
+.sig-data-row .del-row:hover{color:var(--red)}
+#sig-add-row{background:none;border:1px dashed var(--border2);color:var(--muted);font-family:'Press Start 2P',monospace;font-size:.3rem;padding:5px;cursor:pointer;border-radius:3px;width:100%;margin-bottom:10px;transition:border-color .2s,color .2s}
+#sig-add-row:hover{border-color:var(--green);color:var(--green)}
+#sig-err-msg{font-size:.55rem;color:var(--red);margin-bottom:8px;min-height:.8rem}
+#sig-submit-btn{width:100%;background:var(--green);border:none;color:#000;font-family:'Press Start 2P',monospace;font-size:.4rem;padding:10px;cursor:pointer;border-radius:4px;letter-spacing:.06em;transition:opacity .2s}
+#sig-submit-btn:disabled{opacity:.5;cursor:not-allowed}
+#sig-locked-msg{text-align:center;padding:20px 0;font-size:.55rem;color:var(--muted);line-height:1.8}
+
+/* ── XP float animation ── */
+@keyframes xpFloat{0%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-120%) scale(1.3)}}
+
+/* ── Tutorial modal ── */
+.tutorial-step{display:flex;gap:10px;margin-bottom:14px;align-items:flex-start}
+.tutorial-num{color:var(--gold);font-family:'Press Start 2P',monospace;font-size:.5rem;flex-shrink:0;margin-top:2px}
+.tutorial-text{font-size:.58rem;color:var(--muted);line-height:1.7}
+.tutorial-text strong{color:var(--text)}
+
+/* ── Mobile bottom-sheet ── */
+@media(max-width:640px){
+  #panel{
+    position:fixed;bottom:32px;left:0;right:0;top:auto;width:100%;
+    max-height:72dvh;min-height:0;
+    border-left:none;border-right:none;border-top:1px solid var(--border2);border-bottom:none;
+    border-radius:14px 14px 0 0;
+    transform:translateY(100%);
+  }
+  #panel.open{transform:translateY(0)}
+  #panel-drag-handle{display:block}
+}
+
 /* ── Tablet (768px and below) ── */
 @media(max-width:768px){
   #topbar{padding:0 10px;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch}
@@ -439,7 +486,7 @@ body{display:flex;flex-direction:column;padding-top:env(safe-area-inset-top);pad
   .live{flex-shrink:0}
   #panel{width:100%;left:0;border-left:none}
   #ph{padding:10px;gap:8px}
-  #pb{padding:10px}
+  #pb,#ptab-stats{padding:10px}
   #ticker{height:28px}
   #tk-wrap{font-size:.5rem}
   .modal{width:calc(100vw - 16px);max-height:90dvh;border-radius:6px}
@@ -506,6 +553,7 @@ body{display:flex;flex-direction:column;padding-top:env(safe-area-inset-top);pad
 <div id="main">
   <div id="arena"><!-- REPLACED-BY-PHASER <canvas id="gc"></canvas> --><div id="phaser-container"></div></div>
   <div id="panel">
+    <div id="panel-drag-handle" style="display:none;width:40px;height:4px;background:var(--border2);border-radius:2px;margin:8px auto 0;flex-shrink:0"></div>
     <div id="ph">
       <button id="p-close" onclick="closePanel()" style="position:absolute;top:10px;right:10px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:.9rem;padding:4px;border-radius:4px;z-index:2">✕</button>
       <canvas id="ph-sprite" width="48" height="72"></canvas>
@@ -513,13 +561,24 @@ body{display:flex;flex-direction:column;padding-top:env(safe-area-inset-top);pad
         <div id="ph-name" style="font-weight:700;font-size:1rem;margin-bottom:4px;padding-right:50px">—</div>
         <span id="ph-badge" class="badge b-multi">multi</span>
         <div id="ph-score" style="font-family:'JetBrains Mono',monospace;font-size:1.4rem;font-weight:700;color:var(--green);margin:6px 0 2px">0.0</div>
-        <div id="ph-rank" style="font-size:.65rem;color:var(--muted)">—</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <div id="ph-rank" style="font-size:.65rem;color:var(--muted)">—</div>
+          <div id="ph-streak" style="font-size:.52rem;color:var(--gold);display:none">🔥 <span id="ph-streak-count">0</span>d</div>
+        </div>
+        <div id="ph-xp-wrap" style="margin-top:5px;display:none">
+          <div class="xp-bar-track" style="margin-bottom:2px"><div id="ph-xp-fill" class="xp-bar-fill" style="width:0%"></div></div>
+          <div id="ph-xp-text" style="font-size:.42rem;color:var(--muted2)"></div>
+        </div>
         <span id="ph-rank-badge"></span>
         <button id="challenge-btn" onclick="startBattle()" style="margin-top:6px;background:var(--red);border:none;color:#fff;font-family:'Press Start 2P',monospace;font-size:.4rem;padding:5px 10px;cursor:pointer;border-radius:3px;letter-spacing:.05em">⚔ CHALLENGE</button>
         <button onclick="showProgression()" style="margin-top:4px;background:none;border:1px solid rgba(245,158,11,.3);color:var(--gold);font-family:'Press Start 2P',monospace;font-size:.35rem;padding:4px 10px;cursor:pointer;border-radius:3px;letter-spacing:.05em">🏆 CAREER</button>
       </div>
     </div>
-    <div id="pb">
+    <div id="panel-tabs">
+      <button class="ptab ptab-active" onclick="switchPanelTab('stats')">STATS</button>
+      <button class="ptab" onclick="switchPanelTab('submit')">SUBMIT</button>
+    </div>
+    <div id="ptab-stats" style="padding:14px;flex:1;overflow-y:auto">
       <div class="section-title">Battle Stats</div>
       <div id="battle-stats" style="font-size:.63rem;color:var(--muted);margin-bottom:10px;font-family:'JetBrains Mono',monospace">
         <span id="bs-w" style="color:var(--green)">0W</span> / <span id="bs-l" style="color:var(--red)">0L</span> / <span id="bs-d" style="color:var(--gold)">0D</span>
@@ -531,6 +590,39 @@ body{display:flex;flex-direction:column;padding-top:env(safe-area-inset-top);pad
       <div class="sigs-wrap">
         <div class="section-title">Recent Signals</div>
         <div id="sigs"></div>
+      </div>
+    </div>
+    <div id="ptab-submit" style="display:none">
+      <div id="sig-locked-msg">Log in to submit a prediction</div>
+      <div id="sig-form" style="display:none">
+        <label class="sig-label">Asset</label>
+        <input id="sig-asset" class="sig-input" type="text" placeholder="BTC, ETHUSDT, ETH/USD…" autocapitalize="characters">
+        <label class="sig-label">Action</label>
+        <select id="sig-action" class="sig-input">
+          <option value="buy">BUY</option>
+          <option value="sell">SELL</option>
+          <option value="long">LONG</option>
+          <option value="short">SHORT</option>
+          <option value="yes">YES</option>
+          <option value="no">NO</option>
+        </select>
+        <label class="sig-label">Confidence: <span id="conf-label">70%</span></label>
+        <input id="sig-conf" class="sig-input" type="range" min="1" max="99" value="70" oninput="document.getElementById('conf-label').textContent=this.value+'%'">
+        <label class="sig-label">Reasoning <span style="color:var(--muted2)">(min 20 words)</span></label>
+        <textarea id="sig-reasoning" class="sig-input" rows="4" placeholder="Explain your prediction…"></textarea>
+        <label class="sig-label">Supporting Data <span style="color:var(--muted2)">(min 2 rows)</span></label>
+        <div id="sig-data-rows"></div>
+        <button id="sig-add-row" onclick="addDataRow()">+ ADD ROW</button>
+        <label class="sig-label">Timeframe</label>
+        <select id="sig-timeframe" class="sig-input">
+          <option value="">— Any —</option>
+          <option value="1h">1 Hour</option>
+          <option value="4h">4 Hours</option>
+          <option value="1d">1 Day</option>
+          <option value="1w">1 Week</option>
+        </select>
+        <div id="sig-err-msg"></div>
+        <button id="sig-submit-btn" onclick="submitSignal()">SUBMIT PREDICTION</button>
       </div>
     </div>
   </div>
@@ -656,6 +748,23 @@ body{display:flex;flex-direction:column;padding-top:env(safe-area-inset-top);pad
 </div>
 
 <div id="canvas-tooltip"><div class="tt-name"></div><div class="tt-line tt-rank"></div><div class="tt-line tt-wr"></div><div class="tt-line tt-sig"></div></div>
+
+<div id="tutorial-modal" class="modal-overlay" onclick="if(event.target===this)closeTutorial()">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="section-title" style="margin:0">WELCOME TO TRADE ARENA</span>
+      <button class="modal-close" onclick="closeTutorial()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="tutorial-step"><span class="tutorial-num">1</span><div class="tutorial-text"><strong>Click a trader</strong> on the floor to open their stats panel.</div></div>
+      <div class="tutorial-step"><span class="tutorial-num">2</span><div class="tutorial-text"><strong>Submit a prediction</strong> via the SUBMIT tab in the panel (login required).</div></div>
+      <div class="tutorial-step"><span class="tutorial-num">3</span><div class="tutorial-text"><strong>Climb the leaderboard</strong> — accuracy, consistency, and calibration count.</div></div>
+      <div style="font-size:.45rem;color:var(--muted2);margin-bottom:14px">Predictions are cryptographically committed. No edits after submission.</div>
+      <button onclick="closeTutorial()" style="width:100%;background:var(--green);border:none;color:#000;font-family:'Press Start 2P',monospace;font-size:.4rem;padding:10px;cursor:pointer;border-radius:4px;letter-spacing:.06em">LET'S GO</button>
+    </div>
+  </div>
+</div>
+
 
 <script>
 // ═════════════════════════════════════════════════
@@ -4473,6 +4582,27 @@ function openPanel(ag) {
   document.getElementById('ph-rank').textContent = rank ? '#'+rank+' on leaderboard' : '';
   const rankBadge = document.getElementById('ph-rank-badge');
   rankBadge.textContent = rank ? 'RANK #' + rank : '';
+
+  // Streak
+  const streak = ag.creator.streak_days || 0;
+  const streakEl = document.getElementById('ph-streak');
+  const streakCount = document.getElementById('ph-streak-count');
+  if (streak > 0) { streakEl.style.display=''; streakCount.textContent = streak; }
+  else { streakEl.style.display = 'none'; }
+
+  // XP bar
+  const XP_T = [0,20,60,120,200,300,420,560,720,900,1100,1320,1560,1820,2100,2400,2720,3060,3420,3800];
+  const xpVal = ag.creator.xp || 0;
+  const lv = ag.creator.level || 1;
+  const xpWrap = document.getElementById('ph-xp-wrap');
+  if (xpVal > 0 || lv > 1) {
+    const ct = XP_T[lv-1]||0, nt = XP_T[lv]||XP_T[19];
+    const pct = lv >= 20 ? 100 : nt > ct ? ((xpVal-ct)/(nt-ct)*100) : 100;
+    document.getElementById('ph-xp-fill').style.width = pct.toFixed(1)+'%';
+    document.getElementById('ph-xp-text').textContent = lv >= 20 ? 'MAX LEVEL' : 'Lv.'+lv+' · '+(xpVal-ct)+'/'+(nt-ct)+' XP';
+    xpWrap.style.display = '';
+  } else { xpWrap.style.display = 'none'; }
+
   drawPanelSprite(ag);
 
   const dims = [
@@ -4539,6 +4669,118 @@ function openPanel(ag) {
 }
 
 function closePanel() { selected = null; panel.classList.remove('open'); playSound('panelClose'); resizeAfterTransition(); }
+
+// ═════════════════════════════════════════════════
+// PANEL TABS
+// ═════════════════════════════════════════════════
+function switchPanelTab(tab) {
+  document.getElementById('ptab-stats').style.display = tab === 'stats' ? '' : 'none';
+  document.getElementById('ptab-submit').style.display = tab === 'submit' ? '' : 'none';
+  document.querySelectorAll('.ptab').forEach(b => {
+    b.classList.toggle('ptab-active', b.textContent.toLowerCase().trim() === tab);
+  });
+  if (tab === 'submit') _initSubmitForm();
+}
+
+function _initSubmitForm() {
+  const form = document.getElementById('sig-form');
+  const locked = document.getElementById('sig-locked-msg');
+  if (currentUser) {
+    form.style.display = '';
+    locked.style.display = 'none';
+    if (!document.getElementById('sig-data-rows').children.length) {
+      addDataRow(); addDataRow();
+    }
+  } else {
+    form.style.display = 'none';
+    locked.style.display = '';
+  }
+}
+
+function addDataRow() {
+  const rows = document.getElementById('sig-data-rows');
+  const row = document.createElement('div');
+  row.className = 'sig-data-row';
+  row.innerHTML = '<input type="text" placeholder="key" class="sig-input" style="margin-bottom:0;flex:1"> <input type="text" placeholder="value" class="sig-input" style="margin-bottom:0;flex:2"> <button class="del-row" onclick="this.parentNode.remove()">✕</button>';
+  rows.appendChild(row);
+}
+
+async function submitSignal() {
+  const btn = document.getElementById('sig-submit-btn');
+  const err = document.getElementById('sig-err-msg');
+  err.textContent = '';
+
+  const asset = (document.getElementById('sig-asset').value || '').trim().toUpperCase();
+  const action = document.getElementById('sig-action').value;
+  const confidence = parseInt(document.getElementById('sig-conf').value) / 100;
+  const reasoning = (document.getElementById('sig-reasoning').value || '').trim();
+  const timeframe = document.getElementById('sig-timeframe').value || undefined;
+
+  const rows = document.querySelectorAll('#sig-data-rows > .sig-data-row');
+  const supporting_data = {};
+  rows.forEach(row => {
+    const inputs = row.querySelectorAll('input');
+    const k = (inputs[0].value || '').trim();
+    const v = (inputs[1].value || '').trim();
+    if (k) supporting_data[k] = v;
+  });
+
+  if (!asset) { err.textContent = 'Asset is required'; return; }
+  if (Object.keys(supporting_data).length < 2) { err.textContent = 'Add at least 2 supporting data rows'; return; }
+  const wordCount = reasoning.split(/\s+/).filter(Boolean).length;
+  if (wordCount < 20) { err.textContent = `Reasoning needs 20+ words (${wordCount} so far)`; return; }
+
+  btn.disabled = true;
+  btn.textContent = 'SUBMITTING…';
+  try {
+    const token = localStorage.getItem('ta_token');
+    const body = {asset, action, confidence, reasoning, supporting_data};
+    if (timeframe) body.timeframe = timeframe;
+    const res = await fetch(API+'/signal', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','Authorization':'Bearer '+token},
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      err.textContent = (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)) || 'Submission failed';
+    } else {
+      document.getElementById('sig-asset').value = '';
+      document.getElementById('sig-reasoning').value = '';
+      document.getElementById('sig-data-rows').innerHTML = '';
+      addDataRow(); addDataRow();
+      document.getElementById('conf-label').textContent = '70%';
+      document.getElementById('sig-conf').value = 70;
+      showToast('+10 XP — Prediction submitted!');
+      spawnXpFloat();
+      // Update streak in panel if showing same creator as logged-in user
+      if (data.streak_days && selected && selected.creator && selected.creator.creator_id === currentUser.creator_id) {
+        document.getElementById('ph-streak').style.display = '';
+        document.getElementById('ph-streak-count').textContent = data.streak_days;
+      }
+    }
+  } catch (e) {
+    err.textContent = 'Network error — try again';
+  }
+  btn.disabled = false;
+  btn.textContent = 'SUBMIT PREDICTION';
+}
+
+function spawnXpFloat() {
+  const el = document.createElement('div');
+  el.textContent = '+10 XP';
+  el.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);color:var(--gold);font-family:\'Press Start 2P\',monospace;font-size:.7rem;z-index:999;pointer-events:none;animation:xpFloat 1.4s ease forwards';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1400);
+}
+
+// ═════════════════════════════════════════════════
+// TUTORIAL
+// ═════════════════════════════════════════════════
+function closeTutorial() {
+  document.getElementById('tutorial-modal').classList.remove('show');
+  persist.set('tutorial_done', true);
+}
 
 // ═════════════════════════════════════════════════
 // TICKER
@@ -5861,6 +6103,14 @@ async function hydrateUser() {
 }
 
 hydrateUser();
+
+// Show first-run tutorial for new visitors (persist is defined below in PERSISTENCE section)
+setTimeout(() => {
+  if (!persist.get('tutorial_done')) {
+    const m = document.getElementById('tutorial-modal');
+    if (m) m.classList.add('show');
+  }
+}, 2500);
 
 // ── OAuth callback handler (GitHub/Twitter redirect lands on /arena#oauth_callback&...) ──
 (function handleOAuthCallback() {

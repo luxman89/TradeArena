@@ -15,6 +15,7 @@ services:
       - .env
     environment:
       DATABASE_URL: postgresql://tradearena:${POSTGRES_PASSWORD}@postgres:5432/tradearena
+      REDIS_URL: redis://redis:6379/0
       ENFORCE_HTTPS: ${ENFORCE_HTTPS:-0}
       CORS_ORIGINS: ${CORS_ORIGINS:-https://tradearena.duckdns.org,https://www.tradearena.duckdns.org}
     healthcheck:
@@ -25,6 +26,8 @@ services:
       retries: 3
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     restart: unless-stopped
     networks:
@@ -91,8 +94,23 @@ services:
     networks:
       - internal
 
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - internal
+
 volumes:
   pgdata:
+  redisdata:
   certbot-webroot:
   certbot-certs:
 

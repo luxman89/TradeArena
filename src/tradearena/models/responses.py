@@ -22,6 +22,9 @@ class LeaderboardEntry(BaseModel):
     consistency: float
     confidence_calibration: float
     total_signals: int
+    xp: int = 0
+    level: int = 1
+    streak_days: int = 0
 
 
 class LeaderboardResponse(BaseModel):

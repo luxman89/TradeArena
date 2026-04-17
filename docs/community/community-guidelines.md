@@ -57,7 +57,7 @@ Contributors who merge a PR earn the Contributor role in Discord.
 
 - **Discord:** Ask in #general or DM an admin
 - **GitHub Issues:** https://github.com/luxman89/TradeArena/issues
-- **Email:** (TBD — add when available)
+- **Email:** hello@tradearena.io
 
 ---
 

@@ -447,7 +447,9 @@ footer a:hover { color: var(--white); }
     <button class="tab" data-div="crypto">Crypto</button>
     <button class="tab" data-div="polymarket">Polymarket</button>
     <button class="tab" data-div="multi">Multi</button>
+    <button class="tab" data-div="season" style="color:#F59E0B;border-color:rgba(245,158,11,.4)">🔥 Season</button>
   </div>
+  <div id="season-label" style="display:none;font-size:.75rem;color:#F59E0B;margin:4px 0 8px;padding:0 .25rem"></div>
 
   <div class="refresh-bar">
     <span id="total-count">&mdash;</span>
@@ -576,7 +578,57 @@ footer a:hover { color: var(--white); }
     return html;
   }
 
+  function renderSeasonTable(data) {
+    var entries = data.entries || [];
+    var seasonLbl = document.getElementById('season-label');
+    if (seasonLbl) { seasonLbl.textContent = data.season_label || ''; seasonLbl.style.display = ''; }
+    if (!entries.length) {
+      return '<div class="empty-state"><p>No resolved predictions this week yet.</p><p>Submit a prediction and be the first on the season board.</p></div>';
+    }
+    var html = '<div class="table-wrap"><table>';
+    html += '<thead><tr><th>#</th><th>Creator</th><th>Season W/R</th><th>Wins</th><th>Resolved</th><th>All-Time Score</th><th>Streak</th></tr></thead><tbody>';
+    entries.forEach(function(e, i) {
+      var rank = i + 1;
+      var rankClass = rank <= 3 ? ' rank-' + rank : '';
+      html += '<tr>';
+      html += '<td class="rank-cell' + rankClass + '">' + rank + '</td>';
+      html += '<td class="name-cell"><a href="/creator/' + encodeURIComponent(e.creator_id) + '">' + escapeHtml(e.display_name) + '</a>';
+      if (e.division) html += '<span class="division-badge ' + escapeHtml(e.division) + '">' + escapeHtml(e.division) + '</span>';
+      html += '</td>';
+      html += '<td class="score-cell score-high">' + pct(e.season_win_rate) + '</td>';
+      html += '<td class="dim-cell">' + e.season_wins + '</td>';
+      html += '<td class="dim-cell">' + e.season_resolved + '</td>';
+      html += '<td class="dim-cell">' + e.composite_score.toFixed(4) + '</td>';
+      html += '<td class="dim-cell">' + (e.streak_days > 0 ? '🔥' + e.streak_days + 'd' : '—') + '</td>';
+      html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+    return html;
+  }
+
   function fetchLeaderboard() {
+    var seasonLbl = document.getElementById('season-label');
+    if (seasonLbl) seasonLbl.style.display = 'none';
+
+    if (currentDivision === 'season') {
+      fetch('/leaderboard/season?limit=' + MAX_ENTRIES)
+        .then(function(resp) {
+          if (!resp.ok) throw new Error('API error: ' + resp.status);
+          return resp.json();
+        })
+        .then(function(data) {
+          document.getElementById('table-container').innerHTML = renderSeasonTable(data);
+          document.getElementById('total-count').textContent = (data.total || 0) + ' active this week';
+          document.getElementById('last-updated').textContent = 'Updated ' + new Date().toLocaleTimeString();
+        })
+        .catch(function(err) {
+          console.error('Season leaderboard fetch error:', err);
+          document.getElementById('table-container').innerHTML =
+            '<div class="empty-state"><p>Unable to load season board. Retrying...</p></div>';
+        });
+      return;
+    }
+
     var url = currentDivision === 'all'
       ? '/leaderboard?limit=' + MAX_ENTRIES
       : '/leaderboard/' + currentDivision + '?limit=' + MAX_ENTRIES;

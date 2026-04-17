@@ -349,6 +349,159 @@ uv publish --publish-url https://test.pypi.org/legacy/ --token pypi-your-test-to
 
 ---
 
+---
+
+## 6. Redis Down
+
+### Symptoms
+
+- `/health` reports `"redis": "error"`
+- Rate limit state resets on next request (in-memory fallback activates)
+- JWT logout revocations are not persisted across app restarts
+
+### Diagnosis
+
+```bash
+# Check Redis container
+docker compose -f docker-compose.prod.yml logs --tail=50 redis
+
+# Manual ping
+docker compose -f docker-compose.prod.yml exec redis redis-cli ping
+```
+
+### Resolution
+
+**Restart Redis** (data is persisted to volume via AOF):
+```bash
+docker compose -f docker-compose.prod.yml restart redis
+```
+
+**Impact while Redis is down**: The app falls back to in-memory rate limiting (lost on restart) and in-memory JWT blacklist (logout tokens survive only until next restart). No user data is affected.
+
+**If Redis volume is corrupted**:
+```bash
+docker compose -f docker-compose.prod.yml stop redis
+docker volume rm tradearena_redisdata  # WARNING: clears cached rate-limit state
+docker compose -f docker-compose.prod.yml up -d redis
+```
+
+Rate-limit and JWT blacklist state is rebuilt automatically on the next requests. No user-visible data loss.
+
+---
+
+## 7. Anthropic API Down
+
+### Symptoms
+
+- `POST /signal/reasoning` returns 502 or 503
+- App logs show `anthropic` client errors
+
+### Diagnosis
+
+```bash
+docker compose -f docker-compose.prod.yml logs --tail=100 app | grep -i "anthropic\|reasoning"
+```
+
+Check [https://status.anthropic.com](https://status.anthropic.com) for ongoing incidents.
+
+### Resolution
+
+The reasoning endpoint is non-critical. The rest of the platform (signal submission, leaderboard, oracle) is unaffected.
+
+1. **Communicate**: Post a status update on Discord (`#announcements`).
+2. **Wait for upstream recovery** — do not restart the app, it will not help.
+3. **Once recovered**: reasoning endpoint resumes automatically. No backfill needed.
+
+Optional — disable the endpoint temporarily to suppress confusing errors:
+```bash
+# Set ANTHROPIC_API_KEY="" in .env, then rebuild
+docker compose -f docker-compose.prod.yml up -d --build app
+```
+
+---
+
+## 8. GDPR Data Deletion Request (Art. 17)
+
+A creator requests deletion of their account and all associated data.
+
+**SLA target**: 30 days (Art. 17(1) GDPR). Aim for 5 business days.
+
+### Steps
+
+1. **Verify identity**: Creator must confirm via the registered email address (or OAuth provider). Reply to the deletion request from `privacy@tradearena.io` (or the registered contact address). Ask them to reply from their registered email.
+
+2. **Confirm scope**: Standard deletion covers: account record, signals, scores, comments, follows, battle records, API keys, email preferences. Backups are purged at next rotation (within 7 days).
+
+3. **Run the deletion** (as admin):
+```bash
+# Connect to the running app container
+docker compose -f docker-compose.prod.yml exec app python3 - <<'EOF'
+from tradearena.db.database import SessionLocal, CreatorORM, SignalORM, CreatorScoreORM
+from tradearena.db.database import FollowORM, SignalCommentORM
+
+CREATOR_ID = "REPLACE_WITH_CREATOR_ID"
+
+db = SessionLocal()
+try:
+    # Delete in dependency order
+    db.query(SignalCommentORM).filter(SignalCommentORM.creator_id == CREATOR_ID).delete()
+    db.query(FollowORM).filter(
+        (FollowORM.follower_id == CREATOR_ID) | (FollowORM.followed_id == CREATOR_ID)
+    ).delete()
+    db.query(CreatorScoreORM).filter(CreatorScoreORM.creator_id == CREATOR_ID).delete()
+    db.query(SignalORM).filter(SignalORM.creator_id == CREATOR_ID).delete()
+    db.query(CreatorORM).filter(CreatorORM.id == CREATOR_ID).delete()
+    db.commit()
+    print("Deleted:", CREATOR_ID)
+finally:
+    db.close()
+EOF
+```
+
+4. **Confirm deletion**: Send the creator a written confirmation with the date. Log the event in `deploy/gdpr-deletions.log` (date, creator_id, confirmation email).
+
+5. **Backup rotation**: The next nightly backup will not contain the deleted data. Backups older than 7 days are automatically pruned by `deploy/backup.sh`.
+
+**Note on signals**: Signals are cryptographically committed (SHA-256). The commitment hash remains in any audit log but contains no PII. The creator's display name and email are deleted. This satisfies Art. 17 — hashes are not personal data.
+
+---
+
+## 9. Harmful Signal / Content Report
+
+A user reports a signal containing harmful, misleading, or harmful content.
+
+**Target response**: Acknowledge within 24h, resolve within 72h.
+
+### Steps
+
+1. **Assess the report**: Does the signal violate ToS? (financial advice framing, market manipulation intent, personal attacks, spam.) Signals are prediction entries — "Buy BTC" is not harmful. "BTC will crash because I'll sell my holdings" could be.
+
+2. **Do not delete the signal** (it is append-only by design). Instead, flag the creator account:
+```bash
+docker compose -f docker-compose.prod.yml exec app python3 - <<'EOF'
+from tradearena.db.database import SessionLocal, CreatorORM
+
+CREATOR_ID = "REPLACE_WITH_CREATOR_ID"
+db = SessionLocal()
+try:
+    creator = db.query(CreatorORM).filter(CreatorORM.id == CREATOR_ID).first()
+    if creator:
+        creator.is_active = False  # Prevents new signals and hides from leaderboard
+        db.commit()
+        print("Flagged:", CREATOR_ID)
+finally:
+    db.close()
+EOF
+```
+
+3. **Respond to reporter**: Acknowledge receipt within 24h. State that the content is under review. Do not reveal the action taken.
+
+4. **If escalation needed**: Contact a BaFin-aware lawyer if the report involves potential MiFID II violations or market manipulation claims. Log the consultation.
+
+5. **DSA compliance**: Under the Digital Services Act, document the decision and rationale. Store in `deploy/content-reports/YYYY-MM-DD-<report-id>.md`.
+
+---
+
 ## Quick Reference
 
 | Scenario | First action | Escalation |
@@ -356,6 +509,10 @@ uv publish --publish-url https://test.pypi.org/legacy/ --token pypi-your-test-to
 | Oracle not resolving | `curl -X POST localhost:8000/oracle/resolve` | Restart app container |
 | Bots not generating signals | Restart app container | Check bot registration in DB |
 | Database unreachable | Check postgres container logs | Restore from backup |
+| Redis unreachable | Restart Redis container | Check volume, recreate if corrupted |
+| Anthropic API down | Check status.anthropic.com | Post Discord notice, wait for recovery |
+| GDPR deletion request | Verify identity, run deletion script | Legal review if creator disputes |
+| Harmful content report | Flag creator account | Legal review for MiFID/DSA issues |
 | Bad deployment | `git checkout <good-commit>` + rebuild | Downgrade alembic migration |
 | App won't start | Check `docker compose logs app` | Verify `.env` and DB connectivity |
 | SSL cert expired | `bash deploy/setup-hetzner.sh --ssl` | Check certbot logs |
@@ -364,7 +521,8 @@ uv publish --publish-url https://test.pypi.org/legacy/ --token pypi-your-test-to
 
 | Endpoint | Purpose |
 |----------|---------|
-| `GET /health` | Application health check |
+| `GET /health` | Application health check (DB + Redis status) |
+| `GET /status` | Public status page |
 | `GET /oracle/status` | Pending signals and next resolution times |
 | `POST /oracle/resolve` | Manual oracle trigger |
 | `GET /leaderboard/{division}` | Verify leaderboard data |

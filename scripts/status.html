@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Status — TradeArena</title>
+<style>
+  :root { --bg:#0f0f19;--bg2:#1a1a2e;--accent:#00c896;--text:#e0e0e8;--muted:#78788a;--border:#2a2a40;--card:#16162a; }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh; }
+  nav { background:var(--bg2);border-bottom:1px solid var(--border);padding:12px 20px; }
+  nav a { color:var(--accent);font-weight:700;font-size:18px;text-decoration:none; }
+  .container { max-width:700px;margin:0 auto;padding:40px 20px; }
+  h1 { font-size:28px;font-weight:700;margin-bottom:6px; }
+  .subtitle { color:var(--muted);font-size:14px;margin-bottom:32px; }
+  .status-card { background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px; }
+  .status-row { display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border); }
+  .status-row:last-child { border-bottom:none; }
+  .status-name { font-size:15px; }
+  .status-badge { padding:3px 12px;border-radius:20px;font-size:13px;font-weight:600; }
+  .badge-ok { background:rgba(34,197,94,0.12);color:#22c55e; }
+  .badge-warn { background:rgba(234,179,8,0.12);color:#eab308; }
+  .badge-error { background:rgba(239,68,68,0.12);color:#ef4444; }
+  .badge-loading { background:rgba(120,120,138,0.12);color:var(--muted); }
+  .updated { font-size:12px;color:var(--muted);margin-top:8px; }
+  .summary-bar { display:flex;align-items:center;gap:10px;margin-bottom:24px;padding:16px 20px;background:var(--card);border:1px solid var(--border);border-radius:12px; }
+  .summary-dot { width:14px;height:14px;border-radius:50%;flex-shrink:0; }
+  .summary-text { font-size:15px;font-weight:600; }
+  .section-title { font-size:16px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;margin-top:24px; }
+</style>
+</head>
+<body>
+<nav><a href="/">TradeArena</a></nav>
+<div class="container">
+  <h1>System Status</h1>
+  <p class="subtitle">Real-time health of TradeArena services</p>
+
+  <div class="summary-bar" id="summary-bar">
+    <div class="summary-dot" id="summary-dot" style="background:var(--muted)"></div>
+    <span class="summary-text" id="summary-text">Checking…</span>
+  </div>
+
+  <div class="section-title">Core Services</div>
+  <div class="status-card">
+    <div class="status-row">
+      <span class="status-name">API</span>
+      <span class="status-badge badge-loading" id="badge-api">Checking…</span>
+    </div>
+    <div class="status-row">
+      <span class="status-name">Database</span>
+      <span class="status-badge badge-loading" id="badge-db">Checking…</span>
+    </div>
+    <div class="status-row">
+      <span class="status-name">Cache (Redis)</span>
+      <span class="status-badge badge-loading" id="badge-redis">Checking…</span>
+    </div>
+    <div class="status-row">
+      <span class="status-name">Oracle Resolver</span>
+      <span class="status-badge badge-loading" id="badge-oracle">Checking…</span>
+    </div>
+  </div>
+
+  <div class="section-title">Background Jobs</div>
+  <div class="status-card">
+    <div class="status-row">
+      <span class="status-name">Signal Bots</span>
+      <span class="status-badge badge-loading" id="badge-bots">Checking…</span>
+    </div>
+    <div class="status-row">
+      <span class="status-name">Pending Signals</span>
+      <span class="status-badge badge-loading" id="badge-pending">Checking…</span>
+    </div>
+  </div>
+
+  <p class="updated" id="updated-at"></p>
+</div>
+
+<script>
+async function refresh() {
+  var now = new Date().toLocaleTimeString();
+  document.getElementById('updated-at').textContent = 'Last checked: ' + now;
+
+  var allOk = true;
+  var anyError = false;
+
+  // Health endpoint
+  try {
+    var hRes = await fetch('/health');
+    var h = await hRes.json();
+    setBadge('badge-api', h.status === 'ok' ? 'ok' : 'error', h.status === 'ok' ? 'Operational' : 'Degraded');
+    setBadge('badge-db', h.database === 'ok' ? 'ok' : 'error', h.database === 'ok' ? 'Operational' : (h.database || 'Error'));
+    setBadge('badge-redis', h.redis === 'ok' ? 'ok' : (h.redis === 'unavailable' ? 'warn' : 'error'),
+      h.redis === 'ok' ? 'Operational' : (h.redis === 'unavailable' ? 'Not configured' : (h.redis || 'Error')));
+    if (h.status !== 'ok' || h.database !== 'ok') { anyError = true; allOk = false; }
+    if (h.redis && h.redis !== 'ok' && h.redis !== 'unavailable') { anyError = true; allOk = false; }
+  } catch (e) {
+    setBadge('badge-api', 'error', 'Unreachable');
+    setBadge('badge-db', 'error', 'Unknown');
+    setBadge('badge-redis', 'error', 'Unknown');
+    allOk = false; anyError = true;
+  }
+
+  // Oracle status
+  try {
+    var oRes = await fetch('/oracle/status');
+    if (oRes.ok) {
+      var o = await oRes.json();
+      var pending = o.pending_count || 0;
+      setBadge('badge-oracle', 'ok', 'Operational');
+      setBadge('badge-pending', pending > 50 ? 'warn' : 'ok', pending + ' pending');
+      setBadge('badge-bots', 'ok', 'Running');
+    } else {
+      setBadge('badge-oracle', 'warn', 'Status unknown');
+      setBadge('badge-pending', 'warn', '—');
+      setBadge('badge-bots', 'warn', 'Unknown');
+      allOk = false;
+    }
+  } catch (e) {
+    setBadge('badge-oracle', 'error', 'Unreachable');
+    setBadge('badge-pending', 'error', 'Unknown');
+    setBadge('badge-bots', 'error', 'Unknown');
+    allOk = false; anyError = true;
+  }
+
+  // Summary
+  var dot = document.getElementById('summary-dot');
+  var txt = document.getElementById('summary-text');
+  if (anyError) {
+    dot.style.background = '#ef4444';
+    txt.textContent = 'Some services are experiencing issues';
+  } else if (!allOk) {
+    dot.style.background = '#eab308';
+    txt.textContent = 'Degraded performance — investigating';
+  } else {
+    dot.style.background = '#22c55e';
+    txt.textContent = 'All systems operational';
+  }
+}
+
+function setBadge(id, cls, text) {
+  var el = document.getElementById(id);
+  el.className = 'status-badge badge-' + cls;
+  el.textContent = text;
+}
+
+refresh();
+setInterval(refresh, 30000);
+</script>
+</body>
+</html>
