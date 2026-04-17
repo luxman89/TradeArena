@@ -143,32 +143,42 @@ class TradeArenaClient:
         supporting_data: dict[str, Any],
         model: str = "claude-haiku-4-5-20251001",
     ) -> str:
-        """Use Claude to generate high-quality reasoning for a signal.
+        """[DEPRECATED] Use the server-side POST /signal/reasoning endpoint instead.
 
-        Requires ANTHROPIC_API_KEY in the environment.
-        Returns a reasoning string guaranteed to be >= 20 words.
+        Client-side reasoning generation is deprecated because it requires you to hold
+        an ANTHROPIC_API_KEY locally, and the generated text is not disclosed as
+        AI-assisted when submitted. The server endpoint handles both concerns.
+
+        Migration:
+            resp = self._http_post("/signal/reasoning", {
+                "asset": symbol, "action": action, "supporting_data": supporting_data
+            })
+            return resp["reasoning"]  # also sets ai_assisted=True on the signal
         """
-        try:
-            import anthropic
-        except ImportError:
-            raise RuntimeError("anthropic package required. Install: pip install anthropic")
+        import warnings
 
-        client = anthropic.Anthropic()
-        data_summary = "\n".join(f"  {k}: {v}" for k, v in supporting_data.items())
-        prompt = (
-            f"You are a trading analyst. Generate concise, factual reasoning for the "
-            f"following signal. Be specific and reference the provided data.\n\n"
-            f"Symbol: {symbol}\n"
-            f"Action: {action}\n"
-            f"Supporting data:\n{data_summary}\n\n"
-            f"Write 2-4 sentences of reasoning. Do not use bullet points."
+        warnings.warn(
+            "TradeArenaClient.generate_reasoning() is deprecated and will be removed in a "
+            "future release. Use the server-side POST /signal/reasoning endpoint instead. "
+            "It handles the Anthropic API key securely and marks the reasoning as AI-assisted.",
+            DeprecationWarning,
+            stacklevel=2,
         )
-        message = client.messages.create(
-            model=model,
-            max_tokens=256,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return message.content[0].text.strip()
+
+        if not _HTTPX_AVAILABLE:
+            raise RuntimeError("httpx is required. Install: pip install httpx")
+
+        if not self.api_key:
+            raise RuntimeError("api_key required to call the server-side reasoning endpoint")
+
+        with __import__("httpx").Client(timeout=self.timeout) as client:
+            resp = client.post(
+                f"{self.base_url}/signal/reasoning",
+                json={"asset": symbol, "action": action, "supporting_data": supporting_data},
+                headers={"X-API-Key": self.api_key},
+            )
+            resp.raise_for_status()
+            return resp.json()["reasoning"]
 
     # ------------------------------------------------------------------
     # calculate_confidence — heuristic

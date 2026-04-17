@@ -5,15 +5,16 @@ from __future__ import annotations
 import base64
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
-from tradearena.db.database import CreatorORM, CreatorScoreORM, get_db
+from tradearena.db.database import CreatorORM, CreatorScoreORM, SignalORM, get_db
 from tradearena.models.responses import LeaderboardDivisionResponse, LeaderboardResponse
 
 router = APIRouter()
 
 VALID_DIVISIONS = {"crypto", "polymarket", "multi"}
+MIN_RESOLVED_FOR_LEADERBOARD = 20
 
 
 def _format_entry(creator: CreatorORM) -> dict:
@@ -85,9 +86,17 @@ async def get_leaderboard(
     Supports both offset-based and cursor-based pagination. When `cursor` is
     provided, `offset` is ignored and keyset pagination is used instead.
     """
+    resolved_subq = (
+        db.query(SignalORM.creator_id, func.count(SignalORM.signal_id).label("cnt"))
+        .filter(SignalORM.outcome.isnot(None))
+        .group_by(SignalORM.creator_id)
+        .subquery()
+    )
     query = (
         db.query(CreatorORM)
         .outerjoin(CreatorScoreORM, CreatorORM.id == CreatorScoreORM.creator_id)
+        .join(resolved_subq, CreatorORM.id == resolved_subq.c.creator_id)
+        .filter(resolved_subq.c.cnt >= MIN_RESOLVED_FOR_LEADERBOARD)
         .order_by(CreatorScoreORM.composite_score.desc().nullslast(), CreatorORM.id)
     )
 
@@ -99,7 +108,13 @@ async def get_leaderboard(
         query = query.offset(offset)
 
     creators = query.limit(limit).all()
-    total = db.query(CreatorORM).count()
+    total = (
+        db.query(func.count(CreatorORM.id))
+        .join(resolved_subq, CreatorORM.id == resolved_subq.c.creator_id)
+        .filter(resolved_subq.c.cnt >= MIN_RESOLVED_FOR_LEADERBOARD)
+        .scalar()
+        or 0
+    )
 
     next_cursor = None
     if creators:
@@ -138,10 +153,18 @@ async def get_leaderboard_division(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"division must be one of {sorted(VALID_DIVISIONS)}",
         )
+    resolved_subq = (
+        db.query(SignalORM.creator_id, func.count(SignalORM.signal_id).label("cnt"))
+        .filter(SignalORM.outcome.isnot(None))
+        .group_by(SignalORM.creator_id)
+        .subquery()
+    )
     query = (
         db.query(CreatorORM)
         .filter(CreatorORM.division == division)
         .outerjoin(CreatorScoreORM, CreatorORM.id == CreatorScoreORM.creator_id)
+        .join(resolved_subq, CreatorORM.id == resolved_subq.c.creator_id)
+        .filter(resolved_subq.c.cnt >= MIN_RESOLVED_FOR_LEADERBOARD)
         .order_by(CreatorScoreORM.composite_score.desc().nullslast(), CreatorORM.id)
     )
 
@@ -153,7 +176,14 @@ async def get_leaderboard_division(
         query = query.offset(offset)
 
     creators = query.limit(limit).all()
-    total = db.query(CreatorORM).filter(CreatorORM.division == division).count()
+    total = (
+        db.query(func.count(CreatorORM.id))
+        .filter(CreatorORM.division == division)
+        .join(resolved_subq, CreatorORM.id == resolved_subq.c.creator_id)
+        .filter(resolved_subq.c.cnt >= MIN_RESOLVED_FOR_LEADERBOARD)
+        .scalar()
+        or 0
+    )
 
     next_cursor = None
     if creators:

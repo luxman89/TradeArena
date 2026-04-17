@@ -103,6 +103,41 @@ def submit_signal(client: TestClient, api_key: str, **overrides) -> dict:
     return resp.json() if resp.status_code == 201 else {"_status": resp.status_code, **resp.json()}
 
 
+def _seed_resolved_signals(creator_id: str, count: int = 20) -> None:
+    """Directly insert resolved WIN signals to meet the leaderboard minimum floor."""
+    import uuid
+    from datetime import UTC, datetime
+
+    now = datetime.now(UTC)
+    db = TestingSessionLocal()
+    try:
+        for i in range(count):
+            db.add(
+                SignalORM(
+                    signal_id=uuid.uuid4().hex,
+                    creator_id=creator_id,
+                    asset="BTCUSDT",
+                    action="long",
+                    confidence=0.75,
+                    reasoning=(
+                        "Test resolved prediction with sufficient word count for validation seed "
+                        + str(i)
+                    ),
+                    supporting_data={"rsi": 62.0, "volume": "high"},
+                    commitment_hash=hashlib.sha256(
+                        f"{creator_id}-resolved-{i}".encode()
+                    ).hexdigest(),
+                    committed_at=now,
+                    outcome="WIN",
+                    outcome_price=50000.0,
+                    outcome_at=now,
+                )
+            )
+        db.commit()
+    finally:
+        db.close()
+
+
 # ---------------------------------------------------------------------------
 # Happy-path: full pipeline
 # ---------------------------------------------------------------------------
@@ -184,6 +219,7 @@ class TestFullPipeline:
 
     def test_creator_appears_on_leaderboard(self, client):
         creator = register_creator(client)
+        _seed_resolved_signals(creator["creator_id"], count=20)
         submit_signal(client, creator["api_key"])
         resp = client.get("/leaderboard")
         assert resp.status_code == 200
@@ -193,6 +229,7 @@ class TestFullPipeline:
 
     def test_creator_appears_on_division_leaderboard(self, client):
         creator = register_creator(client)
+        _seed_resolved_signals(creator["creator_id"], count=20)
         submit_signal(client, creator["api_key"])
         resp = client.get("/leaderboard/crypto")
         assert resp.status_code == 200
@@ -203,6 +240,8 @@ class TestFullPipeline:
     def test_multiple_creators_on_leaderboard(self, client):
         c1 = register_creator(client, email="a@example.com", display_name="Creator Alpha")
         c2 = register_creator(client, email="b@example.com", display_name="Creator Bravo")
+        _seed_resolved_signals(c1["creator_id"], count=20)
+        _seed_resolved_signals(c2["creator_id"], count=20)
         submit_signal(client, c1["api_key"])
         submit_signal(client, c2["api_key"])
         resp = client.get("/leaderboard")
@@ -436,18 +475,19 @@ class TestLeaderboardEdgeCases:
 
     def test_leaderboard_total_signals_reflects_submissions(self, client):
         creator = register_creator(client)
+        _seed_resolved_signals(creator["creator_id"], count=20)
         submit_signal(client, creator["api_key"])
         submit_signal(client, creator["api_key"])
         submit_signal(client, creator["api_key"])
         resp = client.get("/leaderboard")
         entries = resp.json()["entries"]
         entry = next(e for e in entries if e["creator_id"] == creator["creator_id"])
-        assert entry["total_signals"] == 3
+        assert entry["total_signals"] == 3  # score row tracks API-submitted signals only
 
     def test_creator_without_signals_on_leaderboard(self, client):
-        """A registered creator with zero signals still appears on the leaderboard."""
+        """A creator with fewer than 20 resolved signals does NOT appear on the leaderboard."""
         creator = register_creator(client)
         resp = client.get("/leaderboard")
         assert resp.status_code == 200
         ids = [e["creator_id"] for e in resp.json()["entries"]]
-        assert creator["creator_id"] in ids
+        assert creator["creator_id"] not in ids

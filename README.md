@@ -1,12 +1,17 @@
 # TradeArena
 
-A signal-tracking platform where traders submit cryptographically committed predictions that are scored across five dimensions. Features an interactive NYSE trading floor UI built with Phaser 3.
+> **Disclaimer.** TradeArena is a public skill competition for market predictions.
+> Rankings and predictions are **not investment advice**, not a solicitation to trade,
+> and not a forecast of future results. Creators submit predictions to be scored;
+> nothing here should be acted upon as a trading recommendation.
+
+A signal-tracking platform where traders submit cryptographically committed predictions that are scored across four dimensions. Features an interactive NYSE trading floor UI built with Phaser 3.
 
 ## Features
 
 - **Signal submission** — traders submit buy/sell/yes/no/long/short predictions with confidence levels and reasoning
 - **Cryptographic commitment** — SHA-256 hash of signal fields + nonce for tamper-proof audit trail
-- **Five-dimension scoring** — Win Rate (25%), Risk-Adjusted Return (25%), Reasoning Quality (20%), Consistency (20%), Confidence Calibration (10%)
+- **Four-dimension scoring** — Win Rate (30%), Risk-Adjusted Return (30%), Consistency (25%), Confidence Calibration (15%)
 - **Interactive trading floor** — Phaser 3 rendered NYSE-style environment with animated traders, leaderboard screens, battle mode, day/night cycle
 - **Python SDK** — validate and submit signals programmatically, with optional Claude Haiku-powered reasoning generation
 
@@ -79,6 +84,12 @@ uv run pytest tests/ -v --tb=short
 uv run ruff check src/ sdk/ tests/
 uv run ruff format src/ sdk/ tests/
 ```
+
+## Community
+
+Join the TradeArena Discord: **https://discord.gg/Cjjtfj7qEb**
+
+Connect with other traders, get help with the SDK, share strategies, and stay updated with the latest features.
 
 ## Environment Variables
 

@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import os
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from tradearena.api.deps import require_admin_token
 from tradearena.api.ws import manager
 from tradearena.core.metrics import collector
 from tradearena.db.database import (
@@ -21,18 +21,10 @@ from tradearena.db.database import (
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
-
-
-def _check_admin(token: str = Query(alias="token", default="")) -> None:
-    """Simple token-based admin auth. Set ADMIN_TOKEN env var in production."""
-    if ADMIN_TOKEN and token != ADMIN_TOKEN:
-        raise HTTPException(status_code=403, detail="Invalid admin token")
-
 
 @router.get("/metrics", summary="Full monitoring metrics")
 def get_metrics(
-    _: None = Depends(_check_admin),
+    _: None = Depends(require_admin_token),
     db: Session = Depends(get_db),
 ) -> dict:
     """Aggregated metrics: signal volume, resolver stats, error rates, system health."""
@@ -146,7 +138,7 @@ def get_metrics(
 
 @router.get("/audit-log", summary="Query audit log")
 def get_audit_log(
-    _: None = Depends(_check_admin),
+    _: None = Depends(require_admin_token),
     db: Session = Depends(get_db),
     actor: str | None = Query(None, description="Filter by actor"),
     action: str | None = Query(None, description="Filter by action type"),

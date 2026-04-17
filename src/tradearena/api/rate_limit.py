@@ -27,7 +27,7 @@ SIGNAL_RATE = 10
 SIGNAL_WINDOW = 3600  # 10 signals per hour
 
 _AUTH_PATHS = {"/auth/register", "/auth/login", "/auth/github/callback"}
-_SKIP_PATHS = {"/ws", "/health"}
+_SKIP_PATHS = {"/ws"}
 
 
 def _client_ip(request: Request) -> str:

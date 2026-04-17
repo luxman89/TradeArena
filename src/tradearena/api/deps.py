@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import os
 
 import jwt
-from fastapi import Depends, HTTPException, Security, status
+from fastapi import Depends, Header, HTTPException, Security, status
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -33,6 +34,32 @@ if SECRET_KEY == _DEFAULT_SECRET or SECRET_KEY == "change-me-in-production":
         "TRADEARENA_SECRET_KEY is using the default insecure value — "
         "do NOT use this in production. Set a strong random key."
     )
+
+
+def require_admin_token(authorization: str = Header(default="")) -> None:
+    """Bearer-token gate for admin and oracle endpoints.
+
+    Requires ADMIN_TOKEN env var (>= 32 chars). Fails hard at 503 if the env
+    var is absent or too short — ensures misconfig is loud, not silent.
+    Uses hmac.compare_digest to prevent timing-oracle attacks.
+    """
+    expected = os.getenv("ADMIN_TOKEN", "")
+    if not expected or len(expected) < 32:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Admin access not configured on this server",
+        )
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authorization: Bearer <token> required",
+        )
+    token = authorization[7:]
+    if not hmac.compare_digest(token, expected):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid admin token",
+        )
 
 
 def _hash_key(raw_key: str) -> str:

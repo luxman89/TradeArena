@@ -28,7 +28,7 @@ from tradearena.core.exchanges import (
     fetch_klines_with_fallback,
     fetch_price_with_fallback,
 )
-from tradearena.db.database import SignalORM
+from tradearena.db.database import AuditLogORM, SignalORM
 from tradearena.models.signal import Outcome
 
 logger = logging.getLogger(__name__)
@@ -291,6 +291,19 @@ async def resolve_pending_signals(db: Session) -> dict[str, int]:
                 signal.outcome = outcome
                 signal.outcome_price = outcome_price
                 signal.outcome_at = outcome_at
+                db.add(AuditLogORM(
+                    actor="oracle",
+                    action="signal.outcome_resolved",
+                    target=signal.signal_id,
+                    timestamp=outcome_at,
+                    metadata_={
+                        "outcome": outcome,
+                        "outcome_price": outcome_price,
+                        "commitment_hash": signal.commitment_hash,
+                        "asset": signal.asset,
+                        "creator_id": signal.creator_id,
+                    },
+                ))
                 stats["resolved"] += 1
 
                 # Courtesy throttle between exchange requests
@@ -302,9 +315,22 @@ async def resolve_pending_signals(db: Session) -> dict[str, int]:
                     signal.signal_id,
                     signal.asset,
                 )
+                delisted_at = datetime.now(UTC)
                 signal.outcome = Outcome.NEUTRAL
                 signal.outcome_price = 0.0
-                signal.outcome_at = datetime.now(UTC)
+                signal.outcome_at = delisted_at
+                db.add(AuditLogORM(
+                    actor="oracle",
+                    action="signal.outcome_resolved_delisted",
+                    target=signal.signal_id,
+                    timestamp=delisted_at,
+                    metadata_={
+                        "outcome": Outcome.NEUTRAL,
+                        "asset": signal.asset,
+                        "creator_id": signal.creator_id,
+                        "reason": "delisted",
+                    },
+                ))
                 stats["delisted"] += 1
 
             except Exception:

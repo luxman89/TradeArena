@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from tradearena.api.deps import require_admin_token
 from tradearena.core.oracle import parse_timeframe, resolve_pending_signals
 from tradearena.db.database import SignalORM, get_db
 from tradearena.models.responses import OracleResolveResponse, OracleStatusResponse
@@ -19,7 +20,10 @@ router = APIRouter(prefix="/oracle", tags=["oracle"])
     response_model=OracleResolveResponse,
     summary="Trigger oracle resolution",
 )
-async def trigger_resolve(db: Session = Depends(get_db)) -> dict:
+async def trigger_resolve(
+    _: None = Depends(require_admin_token),
+    db: Session = Depends(get_db),
+) -> dict:
     """Manually trigger oracle resolution of pending signals."""
     stats = await resolve_pending_signals(db)
     return stats
@@ -30,7 +34,10 @@ async def trigger_resolve(db: Session = Depends(get_db)) -> dict:
     response_model=OracleStatusResponse,
     summary="Get oracle status",
 )
-async def oracle_status(db: Session = Depends(get_db)) -> dict:
+async def oracle_status(
+    _: None = Depends(require_admin_token),
+    db: Session = Depends(get_db),
+) -> dict:
     """Show pending signal count and next eligible resolution times."""
     now = datetime.now(UTC)
     pending = db.query(SignalORM).filter(SignalORM.outcome.is_(None)).all()

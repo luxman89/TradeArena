@@ -27,6 +27,7 @@ from tradearena.api.routes import (
     matchmaking,
     oracle,
     profiles,
+    reasoning,
     schedules,
     signals,
     social,
@@ -496,12 +497,17 @@ missed messages. Events: `signal_new`, `signals_resolved`, `leaderboard_updated`
 | `NEUTRAL` | Neither target nor stop-loss reached |
 """
 
+_is_prod = os.getenv("ENFORCE_HTTPS", "").strip() == "1"
+
 app = FastAPI(
     title="TradeArena",
     description=_APP_DESCRIPTION,
     version="0.1.0",
     lifespan=lifespan,
     openapi_tags=_OPENAPI_TAGS,
+    docs_url=None if _is_prod else "/docs",
+    redoc_url=None if _is_prod else "/redoc",
+    openapi_url=None if _is_prod else "/openapi.json",
 )
 
 # ---------------------------------------------------------------------------
@@ -523,6 +529,9 @@ elif _cors_env:
 else:
     _cors_origins = _PRODUCTION_ORIGINS
     _cors_credentials = True
+
+if _is_prod and _cors_origins == ["*"]:
+    raise RuntimeError("CORS_ORIGINS=* is not permitted when ENFORCE_HTTPS=1")
 
 app.add_middleware(
     CORSMiddleware,
@@ -562,6 +571,8 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
             response.headers["Strict-Transport-Security"] = (
                 "max-age=63072000; includeSubDomains; preload"
             )
+        if "server" in response.headers:
+            del response.headers["server"]
         return response
 
 
@@ -637,6 +648,7 @@ app.include_router(webhooks.router)
 app.include_router(marketplace.router)
 app.include_router(schedules.router)
 app.include_router(social.router, tags=["social"])
+app.include_router(reasoning.router)
 
 # Serve static assets (sprites, tilesets, etc.)
 _ASSETS_DIR = _SCRIPTS_DIR / "assets"
@@ -645,6 +657,9 @@ if _ASSETS_DIR.is_dir():
 
 
 _RULES_HTML = _SCRIPTS_DIR / "rules.html"
+_TERMS_HTML = _SCRIPTS_DIR / "terms.html"
+_PRIVACY_HTML = _SCRIPTS_DIR / "privacy.html"
+_RISK_HTML = _SCRIPTS_DIR / "risk.html"
 
 
 @app.get("/rules", include_in_schema=False)
@@ -655,6 +670,27 @@ async def rules_page() -> FileResponse:
         media_type="text/html",
         headers={"Cache-Control": "no-cache, must-revalidate"},
     )
+
+
+@app.get("/terms", include_in_schema=False)
+async def terms_page() -> FileResponse:
+    """Serve Terms of Service."""
+    return FileResponse(_TERMS_HTML, media_type="text/html",
+                        headers={"Cache-Control": "no-cache, must-revalidate"})
+
+
+@app.get("/privacy", include_in_schema=False)
+async def privacy_page() -> FileResponse:
+    """Serve Privacy Policy."""
+    return FileResponse(_PRIVACY_HTML, media_type="text/html",
+                        headers={"Cache-Control": "no-cache, must-revalidate"})
+
+
+@app.get("/risk", include_in_schema=False)
+async def risk_page() -> FileResponse:
+    """Serve Risk Disclosure."""
+    return FileResponse(_RISK_HTML, media_type="text/html",
+                        headers={"Cache-Control": "no-cache, must-revalidate"})
 
 
 @app.get("/", include_in_schema=False)

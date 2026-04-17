@@ -60,11 +60,12 @@ class SignalCreate(BaseModel):
     reasoning: str = Field(
         ...,
         min_length=1,
-        description="Analysis justifying the signal — minimum 20 words",
+        max_length=10_000,
+        description="Analysis justifying the signal — minimum 20 words, maximum 10,000 characters",
     )
     supporting_data: dict[str, Any] = Field(
         ...,
-        description="Evidence backing the signal — minimum 2 keys required",
+        description="Evidence backing the signal — minimum 2 keys, maximum 20 keys",
     )
     target_price: float | None = Field(
         None,
@@ -122,11 +123,29 @@ class SignalCreate(BaseModel):
             raise ValueError(f"reasoning must be at least 20 words (got {len(words)})")
         return v
 
+    @field_validator("asset")
+    @classmethod
+    def asset_format(cls, v: str) -> str:
+        if not re.match(r"^[A-Z0-9/.\-]{1,20}$", v):
+            raise ValueError(
+                "asset must contain only uppercase letters, digits, /, ., or - (e.g. BTC/USDT)"
+            )
+        return v
+
+    @field_validator("timeframe")
+    @classmethod
+    def timeframe_valid(cls, v: str | None) -> str | None:
+        if v is not None and v not in {"1h", "4h", "1d", "1w"}:
+            raise ValueError(f"timeframe must be one of: 1h, 4h, 1d, 1w (got {v!r})")
+        return v
+
     @field_validator("supporting_data")
     @classmethod
     def supporting_data_min_keys(cls, v: dict) -> dict:
         if len(v) < 2:
             raise ValueError(f"supporting_data must have at least 2 keys (got {len(v)})")
+        if len(v) > 20:
+            raise ValueError(f"supporting_data must have at most 20 keys (got {len(v)})")
         return v
 
     @model_validator(mode="after")
