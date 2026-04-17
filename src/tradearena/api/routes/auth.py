@@ -340,9 +340,7 @@ async def logout(
             detail="Authorization header with Bearer token is required",
         )
     try:
-        payload = _jwt.decode(
-            credentials.credentials, SECRET_KEY, algorithms=[JWT_ALGORITHM]
-        )
+        payload = _jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[JWT_ALGORITHM])
         jti = payload.get("jti", "")
         exp = payload.get("exp", 0)
         if jti:

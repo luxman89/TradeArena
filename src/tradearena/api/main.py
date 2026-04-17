@@ -678,22 +678,27 @@ async def rules_page() -> FileResponse:
 @app.get("/terms", include_in_schema=False)
 async def terms_page() -> FileResponse:
     """Serve Terms of Service."""
-    return FileResponse(_TERMS_HTML, media_type="text/html",
-                        headers={"Cache-Control": "no-cache, must-revalidate"})
+    return FileResponse(
+        _TERMS_HTML, media_type="text/html", headers={"Cache-Control": "no-cache, must-revalidate"}
+    )
 
 
 @app.get("/privacy", include_in_schema=False)
 async def privacy_page() -> FileResponse:
     """Serve Privacy Policy."""
-    return FileResponse(_PRIVACY_HTML, media_type="text/html",
-                        headers={"Cache-Control": "no-cache, must-revalidate"})
+    return FileResponse(
+        _PRIVACY_HTML,
+        media_type="text/html",
+        headers={"Cache-Control": "no-cache, must-revalidate"},
+    )
 
 
 @app.get("/risk", include_in_schema=False)
 async def risk_page() -> FileResponse:
     """Serve Risk Disclosure."""
-    return FileResponse(_RISK_HTML, media_type="text/html",
-                        headers={"Cache-Control": "no-cache, must-revalidate"})
+    return FileResponse(
+        _RISK_HTML, media_type="text/html", headers={"Cache-Control": "no-cache, must-revalidate"}
+    )
 
 
 @app.get("/", include_in_schema=False)
@@ -928,5 +933,6 @@ _STATUS_HTML = _SCRIPTS_DIR / "status.html"
 @app.get("/status", include_in_schema=False)
 async def status_page() -> FileResponse:
     """Serve the public status page."""
-    return FileResponse(_STATUS_HTML, media_type="text/html",
-                        headers={"Cache-Control": "no-cache, must-revalidate"})
+    return FileResponse(
+        _STATUS_HTML, media_type="text/html", headers={"Cache-Control": "no-cache, must-revalidate"}
+    )

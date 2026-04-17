@@ -154,9 +154,7 @@ async def get_season_leaderboard(
         db.query(
             SignalORM.creator_id,
             func.count(SignalORM.signal_id).label("resolved"),
-            func.sum(
-                func.cast(SignalORM.outcome == "WIN", Integer)
-            ).label("wins"),
+            func.sum(func.cast(SignalORM.outcome == "WIN", Integer)).label("wins"),
         )
         .filter(
             SignalORM.committed_at >= season_start,
@@ -185,18 +183,20 @@ async def get_season_leaderboard(
     entries = []
     for creator, wins, resolved in rows:
         score = creator.score
-        entries.append({
-            "creator_id": creator.id,
-            "display_name": creator.display_name,
-            "division": creator.division,
-            "discord_id": creator.discord_id,
-            "season_wins": int(wins or 0),
-            "season_resolved": int(resolved or 0),
-            "season_win_rate": round((wins or 0) / resolved, 4) if resolved else 0.0,
-            "composite_score": round(score.composite_score, 4) if score else 0.0,
-            "level": score.level if score else 1,
-            "streak_days": creator.streak_days or 0,
-        })
+        entries.append(
+            {
+                "creator_id": creator.id,
+                "display_name": creator.display_name,
+                "division": creator.division,
+                "discord_id": creator.discord_id,
+                "season_wins": int(wins or 0),
+                "season_resolved": int(resolved or 0),
+                "season_win_rate": round((wins or 0) / resolved, 4) if resolved else 0.0,
+                "composite_score": round(score.composite_score, 4) if score else 0.0,
+                "level": score.level if score else 1,
+                "streak_days": creator.streak_days or 0,
+            }
+        )
 
     return {
         "season_label": season_label(season_start),

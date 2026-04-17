@@ -215,9 +215,7 @@ class SignalRateLimiter:
         now = time.monotonic()
         if _redis_available:
             try:
-                allowed, _ = _redis_check(
-                    f"rl:signal:{creator_id}", self.rate, self.window, now
-                )
+                allowed, _ = _redis_check(f"rl:signal:{creator_id}", self.rate, self.window, now)
                 if not allowed:
                     raise HTTPException(
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
