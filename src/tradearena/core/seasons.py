@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 
 def current_season_bounds() -> tuple[datetime, datetime]:
     """Return (season_start, season_end) for the current ISO week."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     days_since_monday = now.weekday()  # 0 = Monday
     season_start = (now - timedelta(days=days_since_monday)).replace(
         hour=0, minute=0, second=0, microsecond=0
