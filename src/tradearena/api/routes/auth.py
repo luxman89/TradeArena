@@ -236,6 +236,7 @@ async def register(body: RegisterRequest, db: Session = Depends(get_db)) -> dict
 
     api_key = f"ta-{secrets.token_hex(16)}"
     api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+    api_key_hash_v2 = _bcrypt.hashpw(api_key.encode(), _bcrypt.gensalt()).decode()
 
     now = datetime.now(UTC)
     unsub_token = generate_unsubscribe_token()
@@ -246,6 +247,7 @@ async def register(body: RegisterRequest, db: Session = Depends(get_db)) -> dict
         email=body.email,
         strategy_description=body.strategy_description,
         api_key_hash=api_key_hash,
+        api_key_hash_v2=api_key_hash_v2,
         password_hash=_bcrypt.hashpw(body.password.encode(), _bcrypt.gensalt()).decode(),
         avatar_index=body.avatar_index,
         unsubscribe_token=unsub_token,
@@ -704,6 +706,7 @@ async def github_callback(
 
     api_key = f"ta-{secrets.token_hex(16)}"
     api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+    api_key_hash_v2 = _bcrypt.hashpw(api_key.encode(), _bcrypt.gensalt()).decode()
     now = datetime.now(UTC)
 
     creator = CreatorORM(
@@ -712,6 +715,7 @@ async def github_callback(
         division=body.division,
         email=gh_email.lower() if gh_email else None,
         api_key_hash=api_key_hash,
+        api_key_hash_v2=api_key_hash_v2,
         github_id=gh_id,
         github_username=gh_username,
         avatar_index=0,
@@ -834,6 +838,7 @@ async def github_callback_redirect(
 
         api_key = f"ta-{secrets.token_hex(16)}"
         api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+        api_key_hash_v2 = _bcrypt.hashpw(api_key.encode(), _bcrypt.gensalt()).decode()
         now = datetime.now(UTC)
 
         creator = CreatorORM(
@@ -842,6 +847,7 @@ async def github_callback_redirect(
             division="crypto",
             email=gh_email.lower() if gh_email else None,
             api_key_hash=api_key_hash,
+            api_key_hash_v2=api_key_hash_v2,
             github_id=gh_id,
             github_username=gh_username,
             avatar_index=0,
@@ -1061,6 +1067,7 @@ async def google_callback(
 
     api_key = f"ta-{secrets.token_hex(16)}"
     api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+    api_key_hash_v2 = _bcrypt.hashpw(api_key.encode(), _bcrypt.gensalt()).decode()
     now = datetime.now(UTC)
 
     creator = CreatorORM(
@@ -1069,6 +1076,7 @@ async def google_callback(
         division=body.division,
         email=g_email.lower() if g_email else None,
         api_key_hash=api_key_hash,
+        api_key_hash_v2=api_key_hash_v2,
         google_id=g_id,
         avatar_index=0,
         created_at=now,
@@ -1288,6 +1296,7 @@ async def twitter_callback(
 
     api_key = f"ta-{secrets.token_hex(16)}"
     api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+    api_key_hash_v2 = _bcrypt.hashpw(api_key.encode(), _bcrypt.gensalt()).decode()
     now = datetime.now(UTC)
 
     creator = CreatorORM(
@@ -1295,6 +1304,7 @@ async def twitter_callback(
         display_name=display_name,
         division=body.division,
         api_key_hash=api_key_hash,
+        api_key_hash_v2=api_key_hash_v2,
         twitter_id=tw_id,
         twitter_handle=tw_handle,
         avatar_index=0,
@@ -1508,6 +1518,7 @@ async def discord_callback(
 
     api_key = f"ta-{secrets.token_hex(16)}"
     api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+    api_key_hash_v2 = _bcrypt.hashpw(api_key.encode(), _bcrypt.gensalt()).decode()
     now = datetime.now(UTC)
 
     creator = CreatorORM(
@@ -1516,6 +1527,7 @@ async def discord_callback(
         division=body.division,
         email=d_email.lower() if d_email else None,
         api_key_hash=api_key_hash,
+        api_key_hash_v2=api_key_hash_v2,
         discord_id=d_id,
         discord_username=d_username,
         avatar_index=0,

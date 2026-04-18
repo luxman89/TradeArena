@@ -68,6 +68,9 @@ class CreatorORM(Base):
     # In production this is null and api_key_hash is used for authentication.
     api_key_dev = Column(String(128), nullable=True)
     api_key_hash = Column(String(64), nullable=True)
+    # bcrypt hash of API key — replaces SHA-256 api_key_hash for brute-force resistance.
+    # Migrated lazily on next successful auth; fully populated by rotate_api_keys.py.
+    api_key_hash_v2 = Column(String(128), nullable=True)
     email = Column(String(256), nullable=True)
     strategy_description = Column(Text, nullable=True)
     password_hash = Column(String(128), nullable=True)  # bcrypt; NULL for bots

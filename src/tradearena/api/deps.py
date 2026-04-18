@@ -8,6 +8,7 @@ import logging
 import os
 import uuid
 
+import bcrypt as _bcrypt
 import jwt
 from fastapi import Depends, Header, HTTPException, Security, status
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
@@ -191,13 +192,33 @@ async def require_api_key(
 
     from tradearena.db.database import CreatorORM
 
+    # Dev plaintext path (seed data only — null in production)
     creator = db.query(CreatorORM).filter(CreatorORM.api_key_dev == api_key).first()
-    if not creator:
-        key_hash = _hash_key(api_key)
-        creator = db.query(CreatorORM).filter(CreatorORM.api_key_hash == key_hash).first()
+    if creator:
+        return creator.id
+
+    # Look up by SHA-256 (indexed; bcrypt cannot be used for DB lookup)
+    key_hash = _hash_key(api_key)
+    creator = db.query(CreatorORM).filter(CreatorORM.api_key_hash == key_hash).first()
     if not creator:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Invalid or unknown API key",
         )
+
+    # Verify v2 (bcrypt) when present; lazy-upgrade to v2 when absent
+    if creator.api_key_hash_v2:
+        if not _bcrypt.checkpw(api_key.encode(), creator.api_key_hash_v2.encode()):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Invalid or unknown API key",
+            )
+    else:
+        # SHA-256 match confirmed above — write bcrypt hash for next time
+        creator.api_key_hash_v2 = _bcrypt.hashpw(api_key.encode(), _bcrypt.gensalt()).decode()
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+
     return creator.id
