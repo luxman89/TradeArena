@@ -256,3 +256,38 @@ class SignalRateLimiter:
 
 # Module-level singleton so all requests share the same window state.
 signal_rate_limiter = SignalRateLimiter()
+
+# Per-IP registration cap: 10 signups per 24 hours
+SIGNUP_IP_RATE = 10
+SIGNUP_IP_WINDOW = 86400  # 24 hours in seconds
+
+_signup_hits: dict[str, list[float]] = defaultdict(list)
+
+
+def check_signup_ip_cap(ip: str) -> None:
+    """Raise HTTP 429 if this IP has exceeded the signup registration cap."""
+    now = time.monotonic()
+    if _redis_available:
+        try:
+            allowed, _ = _redis_check(f"rl:signup:{ip}", SIGNUP_IP_RATE, SIGNUP_IP_WINDOW, now)
+            if not allowed:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="Too many registrations from this IP. Try again later.",
+                    headers={"Retry-After": str(SIGNUP_IP_WINDOW)},
+                )
+            return
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.warning("Redis signup IP cap check failed (%s), using in-memory", exc)
+
+    hits = _signup_hits[ip]
+    _prune(hits, now - SIGNUP_IP_WINDOW)
+    if len(hits) >= SIGNUP_IP_RATE:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many registrations from this IP. Try again later.",
+            headers={"Retry-After": str(SIGNUP_IP_WINDOW)},
+        )
+    hits.append(now)

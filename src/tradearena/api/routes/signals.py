@@ -48,6 +48,12 @@ async def emit_signal(
             detail=f"Creator '{creator_id}' not found. Register first.",
         )
 
+    if creator.password_hash and not creator.email_verified_at:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Email address not verified. Check your inbox for a verification link.",
+        )
+
     raw = payload.model_dump()
     raw["creator_id"] = creator_id
     raw["action"] = raw["action"].value  # enum → string for hashing

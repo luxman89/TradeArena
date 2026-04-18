@@ -6,7 +6,7 @@ import importlib
 
 import pytest
 
-from tradearena.api.rate_limit import RateLimitMiddleware, signal_rate_limiter
+from tradearena.api.rate_limit import RateLimitMiddleware, _signup_hits, signal_rate_limiter
 
 # Skip discord test files when discord.py is not installed (it's an optional dep)
 collect_ignore_glob = []
@@ -43,5 +43,8 @@ def _reset_rate_limiters():
 
     # Also reset the signal rate limiter singleton
     signal_rate_limiter._hits.clear()
+
+    # Reset per-IP signup cap
+    _signup_hits.clear()
 
     yield

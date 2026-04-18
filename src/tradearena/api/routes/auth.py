@@ -14,7 +14,7 @@ from urllib.parse import quote, urlencode
 import bcrypt as _bcrypt
 import httpx
 import jwt as _jwt
-from fastapi import APIRouter, Depends, HTTPException, Query, Security, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Security, status
 from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, field_validator
@@ -80,6 +80,9 @@ DISCORD_REDIRECT_URI = os.getenv(
     os.getenv("BASE_URL", "https://tradearena.duckdns.org") + "/auth/discord/callback",
 )
 
+HCAPTCHA_SECRET = os.getenv("HCAPTCHA_SECRET", "")
+_HCAPTCHA_VERIFY_URL = "https://api.hcaptcha.com/siteverify"
+
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 _VALID_DIVISIONS = {"crypto", "polymarket", "multi"}
@@ -95,6 +98,80 @@ def list_providers():
         "twitter": bool(TWITTER_CLIENT_ID and TWITTER_CLIENT_SECRET),
         "google": bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET),
     }
+
+
+async def _verify_hcaptcha(token: str) -> None:
+    """Verify hCaptcha token. No-op when HCAPTCHA_SECRET is unset (dev bypass)."""
+    if not HCAPTCHA_SECRET:
+        return
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="hCaptcha token is required",
+        )
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            resp = await client.post(
+                _HCAPTCHA_VERIFY_URL,
+                data={"secret": HCAPTCHA_SECRET, "response": token},
+            )
+        data = resp.json()
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="hCaptcha verification service unavailable",
+        )
+    if not data.get("success"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="hCaptcha verification failed",
+        )
+
+
+async def _send_verification_email(email: str, token: str) -> None:
+    """Send email verification link via SendGrid. Best-effort — log on failure."""
+    from tradearena.core.email import (
+        BASE_URL,
+        SENDGRID_API_KEY,
+        SENDGRID_API_URL,
+        SENDGRID_FROM_EMAIL,
+        SENDGRID_FROM_NAME,
+    )
+
+    if not SENDGRID_API_KEY:
+        _logger.info("SENDGRID_API_KEY not set — skipping verification email to %s", email)
+        return
+    verify_url = f"{BASE_URL}/auth/verify-email?token={token}"
+    payload = {
+        "personalizations": [{"to": [{"email": email}]}],
+        "from": {"email": SENDGRID_FROM_EMAIL, "name": SENDGRID_FROM_NAME},
+        "subject": "Verify your TradeArena email",
+        "content": [
+            {
+                "type": "text/plain",
+                "value": (
+                    f"Click to verify your email:\n{verify_url}\n\nThis link expires in 24 hours."
+                ),
+            },
+            {
+                "type": "text/html",
+                "value": (
+                    f"<p>Click below to verify your TradeArena email address:</p>"
+                    f'<p><a href="{verify_url}">Verify Email</a></p>'
+                    f"<p>This link expires in 24 hours.</p>"
+                ),
+            },
+        ],
+    }
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            await client.post(
+                SENDGRID_API_URL,
+                json=payload,
+                headers={"Authorization": f"Bearer {SENDGRID_API_KEY}"},
+            )
+    except Exception as exc:
+        _logger.warning("Failed to send verification email to %s: %s", email, exc)
 
 
 def _slugify(text: str) -> str:
@@ -117,6 +194,7 @@ class RegisterRequest(BaseModel):
     division: str
     strategy_description: str
     avatar_index: int = 0
+    hcaptcha_token: str = ""
 
     @field_validator("email")
     @classmethod
@@ -219,10 +297,25 @@ class AvatarUpdateRequest(BaseModel):
     summary="Register with email and password",
     responses={
         409: {"description": "Email already registered"},
+        422: {"description": "hCaptcha verification failed"},
+        429: {"description": "Too many registrations from this IP"},
     },
 )
-async def register(body: RegisterRequest, db: Session = Depends(get_db)) -> dict:
+async def register(
+    body: RegisterRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> dict:
     """Register a new creator with email + password. Returns JWT + API key."""
+    from tradearena.api.rate_limit import _client_ip, check_signup_ip_cap
+
+    # Per-IP registration cap (before any DB work)
+    ip = _client_ip(request)
+    check_signup_ip_cap(ip)
+
+    # hCaptcha verification (bypassed when HCAPTCHA_SECRET unset in dev)
+    await _verify_hcaptcha(body.hcaptcha_token)
+
     if db.query(CreatorORM).filter(CreatorORM.email == body.email).first():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -240,6 +333,7 @@ async def register(body: RegisterRequest, db: Session = Depends(get_db)) -> dict
 
     now = datetime.now(UTC)
     unsub_token = generate_unsubscribe_token()
+    verify_token = secrets.token_hex(32)
     creator = CreatorORM(
         id=creator_id,
         display_name=body.display_name,
@@ -251,6 +345,8 @@ async def register(body: RegisterRequest, db: Session = Depends(get_db)) -> dict
         password_hash=_bcrypt.hashpw(body.password.encode(), _bcrypt.gensalt()).decode(),
         avatar_index=body.avatar_index,
         unsubscribe_token=unsub_token,
+        email_verify_token=verify_token,
+        email_verified_at=None,
         created_at=now,
     )
     db.add(creator)
@@ -266,6 +362,8 @@ async def register(body: RegisterRequest, db: Session = Depends(get_db)) -> dict
         metadata={"division": body.division, "email": body.email},
     )
 
+    await _send_verification_email(body.email, verify_token)
+
     token = create_jwt(creator_id)
 
     return {
@@ -279,6 +377,34 @@ async def register(body: RegisterRequest, db: Session = Depends(get_db)) -> dict
         "xp": 0,
         "created_at": now.isoformat(),
     }
+
+
+@router.get(
+    "/verify-email",
+    status_code=200,
+    summary="Verify email address via token link",
+    responses={
+        400: {"description": "Invalid or expired verification token"},
+    },
+)
+async def verify_email(
+    token: str = Query(..., description="Email verification token"),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Confirm email ownership. Marks creator as verified."""
+    creator = db.query(CreatorORM).filter(CreatorORM.email_verify_token == token).first()
+    if not creator:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired verification token",
+        )
+    if creator.email_verified_at is not None:
+        return {"detail": "Email already verified"}
+
+    creator.email_verified_at = datetime.now(UTC)
+    creator.email_verify_token = None
+    db.commit()
+    return {"detail": "Email verified successfully"}
 
 
 @router.post(
@@ -719,6 +845,7 @@ async def github_callback(
         github_id=gh_id,
         github_username=gh_username,
         avatar_index=0,
+        email_verified_at=now,
         created_at=now,
     )
     db.add(creator)
@@ -851,6 +978,7 @@ async def github_callback_redirect(
             github_id=gh_id,
             github_username=gh_username,
             avatar_index=0,
+            email_verified_at=now,
             created_at=now,
         )
         db.add(creator)
@@ -1079,6 +1207,7 @@ async def google_callback(
         api_key_hash_v2=api_key_hash_v2,
         google_id=g_id,
         avatar_index=0,
+        email_verified_at=now,
         created_at=now,
     )
     db.add(creator)
@@ -1308,6 +1437,7 @@ async def twitter_callback(
         twitter_id=tw_id,
         twitter_handle=tw_handle,
         avatar_index=0,
+        email_verified_at=now,
         created_at=now,
     )
     db.add(creator)
@@ -1531,6 +1661,7 @@ async def discord_callback(
         discord_id=d_id,
         discord_username=d_username,
         avatar_index=0,
+        email_verified_at=now,
         created_at=now,
     )
     db.add(creator)
