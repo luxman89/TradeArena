@@ -180,7 +180,32 @@ else
     echo "    No Caddyfile found at $CADDY_CADDYFILE — skipping."
 fi
 
-# 6. Network + connectivity diagnostics
+# 6. External smoke check — hit the public HTTPS endpoint from the host.
+#    Catches Caddy/TLS/DNS issues that the internal container check can't see.
+echo "==> External smoke check: https://tradearena.duckdns.org/health"
+EXTERNAL_URL="https://tradearena.duckdns.org/health"
+EXTERNAL_PASSED=false
+LAST_HTTP_CODE="000"
+for i in 1 2 3; do
+    LAST_HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$EXTERNAL_URL" 2>/dev/null || echo "000")
+    if [ "$LAST_HTTP_CODE" = "200" ]; then
+        echo "    External smoke check passed (HTTP 200)"
+        EXTERNAL_PASSED=true
+        break
+    fi
+    echo "    Attempt $i: HTTP $LAST_HTTP_CODE — retrying in 5s..."
+    [ $i -lt 3 ] && sleep 5
+done
+
+if [ "$EXTERNAL_PASSED" = "false" ]; then
+    echo "ERROR: External smoke check failed after 3 attempts (last HTTP: $LAST_HTTP_CODE)"
+    echo "       App is running internally but the public endpoint is unreachable."
+    echo "       Check Caddy: docker logs <caddy-container> --tail=40"
+    echo "       Check DNS:   nslookup tradearena.duckdns.org"
+    exit 1
+fi
+
+# 7. Network + connectivity diagnostics
 echo "==> Network diagnostics:"
 APP_CONTAINER="${APP_CONTAINER_NAME:-tradearena-app-1}"
 echo "    App container: $APP_CONTAINER"
