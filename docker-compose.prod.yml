@@ -17,6 +17,10 @@ services:
       DATABASE_URL: postgresql://tradearena:${POSTGRES_PASSWORD}@postgres:5432/tradearena
       REDIS_URL: redis://redis:6379/0
       ENFORCE_HTTPS: ${ENFORCE_HTTPS:-1}
+      # Caddy handles HTTP→HTTPS redirect and TLS termination externally.
+      # The app-level redirect must be off to prevent a 301→502 loop when
+      # Caddy does not forward X-Forwarded-Proto: https to the upstream.
+      HTTPS_REDIRECT: ${HTTPS_REDIRECT:-0}
       CORS_ORIGINS: ${CORS_ORIGINS:-https://tradearena.duckdns.org,https://www.tradearena.duckdns.org}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]

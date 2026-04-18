@@ -542,9 +542,16 @@ app.add_middleware(
 )
 
 # ---------------------------------------------------------------------------
-# HTTPS redirect — enabled when ENFORCE_HTTPS=1 (e.g. behind Fly/Railway proxy)
+# HTTPS redirect — enabled when HTTPS_REDIRECT=1.
+# When behind Caddy (which handles TLS termination and HTTP→HTTPS redirect),
+# set HTTPS_REDIRECT=0 to avoid a redirect loop: Caddy terminates TLS and
+# proxies as HTTP internally, so without X-Forwarded-Proto forwarding configured
+# in Caddy, the app would see proto=http and issue a 301 that Caddy 502s on.
+# ENFORCE_HTTPS still controls security headers (HSTS, cookie flags, etc.).
 # ---------------------------------------------------------------------------
-if os.getenv("ENFORCE_HTTPS", "").strip() == "1":
+_https_redirect = os.getenv("HTTPS_REDIRECT", "1" if _is_prod else "0").strip() == "1"
+
+if _https_redirect:
 
     class _HTTPSRedirectMiddleware(BaseHTTPMiddleware):
         async def dispatch(self, request: Request, call_next):
