@@ -83,6 +83,9 @@ DISCORD_REDIRECT_URI = os.getenv(
 HCAPTCHA_SECRET = os.getenv("HCAPTCHA_SECRET", "")
 _HCAPTCHA_VERIFY_URL = "https://api.hcaptcha.com/siteverify"
 
+# SHA-256 of scripts/terms.html — update this constant whenever the ToS text changes.
+CURRENT_TOS_HASH = "79cf6fb69a652cf01c58210084de60e10da3790d23dfcdb1a2e804ec7339aa91"
+
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 _VALID_DIVISIONS = {"crypto", "polymarket", "multi"}
@@ -195,6 +198,7 @@ class RegisterRequest(BaseModel):
     strategy_description: str
     avatar_index: int = 0
     hcaptcha_token: str = ""
+    tos_hash: str = ""
 
     @field_validator("email")
     @classmethod
@@ -316,6 +320,13 @@ async def register(
     # hCaptcha verification (bypassed when HCAPTCHA_SECRET unset in dev)
     await _verify_hcaptcha(body.hcaptcha_token)
 
+    # ToS consent: submitted hash must match the current Terms of Service
+    if body.tos_hash != CURRENT_TOS_HASH:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="You must accept the current Terms of Service to register.",
+        )
+
     if db.query(CreatorORM).filter(CreatorORM.email == body.email).first():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -347,6 +358,8 @@ async def register(
         unsubscribe_token=unsub_token,
         email_verify_token=verify_token,
         email_verified_at=None,
+        tos_hash=body.tos_hash,
+        tos_accepted_at=now,
         created_at=now,
     )
     db.add(creator)

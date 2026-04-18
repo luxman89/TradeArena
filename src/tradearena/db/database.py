@@ -89,6 +89,8 @@ class CreatorORM(Base):
     last_signal_day = Column(Date, nullable=True)
     email_verify_token = Column(String(64), nullable=True, unique=True, index=True)
     email_verified_at = Column(DateTime, nullable=True)
+    tos_hash = Column(String(64), nullable=True)
+    tos_accepted_at = Column(DateTime, nullable=True)
 
     signals = relationship("SignalORM", back_populates="creator", lazy="select")
     score = relationship("CreatorScoreORM", back_populates="creator", uselist=False)

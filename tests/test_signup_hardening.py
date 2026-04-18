@@ -1,4 +1,4 @@
-"""Tests for signup hardening: email verification, hCaptcha, per-IP cap."""
+"""Tests for signup hardening: ToS consent, email verification, hCaptcha, per-IP cap."""
 
 from __future__ import annotations
 
@@ -47,6 +47,7 @@ _VALID_BODY = {
     "strategy_description": "A well-defined trading strategy with momentum signals",
     "avatar_index": 0,
     "hcaptcha_token": "",
+    "tos_hash": "79cf6fb69a652cf01c58210084de60e10da3790d23dfcdb1a2e804ec7339aa91",
 }
 
 
@@ -305,3 +306,53 @@ class TestPerIpCap:
         finally:
             rate_limit.SIGNUP_IP_RATE = original_rate
             rate_limit._signup_hits.clear()
+
+
+# ---------------------------------------------------------------------------
+# ToS consent
+# ---------------------------------------------------------------------------
+
+CURRENT_TOS_HASH = "79cf6fb69a652cf01c58210084de60e10da3790d23dfcdb1a2e804ec7339aa91"
+
+
+class TestTosConsent:
+    def setup_method(self):
+        _reset_db()
+
+    def test_no_tos_hash_rejected(self):
+        """Empty tos_hash must be rejected with 422."""
+        with patch("tradearena.api.routes.auth._send_verification_email", new_callable=AsyncMock):
+            resp = client.post("/auth/register", json={**_VALID_BODY, "tos_hash": ""})
+        assert resp.status_code == 422
+        assert "Terms of Service" in resp.json()["detail"]
+
+    def test_outdated_tos_hash_rejected(self):
+        """A hash that doesn't match the current ToS must be rejected."""
+        stale_hash = "a" * 64
+        with patch("tradearena.api.routes.auth._send_verification_email", new_callable=AsyncMock):
+            resp = client.post("/auth/register", json={**_VALID_BODY, "tos_hash": stale_hash})
+        assert resp.status_code == 422
+        assert "Terms of Service" in resp.json()["detail"]
+
+    def test_correct_tos_hash_accepted(self):
+        """Correct ToS hash allows registration and is persisted."""
+        with patch("tradearena.api.routes.auth._send_verification_email", new_callable=AsyncMock):
+            resp = client.post("/auth/register", json=_VALID_BODY)
+        assert resp.status_code == 201
+
+        db = TestingSessionLocal()
+        creator = db.query(CreatorORM).filter(CreatorORM.email == "test@example.com").first()
+        assert creator.tos_hash == CURRENT_TOS_HASH
+        assert creator.tos_accepted_at is not None
+        db.close()
+
+    def test_tos_hash_persisted_matches_accepted_version(self):
+        """DB row proves exactly which ToS version was accepted."""
+        with patch("tradearena.api.routes.auth._send_verification_email", new_callable=AsyncMock):
+            client.post("/auth/register", json=_VALID_BODY)
+
+        db = TestingSessionLocal()
+        creator = db.query(CreatorORM).filter(CreatorORM.email == "test@example.com").first()
+        assert creator.tos_hash == CURRENT_TOS_HASH
+        assert creator.tos_accepted_at is not None
+        db.close()
