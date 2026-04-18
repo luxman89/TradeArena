@@ -3,5 +3,6 @@ tradearena.duckdns.org {
         lb_policy first
         health_uri /health
         health_interval 10s
+        health_method GET
     }
 }

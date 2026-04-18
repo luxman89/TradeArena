@@ -81,11 +81,13 @@ while [ $ELAPSED -lt $HEALTH_TIMEOUT ]; do
         break
     fi
 
-    # Hit /health directly inside the container (bypasses nginx)
-    HTTP_STATUS=$(docker exec "$APP_CONTAINER_NAME" \
-        sh -c 'wget -qO- --server-response http://localhost:8000/health 2>&1 | grep "HTTP/" | tail -1 | awk "{print \$2}"' 2>/dev/null || echo "")
+    # Hit /health directly inside the container (bypasses nginx).
+    # Use python3 (always available in our image) to avoid wget parsing issues.
+    RESPONSE=$(docker exec "$APP_CONTAINER_NAME" \
+        python3 -c "import urllib.request,sys; r=urllib.request.urlopen('http://localhost:8000/health',timeout=3); print(r.status)" \
+        2>/dev/null || echo "")
 
-    if [ "$HTTP_STATUS" = "200" ]; then
+    if [ "$RESPONSE" = "200" ]; then
         echo "==> Health check passed after ${ELAPSED}s"
         HEALTH_PASSED=true
         break
