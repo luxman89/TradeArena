@@ -47,6 +47,24 @@ from tradearena.db.database import (
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Sentry — opt-in via SENTRY_DSN env var; silent no-op when unset
+# ---------------------------------------------------------------------------
+_sentry_dsn = os.getenv("SENTRY_DSN", "").strip()
+if _sentry_dsn:
+    import sentry_sdk
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+    from sentry_sdk.integrations.starlette import StarletteIntegration
+
+    sentry_sdk.init(
+        dsn=_sentry_dsn,
+        traces_sample_rate=0.1,
+        send_default_pii=False,
+        environment=os.getenv("TRADEARENA_ENV", "development"),
+        integrations=[StarletteIntegration(), FastApiIntegration()],
+    )
+    logger.info("Sentry initialized (env=%s)", os.getenv("TRADEARENA_ENV", "development"))
+
 # Resolve arena.html relative to this file's project root
 # src/tradearena/api/main.py -> project root is 3 levels up -> scripts/arena.html
 _SCRIPTS_DIR = Path(__file__).resolve().parents[3] / "scripts"

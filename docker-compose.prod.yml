@@ -22,6 +22,9 @@ services:
       # Caddy does not forward X-Forwarded-Proto: https to the upstream.
       HTTPS_REDIRECT: ${HTTPS_REDIRECT:-0}
       CORS_ORIGINS: ${CORS_ORIGINS:-https://tradearena.duckdns.org,https://www.tradearena.duckdns.org}
+      # Sentry — set SENTRY_DSN in .env to enable error reporting (empty = disabled)
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      TRADEARENA_ENV: ${TRADEARENA_ENV:-production}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s

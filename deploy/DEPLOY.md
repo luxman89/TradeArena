@@ -49,3 +49,14 @@ docker compose -f docker-compose.prod.yml exec app alembic downgrade -1
 
 ## Concurrency
 The deploy workflow uses `concurrency: production-deploy` to prevent overlapping deploys. Only one deploy runs at a time.
+
+## Sentry Error Reporting
+
+Sentry is opt-in and ships dormant. To enable it on the server, add `SENTRY_DSN` to `/opt/tradearena/.env`:
+
+```dotenv
+SENTRY_DSN=https://<key>@o<org>.ingest.sentry.io/<project>
+TRADEARENA_ENV=production
+```
+
+Then redeploy (`bash deploy/deploy.sh`). Without `SENTRY_DSN` the SDK is never initialised — no network calls, no overhead, CI stays quiet.
