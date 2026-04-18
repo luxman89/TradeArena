@@ -60,20 +60,45 @@ echo "==> Rebuilding and restarting containers..."
 docker compose -f "$COMPOSE_FILE" build --no-cache app
 docker compose -f "$COMPOSE_FILE" up -d app
 
-# 4. Health check (internal — via nginx on port 80)
+# 4. Health check — verify the app is actually listening on port 8000.
+#    Use Docker exec to hit localhost:8000 from inside the container so we
+#    bypass nginx and detect crashes that nginx would cache over.
+#    The CMD runs "alembic upgrade head && uvicorn", so allow 30s for startup.
 echo "==> Waiting for health check..."
-ELAPSED=0
+echo "    (checking app container directly, not via nginx)"
+sleep 5   # allow alembic + uvicorn to begin startup
+APP_CONTAINER_NAME=$(docker compose -f "$COMPOSE_FILE" ps --format '{{.Name}}' app 2>/dev/null | head -1 || echo "tradearena-app-1")
+ELAPSED=5
+HEALTH_PASSED=false
+
 while [ $ELAPSED -lt $HEALTH_TIMEOUT ]; do
-    if curl -sf "$HEALTH_URL" > /dev/null 2>&1; then
-        echo "==> Health check passed after ${ELAPSED}s"
+    # Check Docker container state first
+    CONTAINER_STATE=$(docker inspect "$APP_CONTAINER_NAME" --format '{{.State.Status}}' 2>/dev/null || echo "unknown")
+    if [ "$CONTAINER_STATE" = "exited" ] || [ "$CONTAINER_STATE" = "dead" ]; then
+        echo "ERROR: App container exited unexpectedly (State: $CONTAINER_STATE)"
+        echo "==> Last 40 lines of app logs:"
+        docker logs "$APP_CONTAINER_NAME" --tail=40 2>&1 || true
         break
     fi
+
+    # Hit /health directly inside the container (bypasses nginx)
+    HTTP_STATUS=$(docker exec "$APP_CONTAINER_NAME" \
+        sh -c 'wget -qO- --server-response http://localhost:8000/health 2>&1 | grep "HTTP/" | tail -1 | awk "{print \$2}"' 2>/dev/null || echo "")
+
+    if [ "$HTTP_STATUS" = "200" ]; then
+        echo "==> Health check passed after ${ELAPSED}s"
+        HEALTH_PASSED=true
+        break
+    fi
+
     sleep 3
     ELAPSED=$((ELAPSED + 3))
 done
 
-if [ $ELAPSED -ge $HEALTH_TIMEOUT ]; then
-    echo "ERROR: Health check failed after ${HEALTH_TIMEOUT}s"
+if [ "$HEALTH_PASSED" = "false" ]; then
+    echo "ERROR: Health check failed after ${ELAPSED}s (last state: ${CONTAINER_STATE:-unknown})"
+    echo "==> Last 40 lines of app logs:"
+    docker logs "$APP_CONTAINER_NAME" --tail=40 2>&1 || true
     echo "==> Auto-rolling back..."
     bash deploy/deploy.sh --rollback
     exit 1
@@ -155,7 +180,7 @@ fi
 
 # 6. Network + connectivity diagnostics
 echo "==> Network diagnostics:"
-APP_CONTAINER=$(docker compose -f "$COMPOSE_FILE" ps --format '{{.Name}}' app 2>/dev/null | head -1 || echo "tradearena-app-1")
+APP_CONTAINER="${APP_CONTAINER_NAME:-tradearena-app-1}"
 echo "    App container: $APP_CONTAINER"
 docker inspect "$APP_CONTAINER" --format '    Networks: {{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}' 2>/dev/null || true
 
