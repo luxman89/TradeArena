@@ -100,26 +100,29 @@ async function refresh() {
     allOk = false; anyError = true;
   }
 
-  // Oracle status
+  // Oracle status — admin-gated endpoint; non-ok responses (e.g. 503) mean we
+  // simply don't have visibility, not that the service is down. Only mark
+  // oracle ok when we can confirm it; otherwise show Unknown without degrading
+  // the overall summary.
   try {
     var oRes = await fetch('/oracle/status');
     if (oRes.ok) {
       var o = await oRes.json();
-      var pending = o.pending_count || 0;
+      var pending = o.pending_total || o.pending_count || 0;
       setBadge('badge-oracle', 'ok', 'Operational');
       setBadge('badge-pending', pending > 50 ? 'warn' : 'ok', pending + ' pending');
       setBadge('badge-bots', 'ok', 'Running');
     } else {
-      setBadge('badge-oracle', 'warn', 'Status unknown');
+      setBadge('badge-oracle', 'warn', 'Unknown');
       setBadge('badge-pending', 'warn', '—');
       setBadge('badge-bots', 'warn', 'Unknown');
-      allOk = false;
+      // Don't set allOk/anyError — we lack visibility, not a confirmed outage
     }
   } catch (e) {
-    setBadge('badge-oracle', 'error', 'Unreachable');
-    setBadge('badge-pending', 'error', 'Unknown');
-    setBadge('badge-bots', 'error', 'Unknown');
-    allOk = false; anyError = true;
+    setBadge('badge-oracle', 'warn', 'Unknown');
+    setBadge('badge-pending', 'warn', '—');
+    setBadge('badge-bots', 'warn', 'Unknown');
+    // Network error also treated as unknown — don't degrade overall summary
   }
 
   // Summary
