@@ -96,24 +96,47 @@ if [ -f "$CADDY_CADDYFILE" ]; then
 
     if [ -n "$CADDY_CONTAINER" ]; then
         echo "    Found Caddy container: $CADDY_CONTAINER"
-        if docker cp "$CADDY_CADDYFILE" "$CADDY_CONTAINER:/etc/caddy/Caddyfile"; then
-            echo "    Caddyfile copied. Validating..."
+
+        # Resolve the host path for /etc/caddy/Caddyfile.
+        # If it's a bind mount, docker cp fails with "device or resource busy".
+        # In that case, write directly to the host path instead.
+        HOST_CADDYFILE=$(docker inspect "$CADDY_CONTAINER" \
+            --format '{{range .Mounts}}{{if eq .Destination "/etc/caddy/Caddyfile"}}{{.Source}}{{end}}{{end}}' 2>/dev/null || true)
+
+        if [ -n "$HOST_CADDYFILE" ]; then
+            echo "    Caddyfile is bind-mounted from host: $HOST_CADDYFILE"
+            if cp "$CADDY_CADDYFILE" "$HOST_CADDYFILE"; then
+                echo "    Host Caddyfile updated."
+                COPY_OK=true
+            else
+                echo "    WARNING: cp to host path failed (permissions?)"
+                COPY_OK=false
+            fi
+        else
+            echo "    Caddyfile is not bind-mounted — using docker cp..."
+            if docker cp "$CADDY_CADDYFILE" "$CADDY_CONTAINER:/etc/caddy/Caddyfile" 2>&1; then
+                COPY_OK=true
+            else
+                echo "    WARNING: docker cp failed"
+                COPY_OK=false
+            fi
+        fi
+
+        if [ "${COPY_OK:-false}" = "true" ]; then
+            echo "    Validating config..."
             docker exec "$CADDY_CONTAINER" caddy validate --config /etc/caddy/Caddyfile 2>&1 || true
-            echo "    Attempting graceful reload (caddy reload)..."
+            echo "    Reloading Caddy..."
             if docker exec "$CADDY_CONTAINER" caddy reload --config /etc/caddy/Caddyfile 2>&1; then
                 CADDY_RELOADED=true
                 echo "    Caddy config reloaded gracefully."
             else
-                echo "    Graceful reload failed — falling back to container restart..."
+                echo "    Graceful reload failed — restarting container..."
                 if docker restart "$CADDY_CONTAINER"; then
                     CADDY_RELOADED=true
                     echo "    Caddy container restarted."
-                    # Brief wait for Caddy to come back and acquire TLS certs
                     sleep 5
                 fi
             fi
-        else
-            echo "    WARNING: docker cp failed — cannot update Caddyfile"
         fi
     elif command -v caddy &>/dev/null && [ -d /etc/caddy ]; then
         # Caddy running as a host service
