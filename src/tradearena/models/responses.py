@@ -80,6 +80,7 @@ class SignalDetail(BaseModel):
     target_price: float | None = None
     stop_loss: float | None = None
     timeframe: str | None = None
+    ai_assisted: bool = False
     commitment_hash: str
     committed_at: str
     outcome: str | None = None

@@ -129,6 +129,7 @@ class SignalORM(Base):
     timeframe = Column(String(10), nullable=True)
     commitment_hash = Column(String(64), nullable=False, unique=True)
     committed_at = Column(DateTime, nullable=False)
+    ai_assisted = Column(Boolean, nullable=False, default=False)
     outcome = Column(String(10), nullable=True)  # see Outcome enum in models.signal
     outcome_price = Column(Float, nullable=True)
     outcome_at = Column(DateTime, nullable=True)

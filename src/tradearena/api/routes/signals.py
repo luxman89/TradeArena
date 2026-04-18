@@ -76,6 +76,7 @@ async def emit_signal(
         timeframe=committed.get("timeframe"),
         commitment_hash=committed["commitment_hash"],
         committed_at=committed["committed_at"],
+        ai_assisted=payload.ai_assisted,
     )
     db.add(signal_orm)
     db.commit()
@@ -120,6 +121,7 @@ async def emit_signal(
         "creator_id": signal_orm.creator_id,
         "asset": signal_orm.asset,
         "action": signal_orm.action,
+        "ai_assisted": signal_orm.ai_assisted,
         "streak_days": creator.streak_days,
     }
     await manager.broadcast("signal_new", result)

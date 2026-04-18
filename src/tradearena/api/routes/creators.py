@@ -214,6 +214,7 @@ async def get_creator_signals(
                 "target_price": s.target_price,
                 "stop_loss": s.stop_loss,
                 "timeframe": s.timeframe,
+                "ai_assisted": s.ai_assisted,
                 "commitment_hash": s.commitment_hash,
                 "committed_at": s.committed_at.isoformat(),
                 "outcome": s.outcome,
