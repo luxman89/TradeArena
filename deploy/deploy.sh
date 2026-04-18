@@ -153,9 +153,29 @@ else
     echo "    No Caddyfile found at $CADDY_CADDYFILE — skipping."
 fi
 
-# 6. Network diagnostics (informational — confirms app is on Caddy network)
-echo "==> Container network info:"
+# 6. Network + connectivity diagnostics
+echo "==> Network diagnostics:"
 APP_CONTAINER=$(docker compose -f "$COMPOSE_FILE" ps --format '{{.Name}}' app 2>/dev/null | head -1 || echo "tradearena-app-1")
+echo "    App container: $APP_CONTAINER"
 docker inspect "$APP_CONTAINER" --format '    Networks: {{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}' 2>/dev/null || true
+
+# Show all containers on deploy_default so we can see what Caddy can resolve
+echo "    deploy_default members:"
+docker network inspect deploy_default --format '{{range .Containers}}      {{.Name}}: {{.IPv4Address}}{{"\n"}}{{end}}' 2>/dev/null || true
+
+# Test Caddy → app connectivity using ncat/wget/curl inside Caddy container
+if [ -n "$CADDY_CONTAINER" ]; then
+    echo "    Connectivity test (Caddy→app:8000):"
+    APP_IP=$(docker inspect "$APP_CONTAINER" \
+        --format '{{(index .NetworkSettings.Networks "deploy_default").IPAddress}}' 2>/dev/null || true)
+    if [ -n "$APP_IP" ]; then
+        echo "      app IP on deploy_default: $APP_IP"
+        # Try to hit /health directly via IP (bypasses DNS)
+        docker exec "$CADDY_CONTAINER" sh -c \
+            "wget -qO- --timeout=3 http://$APP_IP:8000/health 2>&1 || echo 'UNREACHABLE via IP'" || true
+    fi
+    echo "    Recent Caddy error logs:"
+    docker logs "$CADDY_CONTAINER" --tail=20 2>&1 | grep -E "error|upstream|502|refused|timeout|app" || true
+fi
 
 echo "==> Deploy complete at $(date -u +%Y-%m-%dT%H:%M:%SZ)"

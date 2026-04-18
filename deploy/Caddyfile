@@ -1,24 +1,7 @@
-# Caddyfile for TradeArena on Hetzner VPS
-#
-# Caddy terminates TLS and reverse-proxies to the app container.
-# The header_up directive ensures the app sees X-Forwarded-Proto: https
-# so that security headers (HSTS) and CORS are applied correctly.
-#
-# Prerequisites:
-#   - App container is on the same Docker network as Caddy (deploy_default)
-#   - HTTPS_REDIRECT=0 in docker-compose.prod.yml (Caddy handles HTTP→HTTPS)
-#
-# To apply: copy this file to /etc/caddy/Caddyfile (or Caddy's config dir)
-# and run: caddy reload --config /etc/caddy/Caddyfile
-#
-# Or if Caddy is running as a container:
-#   docker cp deploy/Caddyfile caddy:/etc/caddy/Caddyfile
-#   docker exec caddy caddy reload --config /etc/caddy/Caddyfile
-
 tradearena.duckdns.org {
-    reverse_proxy app:8000 {
-        header_up X-Forwarded-Proto {scheme}
-        header_up X-Forwarded-For {remote_host}
-        header_up X-Real-IP {remote_host}
+    reverse_proxy tradearena-app-1:8000 app:8000 {
+        lb_policy first
+        health_uri /health
+        health_interval 10s
     }
 }
