@@ -96,13 +96,24 @@ if [ -f "$CADDY_CADDYFILE" ]; then
 
     if [ -n "$CADDY_CONTAINER" ]; then
         echo "    Found Caddy container: $CADDY_CONTAINER"
-        if docker cp "$CADDY_CADDYFILE" "$CADDY_CONTAINER:/etc/caddy/Caddyfile" 2>/dev/null \
-           && docker exec "$CADDY_CONTAINER" caddy reload --config /etc/caddy/Caddyfile 2>/dev/null; then
-            CADDY_RELOADED=true
-            echo "    Caddy config reloaded."
-        else
-            echo "    WARNING: docker cp/reload failed — trying caddy validate first"
+        if docker cp "$CADDY_CADDYFILE" "$CADDY_CONTAINER:/etc/caddy/Caddyfile"; then
+            echo "    Caddyfile copied. Validating..."
             docker exec "$CADDY_CONTAINER" caddy validate --config /etc/caddy/Caddyfile 2>&1 || true
+            echo "    Attempting graceful reload (caddy reload)..."
+            if docker exec "$CADDY_CONTAINER" caddy reload --config /etc/caddy/Caddyfile 2>&1; then
+                CADDY_RELOADED=true
+                echo "    Caddy config reloaded gracefully."
+            else
+                echo "    Graceful reload failed — falling back to container restart..."
+                if docker restart "$CADDY_CONTAINER"; then
+                    CADDY_RELOADED=true
+                    echo "    Caddy container restarted."
+                    # Brief wait for Caddy to come back and acquire TLS certs
+                    sleep 5
+                fi
+            fi
+        else
+            echo "    WARNING: docker cp failed — cannot update Caddyfile"
         fi
     elif command -v caddy &>/dev/null && [ -d /etc/caddy ]; then
         # Caddy running as a host service
