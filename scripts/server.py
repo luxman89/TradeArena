@@ -9,4 +9,5 @@ if __name__ == "__main__":
         port=8000,
         reload=True,
         reload_dirs=["src", "scripts"],
+        server_header=False,
     )

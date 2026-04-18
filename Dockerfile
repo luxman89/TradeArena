@@ -59,4 +59,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD python -c "import os,urllib.request; urllib.request.urlopen(f'http://localhost:{os.environ.get(\"PORT\",8000)}/health')"
 
 # Run migrations then start server (PORT is set by Railway/Fly.io at runtime)
-CMD ["sh", "-c", "alembic upgrade head && uvicorn tradearena.api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["sh", "-c", "alembic upgrade head && uvicorn tradearena.api.main:app --host 0.0.0.0 --port ${PORT:-8000} --no-server-header"]
