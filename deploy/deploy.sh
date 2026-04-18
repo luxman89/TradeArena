@@ -60,20 +60,68 @@ echo "==> Rebuilding and restarting containers..."
 docker compose -f "$COMPOSE_FILE" build --no-cache app
 docker compose -f "$COMPOSE_FILE" up -d app
 
-# 4. Health check
+# 4. Health check (internal — via nginx on port 80)
 echo "==> Waiting for health check..."
 ELAPSED=0
 while [ $ELAPSED -lt $HEALTH_TIMEOUT ]; do
     if curl -sf "$HEALTH_URL" > /dev/null 2>&1; then
         echo "==> Health check passed after ${ELAPSED}s"
-        echo "==> Deploy complete at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-        exit 0
+        break
     fi
     sleep 3
     ELAPSED=$((ELAPSED + 3))
 done
 
-echo "ERROR: Health check failed after ${HEALTH_TIMEOUT}s"
-echo "==> Auto-rolling back..."
-bash deploy/deploy.sh --rollback
-exit 1
+if [ $ELAPSED -ge $HEALTH_TIMEOUT ]; then
+    echo "ERROR: Health check failed after ${HEALTH_TIMEOUT}s"
+    echo "==> Auto-rolling back..."
+    bash deploy/deploy.sh --rollback
+    exit 1
+fi
+
+# 5. Reload Caddy config so X-Forwarded-Proto is forwarded correctly.
+#    Caddy terminates TLS; without this header the app's security middleware
+#    cannot know the connection is HTTPS, breaking HSTS and CORS.
+#    This step is best-effort — a failure here does NOT roll back the deploy.
+echo "==> Reloading Caddy config..."
+CADDY_CADDYFILE="$APP_DIR/deploy/Caddyfile"
+CADDY_RELOADED=false
+
+if [ -f "$CADDY_CADDYFILE" ]; then
+    # Find the Caddy container (try common names / image filter)
+    CADDY_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E '^caddy$|^deploy[-_]caddy' | head -1 || true)
+    if [ -z "$CADDY_CONTAINER" ]; then
+        CADDY_CONTAINER=$(docker ps --filter ancestor=caddy --format '{{.Names}}' | head -1 || true)
+    fi
+
+    if [ -n "$CADDY_CONTAINER" ]; then
+        echo "    Found Caddy container: $CADDY_CONTAINER"
+        if docker cp "$CADDY_CADDYFILE" "$CADDY_CONTAINER:/etc/caddy/Caddyfile" 2>/dev/null \
+           && docker exec "$CADDY_CONTAINER" caddy reload --config /etc/caddy/Caddyfile 2>/dev/null; then
+            CADDY_RELOADED=true
+            echo "    Caddy config reloaded."
+        else
+            echo "    WARNING: docker cp/reload failed — trying caddy validate first"
+            docker exec "$CADDY_CONTAINER" caddy validate --config /etc/caddy/Caddyfile 2>&1 || true
+        fi
+    elif command -v caddy &>/dev/null && [ -d /etc/caddy ]; then
+        # Caddy running as a host service
+        cp "$CADDY_CADDYFILE" /etc/caddy/Caddyfile
+        systemctl reload caddy 2>/dev/null && CADDY_RELOADED=true && echo "    Host Caddy reloaded." || true
+    fi
+
+    if [ "$CADDY_RELOADED" = "false" ]; then
+        echo "    WARNING: Could not auto-reload Caddy. Run manually:"
+        echo "      docker cp $CADDY_CADDYFILE <caddy-container>:/etc/caddy/Caddyfile"
+        echo "      docker exec <caddy-container> caddy reload --config /etc/caddy/Caddyfile"
+    fi
+else
+    echo "    No Caddyfile found at $CADDY_CADDYFILE — skipping."
+fi
+
+# 6. Network diagnostics (informational — confirms app is on Caddy network)
+echo "==> Container network info:"
+APP_CONTAINER=$(docker compose -f "$COMPOSE_FILE" ps --format '{{.Name}}' app 2>/dev/null | head -1 || echo "tradearena-app-1")
+docker inspect "$APP_CONTAINER" --format '    Networks: {{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}' 2>/dev/null || true
+
+echo "==> Deploy complete at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
