@@ -1,0 +1,215 @@
+html:has(.ui-arena),
+body.ui-arena {
+  height: auto;
+  overflow: auto;
+}
+.ui-arena {
+  --muted: var(--color-text-muted);
+  --muted2: var(--color-text-muted);
+  --text: var(--color-text);
+  --surface: var(--color-surface-1);
+  --surface2: var(--color-surface-2);
+  --border2: var(--color-border);
+}
+.ui-arena .ui-header {
+  flex-shrink: 0;
+}
+.ui-arena #main-content {
+  width: min(1600px, 100%);
+  margin: auto;
+}
+.ui-arena-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.75rem 2rem;
+}
+.ui-arena-heading h1 {
+  font-size: 2.5rem;
+}
+.ui-arena #topbar {
+  height: auto;
+  min-height: 64px;
+  padding: 0.6rem 2rem;
+  border-block: 1px solid var(--color-border);
+  z-index: 105;
+  background: var(--color-surface-1);
+}
+.ui-arena .topbar-stats {
+  font: 12px var(--font-interface);
+}
+.ui-arena #main {
+  height: min(62vw, 660px);
+  min-height: 320px;
+  flex: none;
+  border-bottom: 1px solid var(--color-border);
+}
+.ui-arena #arena {
+  min-width: 0;
+}
+.ui-arena #ticker {
+  display: none;
+}
+.ui-arena #title-screen {
+  display: none !important;
+}
+.ui-view-menu {
+  position: relative;
+}
+.ui-view-menu > summary {
+  min-width: 115px;
+}
+.ui-view-content {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  width: 280px;
+  padding: 1rem;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-raised);
+  display: grid;
+  gap: 0.5rem;
+}
+.ui-view-content button,
+.ui-view-content a,
+.ui-view-content #user-bar {
+  min-height: 44px;
+  font: 13px var(--font-interface) !important;
+  color: var(--color-text) !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ui-arena #panel {
+  position: fixed;
+  inset: 0 0 0 auto;
+  margin: 0;
+  width: min(520px, 100%);
+  max-width: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  padding: 1.5rem;
+  border: 0;
+  border-left: 1px solid var(--color-border);
+  background: var(--color-surface-1);
+  color: var(--color-text);
+  overflow-y: auto;
+  transform: none;
+  transition: none;
+  font: 14px/1.6 var(--font-interface);
+}
+.ui-arena #panel:not([open]) {
+  display: none;
+}
+.ui-arena #panel[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+.ui-arena #panel::backdrop {
+  background: rgb(0 0 0 / 0.6);
+}
+.ui-arena #p-close {
+  position: static;
+  padding: 0.6rem 1rem;
+  color: var(--color-text);
+  font: 14px var(--font-interface);
+}
+.ui-arena #ptab-stats,
+.ui-arena #ptab-submit {
+  flex: none;
+  overflow: visible;
+  padding: 0;
+}
+.ui-arena #panel .sig-label {
+  font: 12px var(--font-interface);
+  margin-top: 1rem;
+}
+.ui-arena #panel .sig-input {
+  min-height: 44px;
+  font: 14px var(--font-interface);
+}
+.ui-arena #panel button {
+  min-height: 44px;
+}
+.ui-arena #sig-locked-msg {
+  font: 14px var(--font-interface);
+}
+.ui-arena #spectators {
+  padding: 2rem;
+}
+.ui-spectator-list {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+.ui-spectator {
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: start;
+  padding: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-1);
+  color: var(--color-text);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.ui-spectator:hover {
+  border-color: var(--color-accent);
+}
+.ui-spectator strong {
+  color: var(--color-accent);
+  font: 24px var(--font-data);
+}
+.ui-arena .ui-footer {
+  width: 100%;
+}
+@media (max-width: 1000px) {
+  .ui-spectator-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 767px) {
+  .ui-arena-heading {
+    padding: 1.5rem 1rem;
+    flex-wrap: wrap;
+  }
+  .ui-arena #topbar {
+    padding: 0.5rem 1rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .ui-arena #arena-status {
+    flex: 1 1 100%;
+  }
+  .ui-arena #main {
+    height: 250px;
+    min-height: 0;
+  }
+  .ui-arena #spectators {
+    padding: 1.5rem 1rem;
+  }
+  .ui-spectator-list {
+    grid-template-columns: 1fr;
+  }
+  .ui-arena #panel {
+    width: 100%;
+    padding: 1.25rem;
+  }
+  .ui-arena .ui-view-menu {
+    margin-left: auto;
+  }
+}
+
+.ui-arena #topbar {
+  overflow: visible;
+}
+.ui-arena #arena canvas {
+  touch-action: pan-y;
+}

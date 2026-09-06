@@ -39,3 +39,31 @@ jobs:
       - name: Cleanup test database
         if: always()
         run: rm -f test_ci.db
+
+  ui:
+    name: UI browser & accessibility
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: uv sync
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run lint:ui
+      - run: npm run format:check
+      - run: npm run test:ui
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ui-screenshots-and-browser-report
+          include-hidden-files: true
+          path: |
+            .ui-artifacts/*.png
+            playwright-report/
+            test-results/

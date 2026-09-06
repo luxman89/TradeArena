@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <title>TradeArena — NYSE Trading Floor</title>
@@ -522,8 +522,12 @@ textarea.sig-input{resize:vertical;min-height:70px;font-size:.65rem}
   #canvas-tooltip{display:none !important}
 }
 </style>
+<link rel="stylesheet" href="/ui/shell.css">
+<link rel="stylesheet" href="/ui/arena.css">
+<script type="module" src="/ui/arena.js"></script>
 </head>
-<body>
+<body class="ui-app ui-arena">
+<!-- app-header -->
 
 <div id="title-screen">
   <div class="title-text">TRADE ARENA</div>
@@ -533,66 +537,26 @@ textarea.sig-input{resize:vertical;min-height:70px;font-size:.65rem}
   <div class="title-ticker"><div class="title-ticker-inner" id="title-ticker-inner"></div></div>
 </div>
 
-<div id="topbar">
-  <a href="/" class="logo" style="text-decoration:none;color:inherit">TRADE<em>ARENA</em></a>
-  <div class="topbar-stats">
-    <div class="stat">TRADERS <b id="sc">—</b></div>
-    <div class="stat">SIGNALS <b id="ss">—</b></div>
-    <div class="stat">TOP SCORE <b id="st">—</b></div>
-    <div class="stat">AVG WIN% <b id="sw">—</b></div>
-  </div>
+<main id="main-content">
+<div class="ui-arena-heading"><div><p class="ui-eyebrow">Live competition / Spectator floor</p><h1>The arena</h1></div><a class="ui-button" href="/leaderboard-live">Inspect the rankings</a></div>
+<div id="topbar"><p id="arena-status" class="ui-status" role="status">Connecting to the public record...</p>
+<div class="topbar-stats"><span><b id="sc">0</b> traders</span><span><b id="ss">0</b> signals</span><span hidden id="st"></span><span hidden id="sw"></span></div>
+<details class="ui-view-menu"><summary>View controls</summary><div class="ui-view-content"><label class="ui-field">Motion<select data-motion-control aria-label="Motion"><option value="full">Full</option><option value="reduced">Reduced</option><option value="off">Off</option></select></label>
   <button id="history-btn" onclick="showBattleHistory()" style="background:none;border:1px solid var(--border2);color:var(--muted);font-family:'Press Start 2P',monospace;font-size:0.4rem;padding:4px 8px;cursor:pointer;border-radius:4px">⚔ HISTORY</button>
   <a href="/rules" target="_blank" style="background:none;border:1px solid var(--border2);color:var(--muted);font-family:'Press Start 2P',monospace;font-size:0.4rem;padding:4px 8px;cursor:pointer;border-radius:4px;text-decoration:none">📋 RULES</a>
   <button onclick="showProgression()" style="background:none;border:1px solid rgba(245,158,11,.35);color:var(--gold);font-family:'Press Start 2P',monospace;font-size:0.4rem;padding:4px 8px;cursor:pointer;border-radius:4px">🏆 CAREER</button>
-  <div id="user-bar" style="display:none" onclick="openAuthModal()"><span id="user-bar-name"></span><span id="user-bar-level"></span></div>
+  <button id="user-bar" style="display:none" onclick="openAuthModal()"><span id="user-bar-name"></span><span id="user-bar-level"></span></button>
   <button id="login-btn" onclick="openAuthModal()" style="background:none;border:1px solid var(--green);color:var(--green);font-family:'Press Start 2P',monospace;font-size:0.4rem;padding:4px 8px;cursor:pointer;border-radius:4px">LOGIN</button>
   <button id="heatmap-btn" onclick="toggleHeatmap()" title="Toggle heatmap (H)" style="background:none;border:1px solid var(--border2);color:var(--muted);font-family:'Press Start 2P',monospace;font-size:0.4rem;padding:4px 8px;cursor:pointer;border-radius:4px">🔥 HEATMAP</button>
-  <div class="live"><span class="dot"></span>LIVE</div>
-  <button id="mute-btn" onclick="toggleMute()" title="Toggle sound" style="background:none;border:1px solid var(--border2);color:var(--muted);font-family:'Press Start 2P',monospace;font-size:0.5rem;padding:4px 8px;cursor:pointer;border-radius:4px">♪ ON</button>
-</div>
 
+  <button id="mute-btn" onclick="toggleMute()" title="Toggle sound" style="background:none;border:1px solid var(--border2);color:var(--muted);font-family:'Press Start 2P',monospace;font-size:0.5rem;padding:4px 8px;cursor:pointer;border-radius:4px">♪ ON</button>
+</div></details></div>
 <div id="main">
   <div id="arena"><!-- REPLACED-BY-PHASER <canvas id="gc"></canvas> --><div id="phaser-container"></div></div>
-  <div id="panel">
-    <div id="panel-drag-handle" style="display:none;width:40px;height:4px;background:var(--border2);border-radius:2px;margin:8px auto 0;flex-shrink:0"></div>
-    <div id="ph">
-      <button id="p-close" onclick="closePanel()" style="position:absolute;top:10px;right:10px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:.9rem;padding:4px;border-radius:4px;z-index:2">✕</button>
-      <canvas id="ph-sprite" width="48" height="72"></canvas>
-      <div id="ph-info">
-        <div id="ph-name" style="font-weight:700;font-size:1rem;margin-bottom:4px;padding-right:50px">—</div>
-        <span id="ph-badge" class="badge b-multi">multi</span>
-        <div id="ph-score" style="font-family:'JetBrains Mono',monospace;font-size:1.4rem;font-weight:700;color:var(--green);margin:6px 0 2px">0.0</div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <div id="ph-rank" style="font-size:.65rem;color:var(--muted)">—</div>
-          <div id="ph-streak" style="font-size:.52rem;color:var(--gold);display:none">🔥 <span id="ph-streak-count">0</span>d</div>
-        </div>
-        <div id="ph-xp-wrap" style="margin-top:5px;display:none">
-          <div class="xp-bar-track" style="margin-bottom:2px"><div id="ph-xp-fill" class="xp-bar-fill" style="width:0%"></div></div>
-          <div id="ph-xp-text" style="font-size:.42rem;color:var(--muted2)"></div>
-        </div>
-        <span id="ph-rank-badge"></span>
-        <button id="challenge-btn" onclick="startBattle()" style="margin-top:6px;background:var(--red);border:none;color:#fff;font-family:'Press Start 2P',monospace;font-size:.4rem;padding:5px 10px;cursor:pointer;border-radius:3px;letter-spacing:.05em">⚔ CHALLENGE</button>
-        <button onclick="showProgression()" style="margin-top:4px;background:none;border:1px solid rgba(245,158,11,.3);color:var(--gold);font-family:'Press Start 2P',monospace;font-size:.35rem;padding:4px 10px;cursor:pointer;border-radius:3px;letter-spacing:.05em">🏆 CAREER</button>
-      </div>
-    </div>
-    <div id="panel-tabs">
-      <button class="ptab ptab-active" onclick="switchPanelTab('stats')">STATS</button>
-      <button class="ptab" onclick="switchPanelTab('submit')">SUBMIT</button>
-    </div>
-    <div id="ptab-stats" style="padding:14px;flex:1;overflow-y:auto">
-      <div class="section-title">Battle Stats</div>
-      <div id="battle-stats" style="font-size:.63rem;color:var(--muted);margin-bottom:10px;font-family:'JetBrains Mono',monospace">
-        <span id="bs-w" style="color:var(--green)">0W</span> / <span id="bs-l" style="color:var(--red)">0L</span> / <span id="bs-d" style="color:var(--gold)">0D</span>
-      </div>
-      <div class="section-title">Score Breakdown</div>
-      <div id="dims"></div>
-      <div class="section-title" style="margin-top:8px">Signal Timeline</div>
-      <div id="sig-timeline" class="sig-timeline"></div>
-      <div class="sigs-wrap">
-        <div class="section-title">Recent Signals</div>
-        <div id="sigs"></div>
-      </div>
-    </div>
+  <dialog id="panel" aria-labelledby="inspector-title">
+<div class="ui-cluster ui-between"><p class="ui-eyebrow">Competitor inspector</p><button id="p-close" class="ui-button" onclick="closePanel()" aria-label="Close inspector">Close</button></div>
+<h2 id="inspector-title">Competitor</h2><div class="ui-cluster"><button class="ui-button" onclick="switchPanelTab('stats')">Evidence</button><button class="ui-button" onclick="switchPanelTab('submit')">Submit prediction</button></div>
+<div id="ptab-stats" class="ui-stack"></div>
     <div id="ptab-submit" style="display:none">
       <div id="sig-locked-msg">Log in to submit a prediction</div>
       <div id="sig-form" style="display:none">
@@ -626,8 +590,10 @@ textarea.sig-input{resize:vertical;min-height:70px;font-size:.65rem}
         <button id="sig-submit-btn" onclick="submitSignal()">SUBMIT PREDICTION</button>
       </div>
     </div>
-  </div>
+  </dialog>
 </div>
+<section id="spectators" class="ui-stack" aria-labelledby="spectator-title"><div class="ui-cluster ui-between"><div><p class="ui-eyebrow">Synchronized public record</p><h2 id="spectator-title">Competitors on the floor</h2></div><button class="ui-button" onclick="loadData()">Refresh record</button></div><p class="ui-muted">Select a competitor to inspect their score and prediction evidence. The pixel floor visualizes this record.</p><div id="spectator-list" class="ui-spectator-list" aria-live="polite"></div></section>
+</main>
 
 <div id="ticker"><div id="tk-wrap"></div></div>
 
@@ -1032,11 +998,10 @@ const panel = document.getElementById('panel');
 let phaserGame = null;
 function resize() {
   if (!phaserGame) return;
-  const pw = panel.classList.contains('open') ? 272 : 0;
   const container = document.getElementById('phaser-container');
   if (container) {
-    container.style.width = (window.innerWidth - pw) + 'px';
-    container.style.height = (window.innerHeight - 44 - 32) + 'px';
+    container.style.width = document.getElementById('arena').clientWidth + 'px';
+    container.style.height = document.getElementById('arena').clientHeight + 'px';
   }
   phaserGame.scale.refresh();
 }
@@ -1115,23 +1080,6 @@ function setupPinchZoom(scene) {
   }, { passive: true });
 }
 
-// On mobile, adjust resize to account for different topbar heights and dynamic viewport
-const _origResize = resize;
-resize = function() {
-  if (!phaserGame) return;
-  const pw = panel.classList.contains('open') ? (window.innerWidth <= 414 ? window.innerWidth : 272) : 0;
-  const container = document.getElementById('phaser-container');
-  if (container) {
-    const topbarH = document.getElementById('topbar').offsetHeight || 44;
-    const tickerH = document.getElementById('ticker').offsetHeight || 32;
-    // Use visualViewport for accurate mobile height (accounts for address bar)
-    const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-    container.style.width = (window.innerWidth - (window.innerWidth <= 414 ? 0 : pw)) + 'px';
-    container.style.height = (vh - topbarH - tickerH) + 'px';
-  }
-  phaserGame.scale.refresh();
-};
-
 // Listen to visualViewport resize for mobile address bar changes
 if (window.visualViewport) {
   window.visualViewport.addEventListener('resize', resize);
@@ -1141,7 +1089,7 @@ if (window.visualViewport) {
 document.addEventListener('DOMContentLoaded', () => {
   document.body.addEventListener('touchmove', (e) => {
     if (e.target.closest('#arena') || e.target.closest('#phaser-container')) {
-      if (e.touches.length === 1) e.preventDefault();
+      if (e.touches.length === 1 && window.innerWidth >= 768) e.preventDefault();
     }
   }, { passive: false });
 });
@@ -1388,13 +1336,14 @@ class GameScene extends Phaser.Scene {
 
     // Start data loading
     loadData();
-    setInterval(loadData, 60000); // Fallback polling; real-time via WebSocket
+    setInterval(() => { if (!document.hidden) loadData(); }, 30000); // Fallback polling; real-time via WebSocket
 
     // Init title screen
     initTitleScreen();
 
     // Initial resize
     resize();
+
     window.addEventListener('resize', resize);
 
     // Mobile: enable pinch-to-zoom on touch devices
@@ -3304,6 +3253,16 @@ class GameScene extends Phaser.Scene {
   }
 
   update(time, delta) {
+    if (this.game.loop.frame > 5) window.arenaRendered = true;
+    const quiet = document.documentElement.dataset.motion !== 'full';
+    this.tweens.timeScale = quiet ? 0 : 1;
+    this.anims.globalTimeScale = quiet ? 0 : 1;
+    if (document.hidden) return;
+    if (quiet) {
+      if (agents.length) this._createSprites();
+      this._refreshDeskMonitors();
+      return;
+    }
     // Clamp delta to prevent huge jumps
     const dt = Math.min(delta, 80);
 
@@ -3595,10 +3554,9 @@ class GameScene extends Phaser.Scene {
 }
 
 function createPhaserGame() {
-  const pw = panel.classList.contains('open') ? 272 : 0;
   const container = document.getElementById('phaser-container');
-  const availW = window.innerWidth - pw;
-  const availH = window.innerHeight - 44 - 32;
+  const availW = document.getElementById('arena').clientWidth;
+  const availH = document.getElementById('arena').clientHeight;
   if (container) {
     container.style.width = availW + 'px';
     container.style.height = availH + 'px';
@@ -3619,7 +3577,7 @@ function createPhaserGame() {
     },
     input: {
       activePointers: 3, // Enable multi-touch for pinch-to-zoom
-      touch: { capture: true },
+      touch: { capture: window.innerWidth >= 768 },
     },
   });
   console.log('[TradeArena/Phaser] Game instance created');
@@ -4068,6 +4026,7 @@ const CHR_S = 1.92; // character sprite scale (64x64 frames, 20% smaller)
 // ═════════════════════════════════════════════════
 // ── Floating text system (Phaser-native) ──
 function addFloatingText(ag, text, color) {
+  if (document.documentElement.dataset.motion !== 'full' || document.hidden) return;
   if (!gameScene) return;
   const fx = ag.px * TS * S;
   const fy = ag.py * TS * S - CFH * CHR_S * 0.6;
@@ -4228,6 +4187,7 @@ function hideThoughtBubble(ag) {
 
 // ── Particle system (Phaser-native) ──
 function emitParticles(ag, color) {
+  if (document.documentElement.dataset.motion !== 'full' || document.hidden) return;
   if (!gameScene) return;
   const cx = ag.px * TS * S;
   const cy = ag.py * TS * S - CFH * CHR_S * 0.3;
@@ -4255,6 +4215,7 @@ function emitParticles(ag, color) {
 
 // ── Post glow on signal execution ──
 function triggerPostGlow(postIdx, division) {
+  if (document.documentElement.dataset.motion !== 'full' || document.hidden) return;
   if (!gameScene || !gameScene._postGlows || !gameScene._postGlows[postIdx]) return;
   const glow = gameScene._postGlows[postIdx];
   const divColors = {
@@ -4281,7 +4242,7 @@ function triggerPostGlow(postIdx, division) {
 
 // ── Web Audio sound effects ──
 let audioCtx;
-let soundMuted = false;
+let soundMuted = true;
 function ensureAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); return audioCtx; }
 function toggleMute() {
   soundMuted = !soundMuted;
@@ -4290,7 +4251,7 @@ function toggleMute() {
   btn.style.color = soundMuted ? 'var(--red)' : 'var(--muted)';
 }
 function playSound(type) {
-  if (soundMuted) return;
+  if (soundMuted || document.hidden) return;
   try {
     const ac = ensureAudio();
     const t = ac.currentTime;
@@ -4461,6 +4422,7 @@ function closeLbModal() { document.getElementById('lb-modal').classList.remove('
 // ── Keyboard navigation ──
 let focusedIdx = -1;
 document.addEventListener('keydown', e => {
+  if (e.target.closest('input, textarea, select, button, a, summary, dialog') || document.querySelector('dialog[open]')) return;
   if (document.querySelector('.modal-overlay.show')) return;
   if (e.key === 'h' || e.key === 'H') { toggleHeatmap(); return; }
   if (e.key === 'Escape') {
@@ -4569,112 +4531,13 @@ function renderHeatmap(scene) {
 // ═════════════════════════════════════════════════
 // PANEL
 // ═════════════════════════════════════════════════
+function challengeSelected() { startBattle(); }
 function openPanel(ag) {
-  // Close any open modals to prevent overlap
-  document.getElementById('lb-modal').classList.remove('show');
-  document.getElementById('bh-modal').classList.remove('show');
-  selected = ag;
-  document.getElementById('ph-name').textContent = ag.creator.display_name||ag.creator.creator_id||'?';
-  const div = (ag.creator.division||'multi').toLowerCase();
-  const badge = document.getElementById('ph-badge');
-  badge.className = 'badge b-'+div; badge.textContent = div;
-  document.getElementById('ph-score').textContent = ((ag.creator.composite_score||0)*100).toFixed(1);
-  const rank = leaderboard.findIndex(c => c.creator_id === ag.creator.creator_id)+1;
-  document.getElementById('ph-rank').textContent = rank ? '#'+rank+' on leaderboard' : '';
-  const rankBadge = document.getElementById('ph-rank-badge');
-  rankBadge.textContent = rank ? 'RANK #' + rank : '';
-
-  // Streak
-  const streak = ag.creator.streak_days || 0;
-  const streakEl = document.getElementById('ph-streak');
-  const streakCount = document.getElementById('ph-streak-count');
-  if (streak > 0) { streakEl.style.display=''; streakCount.textContent = streak; }
-  else { streakEl.style.display = 'none'; }
-
-  // XP bar
-  const XP_T = [0,20,60,120,200,300,420,560,720,900,1100,1320,1560,1820,2100,2400,2720,3060,3420,3800];
-  const xpVal = ag.creator.xp || 0;
-  const lv = ag.creator.level || 1;
-  const xpWrap = document.getElementById('ph-xp-wrap');
-  if (xpVal > 0 || lv > 1) {
-    const ct = XP_T[lv-1]||0, nt = XP_T[lv]||XP_T[19];
-    const pct = lv >= 20 ? 100 : nt > ct ? ((xpVal-ct)/(nt-ct)*100) : 100;
-    document.getElementById('ph-xp-fill').style.width = pct.toFixed(1)+'%';
-    document.getElementById('ph-xp-text').textContent = lv >= 20 ? 'MAX LEVEL' : 'Lv.'+lv+' · '+(xpVal-ct)+'/'+(nt-ct)+' XP';
-    xpWrap.style.display = '';
-  } else { xpWrap.style.display = 'none'; }
-
-  drawPanelSprite(ag);
-
-  const dims = [
-    {l:'Win Rate',v:(ag.creator.win_rate||0)*100,c:'#10B981'},
-    {l:'Risk/Return',v:(ag.creator.risk_adjusted_return||0)*100,c:'#2563EB'},
-    {l:'Consistency',v:(ag.creator.consistency||0)*100,c:'#F59E0B'},
-    {l:'Confidence',v:(ag.creator.confidence_calibration||0)*100,c:'#8B5CF6'},
-  ];
-  const de = document.getElementById('dims'); de.innerHTML = '';
-  dims.forEach((d, i) => {
-    const r = document.createElement('div'); r.className = 'dim-row';
-    r.innerHTML = `<span class="dim-lbl">${d.l}</span><div class="dim-track"><div class="dim-fill" style="transition:none;width:0%;background:${d.c}"></div></div><span class="dim-num">${d.v.toFixed(0)}</span>`;
-    de.appendChild(r);
-    setTimeout(() => { const fill = r.querySelector('.dim-fill'); fill.style.transition = 'width 400ms ease-out'; fill.style.width = d.v.toFixed(0) + '%'; }, 120 + i * 60);
-  });
-
-  // Load battle stats for this creator
-  fetch(API+'/battles/history?creator_id='+encodeURIComponent(ag.creator.creator_id||'')+'&status=RESOLVED&limit=100')
-    .then(r=>r.json()).then(data => {
-      const battles = data.battles || [];
-      let w=0,l=0,d=0;
-      battles.forEach(b => {
-        if (!b.winner_id) d++;
-        else if (b.winner_id === ag.creator.creator_id) w++;
-        else l++;
-      });
-      document.getElementById('bs-w').textContent = w+'W';
-      document.getElementById('bs-l').textContent = l+'L';
-      document.getElementById('bs-d').textContent = d+'D';
-    }).catch(() => {});
-
-  const tl = document.getElementById('sig-timeline');
-  tl.innerHTML = '';
-  const se = document.getElementById('sigs');
-  se.innerHTML = '<div class="sig-empty">Loading…</div>';
-  fetch(API+'/creator/'+encodeURIComponent(ag.creator.creator_id||'')+'/signals')
-    .then(r=>r.json()).then(data => {
-      const all = data.signals||data||[];
-      const list = all.slice(0,10);
-      se.innerHTML = '';
-      // Signal timeline dots
-      list.forEach(s => {
-        const dot = document.createElement('div'); dot.className = 'sig-dot';
-        const outcome = (s.outcome||'').toUpperCase();
-        const col = outcome === 'WIN' ? 'var(--green)' : outcome === 'LOSS' ? 'var(--red)' : outcome === 'NEUTRAL' ? 'var(--gold)' : 'var(--muted2)';
-        dot.style.background = col;
-        const act = (s.action||'?').toUpperCase();
-        dot.title = `${s.asset||s.market||'?'} ${act} ${Math.round((s.confidence||0)*100)}% — ${outcome||'PENDING'}`;
-        tl.appendChild(dot);
-      });
-      list.forEach(s => {
-        const act = (s.action||'buy').toLowerCase();
-        const el = document.createElement('div'); el.className = 'sig-item';
-        const aiBadge = s.ai_assisted ? '<span class="sig-ai-badge">AI</span>' : '';
-        el.innerHTML = `<div class="sig-top"><span class="sig-asset">${s.asset||s.market||'—'}</span><span class="act act-${act}">${act.toUpperCase()}</span>${aiBadge}<span class="sig-conf">${Math.round((s.confidence||0)*100)}%</span></div>${s.reasoning?`<div class="sig-txt">${s.reasoning}</div>`:''}`;
-        se.appendChild(el);
-      });
-      if (!list.length) { se.innerHTML = '<div class="sig-empty">No signals yet</div>'; tl.innerHTML = '<span style="font-size:.5rem;color:var(--muted2)">No data</span>'; }
-      else if (all.length > 10) { const more = document.createElement('div'); more.className = 'sig-empty'; more.textContent = `+${all.length - 10} more signals`; se.appendChild(more); }
-    }).catch(e => { console.error('[TradeArena] Failed to load signals:', e); se.innerHTML = '<div class="sig-empty">Failed to load signals</div>'; });
-  // Defer .open class by two frames so CSS transition animates properly
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => { panel.classList.add('open'); resizeAfterTransition(); });
-  });
+  selected = agents.find(a => a.creator.creator_id === ag.creator.creator_id) || ag;
+  document.dispatchEvent(new CustomEvent('ta:inspect', { detail: ag.creator }));
 }
+function closePanel() { panel.close(); panel.classList.remove('open'); }
 
-function closePanel() { selected = null; panel.classList.remove('open'); playSound('panelClose'); resizeAfterTransition(); }
-
-// ═════════════════════════════════════════════════
-// PANEL TABS
-// ═════════════════════════════════════════════════
 function switchPanelTab(tab) {
   document.getElementById('ptab-stats').style.display = tab === 'stats' ? '' : 'none';
   document.getElementById('ptab-submit').style.display = tab === 'submit' ? '' : 'none';
@@ -4823,8 +4686,10 @@ function flashTickerForSignal(creatorId, outcome) {
 // DATA
 // ═════════════════════════════════════════════════
 function loadData() {
-  fetch(API+'/leaderboard').then(r=>r.json()).then(data => {
+  fetch(API+'/leaderboard', {signal: AbortSignal.timeout(15000)}).then(r=>{ if (!r.ok) throw new Error('unavailable'); return r.json(); }).then(data => {
     leaderboard = data.entries||data.leaderboard||data||[];
+    window.arenaEntries = leaderboard;
+    document.dispatchEvent(new CustomEvent('ta:record', {detail: leaderboard}));
     const totalSig = leaderboard.reduce((a,c)=>a+(c.total_signals||0),0);
     const avgWin = leaderboard.length?(leaderboard.reduce((a,c)=>a+(c.win_rate||0),0)/leaderboard.length*100).toFixed(0)+'%':'—';
     const topScore = leaderboard.length?(Math.max(...leaderboard.map(c=>c.composite_score||0))*100).toFixed(1):'—';
@@ -4859,11 +4724,12 @@ function loadData() {
       console.log('[TradeArena] Spawned', agents.length, 'agents (' + deskCount + ' desks, ' + loungeCount + ' lounge)');
       agents.forEach(ag => startPath(ag, ag.deskX, ag.deskY));
     } else if (agentsSpawned) {
-      agents.forEach((ag, i) => {
-        if (leaderboard[i]) {
+      agents.forEach((ag) => {
+        const entry = leaderboard.find(c => c.creator_id === ag.creator.creator_id);
+        if (entry) {
           const oldScore = (ag.creator.composite_score||0)*100;
-          ag.creator = leaderboard[i];
-          ag._division = (leaderboard[i].division || 'multi').toLowerCase();
+          ag.creator = entry;
+          ag._division = (entry.division || 'multi').toLowerCase();
           const newScore = (ag.creator.composite_score||0)*100;
           const diff = newScore - oldScore;
           if (diff > 0.1) {
@@ -4971,7 +4837,7 @@ function loadData() {
     if (agents.length) persistScores();
     // Update wall screens
     if (gameScene && gameScene.updateScreens) gameScene.updateScreens(leaderboard);
-  }).catch(e => console.warn('API', e));
+  }).catch(e => { console.warn('API', e); document.dispatchEvent(new Event('ta:record-error')); });
 }
 
 // ═════════════════════════════════════════════════
@@ -5268,7 +5134,7 @@ function startAmbient() {
 
     // Periodic soft ticks (like a distant clock/ticker)
     function scheduleTick() {
-      if (soundMuted) { setTimeout(scheduleTick, 2000); return; }
+      if (soundMuted || document.hidden) { setTimeout(scheduleTick, 2000); return; }
       try {
         const osc = ac.createOscillator();
         const g = ac.createGain();
@@ -5742,7 +5608,7 @@ function updateBellEvent(dt) {
 }
 
 function playBellSound(type) {
-  if (soundMuted) return;
+  if (soundMuted || document.hidden) return;
   try {
     const ac = ensureAudio();
     const t = ac.currentTime;
@@ -5798,6 +5664,7 @@ function flashDeskMonitors(type) {
 // SCREEN SHAKE (Phaser camera)
 // ═════════════════════════════════════════════════
 function triggerScreenShake(intensity, duration) {
+  if (document.documentElement.dataset.motion !== 'full' || document.hidden) return;
   if (gameScene) gameScene.cameras.main.shake(duration || 300, (intensity || 5) / 1000);
 }
 
@@ -5815,7 +5682,7 @@ const persist = {
 
 // Restore mute state
 (function restoreMute() {
-  const saved = persist.get('muted');
+  const saved = true; // Audio requires an explicit action in each session.
   if (saved === true) {
     soundMuted = true;
     const btn = document.getElementById('mute-btn');
@@ -6106,13 +5973,7 @@ async function hydrateUser() {
 
 hydrateUser();
 
-// Show first-run tutorial for new visitors (persist is defined below in PERSISTENCE section)
-setTimeout(() => {
-  if (!persist.get('tutorial_done')) {
-    const m = document.getElementById('tutorial-modal');
-    if (m) m.classList.add('show');
-  }
-}, 2500);
+// Orientation is provided inline beside the spectator record.
 
 // ── OAuth callback handler (GitHub/Twitter redirect lands on /arena#oauth_callback&...) ──
 (function handleOAuthCallback() {
@@ -6239,118 +6100,10 @@ function renderTimeline() {
 // ═════════════════════════════════════════════════
 let titleDismissed = false;
 function initTitleScreen() {
-  const ts = document.getElementById('title-screen');
-  if (!ts) return;
-
-  // Skip if already shown this session
-  if (persist.session('titleShown')) {
-    ts.style.display = 'none';
-    titleDismissed = true;
-    return;
-  }
-
-  // Populate dummy ticker
-  const tickerInner = document.getElementById('title-ticker-inner');
-  const tickers = [
-    { sym: 'AAPL', price: '189.42', up: true },
-    { sym: 'TSLA', price: '248.31', up: false },
-    { sym: 'BTC', price: '67,420', up: true },
-    { sym: 'ETH', price: '3,891', up: true },
-    { sym: 'NVDA', price: '721.08', up: true },
-    { sym: 'SPY', price: '502.11', up: false },
-    { sym: 'DOGE', price: '0.142', up: false },
-    { sym: 'SOL', price: '148.92', up: true },
-  ];
-  // Double for seamless loop
-  [...tickers, ...tickers].forEach(t => {
-    const span = document.createElement('span');
-    span.className = 'title-ticker-item';
-    span.innerHTML = `${t.sym} <span class="${t.up ? 'title-ticker-up' : 'title-ticker-dn'}">${t.up ? '▲' : '▼'} $${t.price}</span>`;
-    tickerInner.appendChild(span);
-  });
-
-  // Draw bull & bear on title canvas
-  const tc = document.getElementById('title-canvas');
-  const tctx = tc.getContext('2d');
-  tctx.imageSmoothingEnabled = false;
-  let titleFrame = 0;
-  function drawTitleSprites() {
-    if (titleDismissed) return;
-    tctx.clearRect(0, 0, 256, 96);
-    titleFrame++;
-    const f = Math.floor(titleFrame / 30) % 2;
-
-    // Bull (left side) — simple pixel art
-    const bx = 48, by = 20;
-    tctx.fillStyle = '#10B981';
-    // Body
-    tctx.fillRect(bx, by + 16 + f*2, 32, 20);
-    // Head
-    tctx.fillRect(bx + 24, by + 8 + f*2, 16, 16);
-    // Horns
-    tctx.fillRect(bx + 26, by + f*2, 4, 10);
-    tctx.fillRect(bx + 36, by + f*2, 4, 10);
-    // Legs
-    tctx.fillRect(bx + 4, by + 36 + f*2, 6, 12 - f*2);
-    tctx.fillRect(bx + 22, by + 36 + f*2, 6, 12 - f*2);
-    // Eye
-    tctx.fillStyle = '#fff';
-    tctx.fillRect(bx + 32, by + 14 + f*2, 4, 4);
-
-    // Bear (right side)
-    const rx = 160, ry = 20;
-    tctx.fillStyle = '#EF4444';
-    // Body
-    tctx.fillRect(rx, ry + 16 - f*2, 32, 22);
-    // Head
-    tctx.fillRect(rx - 8, ry + 8 - f*2, 16, 16);
-    // Ears
-    tctx.fillRect(rx - 8, ry + 2 - f*2, 6, 8);
-    tctx.fillRect(rx + 2, ry + 2 - f*2, 6, 8);
-    // Legs
-    tctx.fillRect(rx + 4, ry + 38 - f*2, 6, 12 + f*2);
-    tctx.fillRect(rx + 22, ry + 38 - f*2, 6, 12 + f*2);
-    // Eye
-    tctx.fillStyle = '#fff';
-    tctx.fillRect(rx - 2, ry + 14 - f*2, 4, 4);
-
-    // VS text
-    tctx.font = '16px "Press Start 2P",monospace';
-    tctx.fillStyle = '#FFD700';
-    tctx.textAlign = 'center';
-    tctx.shadowColor = 'rgba(255,215,0,0.5)';
-    tctx.shadowBlur = 8;
-    tctx.fillText('VS', 128, 45);
-    tctx.shadowBlur = 0;
-
-    requestAnimationFrame(drawTitleSprites);
-  }
-  drawTitleSprites();
-
-  // Apply day/night to title background
-  const dn = getDayNightOverlay();
-  ts.style.background = `linear-gradient(${dn.color}, #0a0a1a)`;
-
-  // Dismiss handler
-  function dismissTitle() {
-    if (titleDismissed) return;
-    titleDismissed = true;
-    persist.session('titleShown', 'true');
-    ts.classList.add('hidden');
-    if (!ambientStarted && !soundMuted) startAmbient();
-    playSound('panelOpen');
-    setTimeout(() => { ts.style.display = 'none'; }, 500);
-    ts.removeEventListener('click', dismissTitle);
-    document.removeEventListener('keydown', dismissKey);
-  }
-  function dismissKey(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); dismissTitle(); } }
-  ts.addEventListener('click', dismissTitle);
-  document.addEventListener('keydown', dismissKey);
+  titleDismissed = true;
+  document.getElementById('title-screen').style.display = 'none';
 }
 
-// ═════════════════════════════════════════════════
-// TRAINER CARD SPRITE in panel
-// ═════════════════════════════════════════════════
 function drawPanelSprite(ag) {
   const pc = document.getElementById('ph-sprite');
   if (!pc) return;
@@ -6411,6 +6164,11 @@ function updateAmbientLife(dt) {
 // ═════════════════════════════════════════════════
 // BOOT
 // ═════════════════════════════════════════════════
+document.addEventListener('visibilitychange', () => {
+  if (!audioCtx) return;
+  if (document.hidden) audioCtx.suspend();
+  else if (!soundMuted) audioCtx.resume();
+});
 function tryBoot() {
   if (booted || loadCount < loadTotal) return;
   booted = true;
@@ -6427,9 +6185,6 @@ setTimeout(() => {
   }
 }, 5000);
 </script>
-<div id="ta-legal-footer" style="position:fixed;bottom:0;left:0;right:0;background:rgba(6,10,20,0.92);backdrop-filter:blur(4px);border-top:1px solid rgba(255,255,255,0.08);padding:0.4rem 1rem;font-size:0.65rem;color:#666;text-align:center;z-index:9999;line-height:1.4;pointer-events:none;">
-  TradeArena is a public skill competition. Predictions are <strong style="color:#888">not investment advice</strong> and are not recommendations to trade. &middot;
-  <span style="pointer-events:all"><a href="/terms" style="color:#888">Terms</a> &middot; <a href="/privacy" style="color:#888">Privacy</a> &middot; <a href="/risk" style="color:#888">Risk</a></span>
-</div>
+<!-- app-footer -->
 </body>
 </html>

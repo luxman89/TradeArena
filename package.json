@@ -1,0 +1,16 @@
+{
+  "name": "tradearena-ui-checks",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:ui": "playwright test",
+    "format:check": "prettier --check scripts/ui tests/ui playwright.config.js package.json",
+    "lint:ui": "eslint scripts/ui tests/ui playwright.config.js"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.63.0",
+    "eslint": "10.10.0",
+    "prettier": "3.9.6"
+  }
+}
