@@ -6,6 +6,7 @@ import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
+from html import escape
 from pathlib import Path
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
@@ -684,6 +685,26 @@ if _ASSETS_DIR.is_dir():
     app.mount("/assets", StaticFiles(directory=str(_ASSETS_DIR)), name="assets")
 
 
+_UI_DIR = _SCRIPTS_DIR / "ui"
+app.mount("/ui", StaticFiles(directory=str(_UI_DIR)), name="ui")
+
+
+def _with_shell(html: str, active: str = "") -> str:
+    header, footer = (_UI_DIR / "shell.html").read_text(encoding="utf-8").split("<!-- footer -->")
+    if active:
+        header = header.replace(
+            f'data-route="{active}"', f'data-route="{active}" aria-current="page"'
+        )
+    return html.replace("<!-- app-header -->", header).replace("<!-- app-footer -->", footer)
+
+
+def _ui_page(path: Path, active: str = "") -> HTMLResponse:
+    return HTMLResponse(
+        _with_shell(path.read_text(encoding="utf-8"), active),
+        headers={"Cache-Control": "no-cache, must-revalidate"},
+    )
+
+
 _RULES_HTML = _SCRIPTS_DIR / "rules.html"
 _TERMS_HTML = _SCRIPTS_DIR / "terms.html"
 _PRIVACY_HTML = _SCRIPTS_DIR / "privacy.html"
@@ -727,25 +748,18 @@ async def risk_page() -> FileResponse:
 
 
 @app.get("/", include_in_schema=False)
-async def landing_page() -> FileResponse:
-    """Serve the TradeArena landing page."""
-    return FileResponse(
-        _LANDING_HTML,
-        media_type="text/html",
-        headers={"Cache-Control": "no-cache, must-revalidate"},
-    )
+async def landing_page() -> HTMLResponse:
+    """Serve the public application with the shared shell."""
+    return _ui_page(_LANDING_HTML, "")
 
 
 @app.get("/arena", include_in_schema=False)
-async def arena_ui() -> FileResponse:
-    """Serve the TradeArena arena UI."""
-    return FileResponse(
-        _ARENA_HTML,
-        media_type="text/html",
-        headers={"Cache-Control": "no-cache, must-revalidate"},
-    )
+async def arena_ui() -> HTMLResponse:
+    """Serve the public application with the shared shell."""
+    return _ui_page(_ARENA_HTML, "arena")
 
 
+@app.get("/developers", include_in_schema=False)
 @app.get("/developer-guide", include_in_schema=False)
 async def developer_guide() -> FileResponse:
     """Serve the developer guide with API examples and quickstart."""
@@ -783,15 +797,12 @@ async def admin_dashboard() -> FileResponse:
 
 
 @app.get("/leaderboard-live", include_in_schema=False)
-async def leaderboard_page() -> FileResponse:
-    """Serve the public leaderboard page (no auth required)."""
-    return FileResponse(
-        _LEADERBOARD_HTML,
-        media_type="text/html",
-        headers={"Cache-Control": "no-cache, must-revalidate"},
-    )
+async def leaderboard_page() -> HTMLResponse:
+    """Serve the public application with the shared shell."""
+    return _ui_page(_LEADERBOARD_HTML, "leaderboard")
 
 
+@app.get("/traders/{username}", include_in_schema=False)
 @app.get("/profile/{username}", include_in_schema=False)
 async def profile_page(username: str) -> HTMLResponse:
     """Serve the profile page with server-rendered OG meta tags for social sharing.
@@ -800,7 +811,7 @@ async def profile_page(username: str) -> HTMLResponse:
     Browsers get the full interactive profile page.
     """
     # Read the base template
-    html = _PROFILE_HTML.read_text()
+    html = _with_shell(_PROFILE_HTML.read_text(encoding="utf-8"))
 
     # Try to inject OG tags for the specific user
     base_url = os.getenv("BASE_URL", "https://tradearena.duckdns.org")
@@ -819,13 +830,13 @@ async def profile_page(username: str) -> HTMLResponse:
                 total_signals = score.total_signals if score else 0
                 level = score.level if score else 1
 
-                og_title = f"{creator.display_name} — TradeArena"
+                og_title = escape(f"{creator.display_name} — TradeArena", quote=True)
                 og_desc = (
                     f"Level {level} · Score {composite:.2f} · "
                     f"{win_rate}% win rate · {total_signals} signals"
                 )
-                og_image = f"{base_url}/api/v1/users/{creator.id}/og-image.png"
-                profile_url = f"{base_url}/profile/{creator.id}"
+                og_image = escape(f"{base_url}/api/v1/users/{creator.id}/og-image.png", quote=True)
+                profile_url = escape(f"{base_url}/traders/{creator.id}", quote=True)
 
                 og_tags = (
                     f'<meta property="og:title" content="{og_title}">\n'

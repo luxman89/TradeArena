@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>UI component examples — TradeArena</title>
+    <link rel="stylesheet" href="./shell.css" />
+    <script type="module" src="./examples.js"></script>
+  </head>
+  <body class="ui-app">
+    <main class="ui-container ui-page ui-stack" id="main-content">
+      <a href="/leaderboard-live">Back to the application</a>
+      <p class="ui-eyebrow">Foundation / Component examples</p>
+      <h1>Evidence before theater.</h1>
+      <p class="ui-lede">
+        Static examples of the shared primitives. All data on this page is
+        illustrative.
+      </p>
+      <div class="ui-cluster">
+        <button class="ui-button ui-primary">Primary action</button>
+        <button class="ui-button">Secondary action</button>
+        <button class="ui-button" disabled>Loading…</button>
+        <span class="ui-badge">Pending resolution</span>
+        <label class="ui-field"
+          >Motion<select data-motion-control aria-label="Motion">
+            <option value="full">Full</option>
+            <option value="reduced">Reduced</option>
+            <option value="off">Off</option>
+          </select></label
+        >
+      </div>
+      <div id="examples" class="ui-grid"></div>
+      <p role="status" id="example-feedback" class="ui-status"></p>
+    </main>
+  </body>
+</html>
