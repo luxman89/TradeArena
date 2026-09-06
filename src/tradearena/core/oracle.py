@@ -191,6 +191,26 @@ def _resolve_with_targets(
     return Outcome.NEUTRAL, close
 
 
+def _targets_bracket_entry(
+    entry_price: float,
+    action: str,
+    target_price: float,
+    stop_loss: float,
+) -> bool:
+    """Return whether target and stop express risk around the market entry.
+
+    Comparing target only with stop allows an already-crossed target to be
+    submitted and immediately scored as a win. Requiring both levels to sit on
+    the correct side of the independently sourced entry price closes that
+    ranking-manipulation path.
+    """
+    if entry_price <= 0:
+        return False
+    if action.lower() in BULLISH_ACTIONS:
+        return stop_loss < entry_price < target_price
+    return target_price < entry_price < stop_loss
+
+
 def _resolve_by_direction(
     open_price: float,
     close_price: float,
@@ -249,6 +269,21 @@ async def resolve_signal(
     end_ms = int(eligible_at.timestamp() * 1000)
 
     if signal.target_price is not None and signal.stop_loss is not None:
+        entry_price = await fetch_price_at(
+            client, symbol, signal.committed_at.replace(tzinfo=UTC), providers=providers
+        )
+        if entry_price is None:
+            return None
+        if not _targets_bracket_entry(
+            entry_price, signal.action, signal.target_price, signal.stop_loss
+        ):
+            logger.warning(
+                "Signal %s has target/stop levels that do not bracket entry price %.8f",
+                signal.signal_id,
+                entry_price,
+            )
+            return Outcome.LOSS, entry_price, now
+
         interval = _pick_interval(tf_delta)
         klines = await fetch_klines(client, symbol, interval, start_ms, end_ms, providers=providers)
         if not klines:

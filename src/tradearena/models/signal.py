@@ -185,6 +185,7 @@ class Signal(BaseModel):
     target_price: float | None
     stop_loss: float | None
     timeframe: str | None
+    nonce: str | None = None
     commitment_hash: str
     committed_at: datetime
     outcome: str | None = None  # "WIN" | "LOSS" | "NEUTRAL" | None (pending)
@@ -204,6 +205,7 @@ class SignalEmitResponse(BaseModel):
     signal_id: str = Field(..., description="UUID4 hex identifier (32 chars)")
     committed_at: str = Field(..., description="ISO 8601 UTC timestamp")
     commitment_hash: str = Field(..., description="SHA-256 hex digest (64 chars)")
+    nonce: str = Field(..., description="Public 128-bit nonce used to verify the commitment")
     creator_id: str = Field(..., description="Creator who submitted the signal")
     asset: str = Field(..., description="Asset symbol from the signal")
     action: str = Field(..., description="Action from the signal")
@@ -217,6 +219,7 @@ class SignalEmitResponse(BaseModel):
                     "committed_at": "2026-03-21T14:30:00.000000",
                     "commitment_hash": "e3b0c44298fc1c14"
                     "9afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                    "nonce": "0123456789abcdef0123456789abcdef",
                     "creator_id": "alice-quantsworth-a1b2",
                     "asset": "BTCUSDT",
                     "action": "long",

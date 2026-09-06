@@ -270,6 +270,7 @@ def run_bot_signals(db) -> int:
                     target_price=committed.get("target_price"),
                     stop_loss=committed.get("stop_loss"),
                     timeframe=committed.get("timeframe"),
+                    nonce=committed["nonce"],
                     commitment_hash=committed["commitment_hash"],
                     committed_at=datetime.now(UTC),
                     outcome=None,

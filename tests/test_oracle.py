@@ -11,6 +11,7 @@ from tradearena.core import cache
 from tradearena.core.oracle import (
     _resolve_by_direction,
     _resolve_with_targets,
+    _targets_bracket_entry,
     asset_to_symbol,
     parse_timeframe,
     resolve_signal,
@@ -80,6 +81,20 @@ class TestResolveWithTargets:
         outcome, price = _resolve_with_targets(klines, "buy", target_price=110.0, stop_loss=95.0)
         assert outcome == "WIN"
         assert price == 110.0
+
+
+class TestTargetsBracketEntry:
+    @pytest.mark.parametrize("action", ["buy", "long", "yes"])
+    def test_bullish_levels_must_surround_entry(self, action):
+        assert _targets_bracket_entry(100, action, target_price=110, stop_loss=90)
+        assert not _targets_bracket_entry(100, action, target_price=99, stop_loss=90)
+        assert not _targets_bracket_entry(100, action, target_price=110, stop_loss=101)
+
+    @pytest.mark.parametrize("action", ["sell", "short", "no"])
+    def test_bearish_levels_must_surround_entry(self, action):
+        assert _targets_bracket_entry(100, action, target_price=90, stop_loss=110)
+        assert not _targets_bracket_entry(100, action, target_price=101, stop_loss=110)
+        assert not _targets_bracket_entry(100, action, target_price=90, stop_loss=99)
 
     def test_bullish_stop_hit(self):
         klines = [
@@ -215,16 +230,44 @@ class TestResolveSignal:
         klines = [_make_candle(47000, 51000, 46000, 50500)]
 
         client = AsyncMock()
-        mock_resp = MagicMock()
-        mock_resp.json.return_value = klines
-        mock_resp.raise_for_status = MagicMock()
-        client.get.return_value = mock_resp
+        entry_resp = MagicMock()
+        entry_resp.json.return_value = [[0, "0", "0", "0", "47000", "0", 0, "0", 0, "0", "0", "0"]]
+        entry_resp.raise_for_status = MagicMock()
+        kline_resp = MagicMock()
+        kline_resp.json.return_value = klines
+        kline_resp.raise_for_status = MagicMock()
+        client.get.side_effect = [entry_resp, kline_resp]
 
         result = await resolve_signal(signal, client)
         assert result is not None
         outcome, price, at = result
         assert outcome == "WIN"
         assert price == 50000.0
+
+    @pytest.mark.asyncio
+    async def test_already_crossed_bullish_target_is_a_loss(self):
+        signal = MagicMock()
+        signal.signal_id = "manipulated-signal"
+        signal.committed_at = datetime.now(UTC) - timedelta(days=2)
+        signal.timeframe = "1d"
+        signal.asset = "BTC/USDT"
+        signal.action = "buy"
+        signal.target_price = 90.0
+        signal.stop_loss = 80.0
+
+        client = AsyncMock()
+        entry_resp = MagicMock()
+        entry_resp.json.return_value = [[0, "0", "0", "0", "100", "0", 0, "0", 0, "0", "0", "0"]]
+        entry_resp.raise_for_status = MagicMock()
+        client.get.return_value = entry_resp
+
+        result = await resolve_signal(signal, client)
+
+        assert result is not None
+        outcome, price, _ = result
+        assert outcome == "LOSS"
+        assert price == 100.0
+        assert client.get.await_count == 1
 
     @pytest.mark.asyncio
     async def test_resolves_by_direction(self):

@@ -10,7 +10,8 @@ A signal-tracking platform where traders submit cryptographically committed pred
 ## Features
 
 - **Signal submission** — traders submit buy/sell/yes/no/long/short predictions with confidence levels and reasoning
-- **Cryptographic commitment** — SHA-256 hash of signal fields + nonce for tamper-proof audit trail
+- **Verifiable commitment** — SHA-256 hash of signal fields plus a published nonce for an
+  independently reproducible audit trail
 - **Four-dimension scoring** — Win Rate (30%), Risk-Adjusted Return (30%), Consistency (25%), Confidence Calibration (15%)
 - **Interactive trading floor** — Phaser 3 rendered NYSE-style environment with animated traders, leaderboard screens, battle mode, day/night cycle
 - **Python SDK** — validate and submit signals programmatically, with optional Claude Haiku-powered reasoning generation
@@ -112,3 +113,16 @@ Set in `.env` (see `.env.example`):
 | `GET` | `/` | Trading floor UI |
 
 Auth via `X-API-Key` header (prefix `ta-`).
+
+### Verifying a signal commitment
+
+New signal responses and signal-history exports include the server-generated `nonce`. To audit a
+record, serialize the creator ID, signal fields, and nonce as canonical JSON (sorted keys with no
+whitespace), then compare its SHA-256 digest with `commitment_hash`. The reference implementation
+is `tradearena.core.commitment.verify_commitment`. Legacy records whose nonce is `null` predate
+public verification and cannot be independently recomputed.
+
+Target-based outcomes are also checked against exchange price data at the commitment timestamp.
+For a bullish signal the stop must be below entry and the target above it; bearish signals require
+the inverse. Signals with already-crossed or otherwise malformed levels are scored as losses rather
+than receiving an immediate win.
