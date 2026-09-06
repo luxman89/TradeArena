@@ -127,6 +127,9 @@ class SignalORM(Base):
     target_price = Column(Float, nullable=True)
     stop_loss = Column(Float, nullable=True)
     timeframe = Column(String(10), nullable=True)
+    # Public opening value for the commitment. Legacy rows created before the
+    # nonce migration remain NULL and cannot be independently verified.
+    nonce = Column(String(32), nullable=True)
     commitment_hash = Column(String(64), nullable=False, unique=True)
     committed_at = Column(DateTime, nullable=False)
     ai_assisted = Column(Boolean, nullable=False, default=False)

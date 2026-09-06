@@ -18,13 +18,16 @@ router = APIRouter(prefix="/export", tags=["export"])
 
 _SIGNAL_CSV_COLUMNS = [
     "signal_id",
+    "creator_id",
     "asset",
     "action",
     "confidence",
     "reasoning",
+    "supporting_data",
     "target_price",
     "stop_loss",
     "timeframe",
+    "nonce",
     "commitment_hash",
     "committed_at",
     "outcome",
@@ -36,13 +39,16 @@ _SIGNAL_CSV_COLUMNS = [
 def _signal_to_row(s: SignalORM) -> dict:
     return {
         "signal_id": s.signal_id,
+        "creator_id": s.creator_id,
         "asset": s.asset,
         "action": s.action,
         "confidence": s.confidence,
         "reasoning": s.reasoning,
+        "supporting_data": s.supporting_data,
         "target_price": s.target_price,
         "stop_loss": s.stop_loss,
         "timeframe": s.timeframe,
+        "nonce": s.nonce,
         "commitment_hash": s.commitment_hash,
         "committed_at": s.committed_at.isoformat(),
         "outcome": s.outcome,

@@ -157,6 +157,7 @@ class TestFullPipeline:
         data = resp.json()
         assert "signal_id" in data
         assert "commitment_hash" in data
+        assert re.match(r"^[0-9a-f]{32}$", data["nonce"])
         assert "committed_at" in data
         assert data["creator_id"] == creator["creator_id"]
         assert data["asset"] == "BTCUSDT"
@@ -189,6 +190,7 @@ class TestFullPipeline:
             assert signal.stop_loss == 64000.0
             assert signal.timeframe == "1d"
             assert signal.commitment_hash == data["commitment_hash"]
+            assert signal.nonce == data["nonce"]
             # New signal — outcome pending
             assert signal.outcome is None
         finally:
